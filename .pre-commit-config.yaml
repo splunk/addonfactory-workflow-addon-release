@@ -1,0 +1,10 @@
+repos:
+-   repo: local
+    hooks:
+      - id: actionlint
+        name: actionlint
+        entry: actionlint
+        args: [-ignore, 'property ".+" is not defined in object type']
+        language: script
+        types: ["yaml"]
+        files: ^.github/workflows/
