@@ -6,7 +6,7 @@ on:
       GH_TOKEN_ADMIN:
         description: Github admin token
         required: true
-      GITHUB_TOKEN:
+      GH_TOKEN:
         description: Github token
         required: true
       SEMGREP_PUBLISH_TOKEN:
@@ -68,7 +68,7 @@ jobs:
             @google/semantic-release-replace-plugin
           dry_run: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Docker meta
         id: docker_action_meta
         uses: docker/metadata-action@v3.6.2
@@ -95,7 +95,7 @@ jobs:
         uses: splunk/addonfactory-sample-scanner@v1
         id: sample-scanner
         env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GH_TOKEN }}
   compliance-dependencies:
     name: compliance-dependencies
     runs-on: ubuntu-latest
@@ -147,7 +147,7 @@ jobs:
           DEFAULT_BRANCH: main
           LINTER_RULES_PATH: /
           PYTHON_ISORT_CONFIG_FILE: pyproject.toml
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           FILTER_REGEX_EXCLUDE: README.md
           VALIDATE_GITHUB_ACTIONS: false
   review_secrets:
@@ -477,7 +477,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_TOKEN }}
 
       - name: Docker meta
         id: meta
