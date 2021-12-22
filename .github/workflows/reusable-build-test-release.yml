@@ -1252,6 +1252,7 @@ jobs:
       - security-virustotal
       - test-inventory
       - run-unit-tests
+      - run-requirements-unit-tests
       - appinspect
       - setup
       - run-knowledge-tests
