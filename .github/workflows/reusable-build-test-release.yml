@@ -419,7 +419,7 @@ jobs:
         with:
             python-version: 3.8
       - name: run-tests
-        uses:  splunk/requirement-files-unit-tests@main
+        uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.1.0
         with:
           input-files: tests/requirement_test/logs
       - name: Archive production artifacts
