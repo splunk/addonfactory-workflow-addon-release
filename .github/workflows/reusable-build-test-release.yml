@@ -3,9 +3,6 @@ name: build-test-release
 on:
   workflow_call:
     secrets:
-      GH_TOKEN_ADMIN:
-        description: Github admin token
-        required: true
       GH_TOKEN:
         description: Github token
         required: true
@@ -257,7 +254,7 @@ jobs:
             @semantic-release/git
           dry_run: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Determine the version to build
         id: BuildVersion
         uses: splunk/addonfactory-get-splunk-package-version-action@v1
@@ -1306,7 +1303,7 @@ jobs:
             @semantic-release/release-notes-generator
             @semantic-release/github
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v2
@@ -1345,7 +1342,7 @@ jobs:
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.GH_TOKEN_ADMIN }}
+          repo_token: ${{ secrets.GH_TOKEN }}
           file: ${{ steps.download-package-splunkbase.outputs.download-path }}/*
           overwrite: true
           file_glob: true
