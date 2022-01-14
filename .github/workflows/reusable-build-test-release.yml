@@ -185,7 +185,7 @@ jobs:
         with:
           python-version: 3.7
       - uses: snyk/actions/setup@master
-      - uses: actions/setup-go@v2.1.4
+      - uses: actions/setup-go@v2.1.5
         with:
           go-version: "1.13"
       - name: Snyk monitor
