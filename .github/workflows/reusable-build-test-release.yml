@@ -449,7 +449,6 @@ jobs:
           - "manual"
     steps:
       - name: Checkout for manual tag
-        if: matrix.tags == 'manual'
         uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
         with:
@@ -461,16 +460,14 @@ jobs:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
       - name: upload-appinspect-for-manual
-        if: always() && matrix.tags == 'manual'
         uses: actions/upload-artifact@v2
         with:
           name: appinspect_manual_checks.json
           path: appinspect_result.json
       - name: upload-manual-check-markdown
-        if: matrix.tags == 'manual'
         uses: actions/upload-artifact@v2
         with:
-          name: manual_check_markdown.txt
+          name: ${{ matrix.tags }}_check_markdown.txt
           path: manual_check_markdown.txt
 
   artifact-registry:
