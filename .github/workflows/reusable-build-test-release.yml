@@ -101,7 +101,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: ort-action
-        uses: splunk/addonfactory-ort-action@v1.5.9
+        uses: splunk/addonfactory-ort-action@v1.5
         id: ort-action
         with:
           WorkDir: .
@@ -420,7 +420,7 @@ jobs:
         with:
             python-version: 3.7
       - name: run-tests
-        uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.1.0
+        uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.1
         with:
           input-files: tests/requirement_test/logs
       - name: Archive production artifacts
@@ -455,7 +455,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v1
+        uses: splunk/appinspect-cli-action@v1.4
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
