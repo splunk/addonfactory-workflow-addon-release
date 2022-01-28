@@ -101,7 +101,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: ort-action
-        uses: splunk/addonfactory-ort-action@v1.5.9
+        uses: splunk/addonfactory-ort-action@v1.5.10
         id: ort-action
         with:
           WorkDir: .
