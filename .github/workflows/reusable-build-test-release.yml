@@ -101,7 +101,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: ort-action
-        uses: splunk/addonfactory-ort-action@v1.5.9
+        uses: splunk/addonfactory-ort-action@v1.5.10
         id: ort-action
         with:
           WorkDir: .
@@ -448,26 +448,27 @@ jobs:
           - "splunk_appinspect"
           - "manual"
     steps:
-      - name: Checkout for manual tag
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
         with:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v1
+        uses: splunk/appinspect-cli-action@v1.4
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
-      - name: upload-appinspect-for-manual
+      - name: upload-appinspect-report
+        if: always()
         uses: actions/upload-artifact@v2
         with:
-          name: appinspect_manual_checks.json
+          name: appinspect_${{ matrix.tags }}_checks.json
           path: appinspect_result.json
       - name: upload-manual-check-markdown
+        if: matrix.tags == 'manual'
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.tags }}_check_markdown.txt
+          name: check_markdown.txt
           path: manual_check_markdown.txt
 
   artifact-registry:
