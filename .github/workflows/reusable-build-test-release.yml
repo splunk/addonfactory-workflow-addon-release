@@ -44,6 +44,7 @@ jobs:
       container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
+      matrix_supportedVendor: ${{ steps.matrix.outputs.supportedVendors }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -81,7 +82,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.3
+        uses: splunk/addonfactory-test-matrix-action@feature/add-vendor-versions
 
   compliance-sample-scanner:
     runs-on: ubuntu-latest
@@ -331,11 +332,11 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
-      unit: ${{ steps.testset.outputs.unit }}
-      knowledge: ${{ steps.testset.outputs.knowledge }}
-      ui: ${{ steps.testset.outputs.ui }}
+      unit: "false"
+      knowledge: "false"
+      ui: "false"
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
-      requirement_test: ${{ steps.testset.outputs.requirement_test }}
+      requirement_test: "false"
     steps:
       - uses: actions/checkout@v2
       - id: testset
@@ -655,7 +656,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.4.6
+        uses: splunk/wfe-test-runner-action@test/add-vendor-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -824,7 +825,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.4.6
+        uses: splunk/wfe-test-runner-action@test/add-vendor-version
         with:
           splunk: ${{ matrix.splunk }}
           test-type: ${{ env.TEST_TYPE }}
@@ -979,7 +980,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.4.6
+        uses: splunk/wfe-test-runner-action@test/add-vendor-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1094,6 +1095,7 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         modinput-type: ["modinput_functional"]
+        vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedVendor) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1134,7 +1136,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.4.6
+        uses: splunk/wfe-test-runner-action@test/add-vendor-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1146,6 +1148,7 @@ jobs:
           delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
+          vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
       - name: Check if pod was deleted
         id: is-pod-deleted
