@@ -332,11 +332,11 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
-      unit: "false"
-      knowledge: "false"
-      ui: "false"
+      unit: ${{ steps.testset.outputs.unit }}
+      knowledge: ${{ steps.testset.outputs.knowledge }}
+      ui: ${{ steps.testset.outputs.ui }}
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
-      requirement_test: "false"
+      requirement_test: ${{ steps.testset.outputs.requirement_test }}
     steps:
       - uses: actions/checkout@v2
       - id: testset
