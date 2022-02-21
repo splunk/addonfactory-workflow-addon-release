@@ -83,7 +83,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.5.1
+        uses: splunk/addonfactory-test-matrix-action@v1.6.0
 
   compliance-sample-scanner:
     runs-on: ubuntu-latest
@@ -199,7 +199,7 @@ jobs:
 #         with:
 #           name: snyk-results
 #           path: snyk-scan_requirements.sarif
-
+      
   build:
     name: build
     runs-on: ubuntu-latest
@@ -657,7 +657,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.5
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -670,6 +670,7 @@ jobs:
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
+          sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -826,7 +827,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.5
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk }}
           test-type: ${{ env.TEST_TYPE }}
@@ -839,6 +840,7 @@ jobs:
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
+          sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -982,7 +984,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.5
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1139,7 +1141,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.5
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
