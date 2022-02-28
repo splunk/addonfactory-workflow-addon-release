@@ -52,7 +52,7 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: '14'
       - name: Semantic Release
@@ -217,7 +217,7 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.7
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: 14
       - name: create requirements file for pip
@@ -1310,7 +1310,7 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: '14'
       - name: Semantic Release
