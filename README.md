@@ -747,6 +747,46 @@ Different Test reports stages
 - splunk 8.x.y requirement_test test report
 - splunk 8.x.y unit test report
 
+
+Vendor Addon Matrix tests
+=========================
+
+- For addons like Tomcat, JMX, Nginx where multiple versions are supported for the Vendor platform currently only a single version of Vendor platform was configured while testing which is now parameterised to support test execution against different version of vendor platforms in Github Actions.
+
+- To execute the tests against different versions of Vendor platforms.
+
+- Create a `.vendormatrix` file ref: https://github.com/splunk/splunk-add-on-for-tomcat/pull/311/files#diff-fc231b3bce30bf25a7b22dcb0b120d9bdfa1f04a6e4397b1e0e5057142535d1eR1 
+
+- Provide appropriate values for `VERSION` and `DOCKER_IMAGE` in the file.
+
+- `DOCKER_IMAGE` can be official docker images or some other trusted regitries like bitnami-docker
+
+- Another param is `TRIGGER_UI` if set to `False` UI tests for the given version of stanza would not be considered in matrix.
+
+- i.e UI tests will be executed only for version `10.0` for below configs
+
+- Modinput tests would be executed against all version, 2 splunk version and 3 
+vendor version leads to 6 modinput test jobs ref: https://github.com/splunk/splunk-add-on-for-tomcat/actions/runs/1880616588
+
+```
+[8.5]
+VERSION=8.5.73
+DOCKER_IMAGE=8.5.73-debian-10-r58
+TRIGGER_UI=False
+
+[9.0]
+VERSION=9.0.56
+DOCKER_IMAGE=9.0.56-debian-10-r39
+TRIGGER_UI=False
+
+[10.0]
+VERSION=10.0.14
+DOCKER_IMAGE=10.0.14-debian-10-r39
+```
+
+- If and when Tomcat releases 11.x or 10.1.x or similar, all the developer/add-on team would have to do is just create a new stanza for the version and respective `DOCKER_IMAGE` to validate the behavior.
+
+
 To raise a Jira for an infrastructure issue/feature-request/help:
 =================================================================
 - If there is an infrastructure issue in Github actions Please raise a Jira with appropriate information in the description.
