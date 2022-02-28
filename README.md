@@ -785,12 +785,3 @@ DOCKER_IMAGE=10.0.14-debian-10-r39
 ```
 
 - If and when Tomcat releases 11.x or 10.1.x or similar, all the developer/add-on team would have to do is just create a new stanza for the version and respective `DOCKER_IMAGE` to validate the behavior.
-
-
-To raise a Jira for an infrastructure issue/feature-request/help:
-=================================================================
-- If there is an infrastructure issue in Github actions Please raise a Jira with appropriate information in the description.
-
-→ http://go/aqa/bug <br />
-→ http://go/aqa/help <br />
-→ http://go/aqa/feature <br />
