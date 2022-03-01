@@ -91,7 +91,11 @@ compliance-sample-scanner
 
 - ref: https://github.com/splunk/splunk-add-on-for-box/blob/4fe6f4ec2ceaf847211a335f6ca3c154cc805fb7/.ge_ignore  
 
-**artifacts:**
+- apart from `.ge_ignore` also `.false-positives.yaml` can be used
+
+- ref: https://github.com/splunk/splunk-add-on-for-microsoft-sysmon/blob/main/.false-positives.yaml
+
+**Artifacts:**
 
 - Annotations, and test report like is also available in stage logs
 
@@ -107,7 +111,7 @@ compliance-dependencies
 
 - This action scans a project for third party components and reports the results. This action contains a curation file managed by Splunk Inc.
 
-**Action used:** https://github.com/oss-review-toolkit/ort 
+**Action used:** https://github.com/splunk/addonfactory-ort-action
 
 **Pass/fail behaviour:**
 
@@ -120,7 +124,7 @@ compliance-dependencies
 i.e <img src="images/compliance-dependencies/scan-reports-error.png" alt="scan-reports-error" style="width:200px;"/>
 
 
-**artifacts:**
+**Artifacts:**
 
 ```
 analysis-analyzer
@@ -160,9 +164,15 @@ compliance-copyrights
 
 i.e <img src="images/compliance-copyrights/license.png" alt="license" style="width:200px;"/>
 
-**artifacts:**
+**Exception file:** 
 
-- No additional artifacts.
+- For files which can't have copyrights inside we can add them in `.reuse/dep5` to ignore false positives.
+
+- ref: https://github.com/splunk/splunk-add-on-for-microsoft-sysmon/blob/main/.reuse/dep5
+
+**Artifacts:**
+
+- No additional Artifacts.
 
 
 quality-lint 
@@ -188,15 +198,19 @@ quality-lint
 
 - User can look through the details for failures in logs and browse how to resolve a specific linters error i.e for flake8 failures one in install flake8 in local env and fix the failures and push to the repository.
 
-i.e Summary: <img src="images/quality-lint/summary.png" alt="summary" style="width:200px;"/>
-Specific Error in logs: <img src="images/quality-lint/error.png" alt="error" style="width:200px;"/> <br /> 
-Summary: <img src="images/quality-lint/summary2.png" alt="summary2" style="width:200px;"/>
+- Summary:<br />
+ <img src="images/quality-lint/summary.png" alt="summary" style="width:200px;"/>
+<br />
+- Specific Error in logs: <br />
+<img src="images/quality-lint/error.png" alt="error" style="width:200px;"/> <br /> 
+- Summary for multiple lint failures: <br />
+<img src="images/quality-lint/summary2.png" alt="summary2" style="width:200px;"/>
 
 
 - If the logs are too long to display User can also access raw logs and search for issues. <br />
-i.e <img src="images/quality-lint/raw-logs.png" alt="raw-logs" style="width:200px;"/>
+<img src="images/quality-lint/raw-logs.png" alt="raw-logs" style="width:200px;"/>
 
-**artifacts:**
+**Artifacts:**
 
 - No additional artifacts, Failure details are available in the logs.
 
@@ -233,7 +247,7 @@ security-detect-secrets
 - **NOTE:** The usage of `.github/workflows/trufflehog-false-positive.json` is not rolled out yet, PR for feature support: https://github.com/splunk/addonfactory-workflow-addon-release/pull/32
 
 
-**artifacts:**
+**Artifacts:**
 
 - No additional artifacts, the commit info is available in the logs.
 
@@ -275,7 +289,7 @@ security-sast-semgrep
 - User can add `# nosemgrep reason - 'Valid reason to ignore'` at the specific line to ignore the false positives, 
 - i.e: https://github.com/splunk/addonfactory-cloudconnect-library/pull/92/files#diff-a24b951a8bc8acd3ed4e1378e1b12fcb87f037ef40cf80c1072e61995fe33671R96
 
-**artifacts:**
+**Artifacts:**
 
 - Findings can be observed in the console logs of the stage and also at Semgrep link for which is provided in the end.
 
@@ -346,7 +360,7 @@ build
 
 - Official documentation: https://splunk.github.io/addonfactory-ucc-generator/
 
-**artifacts:**
+**Artifacts:**
 
 - package-deployment.zip includes
 
@@ -418,7 +432,7 @@ manual
 
 - User can run the appinspect locally as well to troubleshoot, validate and fix failures https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/useappinspectclitool
 
-**artifacts:**
+**Artifacts:**
 
 ```
 appinspect_appapproval_checks.json
@@ -453,7 +467,7 @@ appinspect_splunk_appinspect_checks.json
 
 **Artifacts:** 
 
-- No artifacts
+- No Artifacts
 
 - This build can be downloaded using oras if it’s not availale in ghcr yet
 
@@ -479,7 +493,7 @@ oras pull -u <github-username> -p <github-token> ghcr.io/splunk/splunk-add-on-fo
 
 - User can validate the test results by execution in local env.
 
-**artifacts:**
+**Artifacts:**
 
 - Junit Test result xml file
 
@@ -537,7 +551,7 @@ test_check_unicode_output.txt
 
 **NOTE:** There should be valid reasons and approvals from addon and automation PMs to add failures in this file.
 
-**artifacts:**
+**Artifacts:**
 
 ```
 Junit XML file
@@ -577,7 +591,7 @@ cim-compliance-report
 
 **NOTE:** There should be valid reasons and approvals from addon and automation PMs to add failures in this file.
 
-**artifacts:**
+**Artifacts:**
 
 ```
 report.html
@@ -616,7 +630,7 @@ Junit XML file
 
 **NOTE:** There should be valid reasons and approvals from addon and automation PMs to add failures in this file.
 
-**artifacts:**
+**Artifacts:**
 ```
 helmut.log
 Junit XML file
