@@ -83,7 +83,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@feat-Adding-latest-SC4S-release
+        uses: splunk/addonfactory-test-matrix-action@v1.7.0
 
   compliance-sample-scanner:
     runs-on: ubuntu-latest
