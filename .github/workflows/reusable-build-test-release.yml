@@ -202,22 +202,22 @@ jobs:
           name: package-raw
           path: ${{ steps.uccgen.outputs.OUTPUT }}**
         if: always()
-      - name: artifact-splunk-base
-        uses: actions/upload-artifact@v2
-        with:
-          name: package-splunkbase
-          path: ${{ steps.slim.outputs.OUTPUT }}
-        if: always()
-      - name: upload-build-to-s3
-        id: buildupload
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          echo "::set-output name=name::$(basename "${{ steps.slim.outputs.OUTPUT }}")"
-          basename "${{ steps.slim.outputs.OUTPUT }}"
-          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
+      # - name: artifact-splunk-base
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: package-splunkbase
+      #     path: ${{ steps.slim.outputs.OUTPUT }}
+      #   if: always()
+      # - name: upload-build-to-s3
+      #   id: buildupload 
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #   run: |
+      #     echo "::set-output name=name::$(basename "${{ steps.slim.outputs.OUTPUT }}")"
+      #     basename "${{ steps.slim.outputs.OUTPUT }}"
+      #     aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
       - name: artifact-splunk-parts
         uses: actions/upload-artifact@v2
         with:
