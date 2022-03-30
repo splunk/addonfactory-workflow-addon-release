@@ -306,7 +306,6 @@ jobs:
           echo "::set-output name=s3-bucket::ta-production-artifacts"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' }}
     needs:
       - build
       - test-inventory
