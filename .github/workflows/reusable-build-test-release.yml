@@ -1,3 +1,4 @@
+# jscpd:ignore-start
 name: build-test-release
 on:
   workflow_call:
