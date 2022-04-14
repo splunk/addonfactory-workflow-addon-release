@@ -719,6 +719,7 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         modinput-type: ["modinput_functional"]
+        marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2', 'data_collection_3', 'data_collection_4', 'data_collection_5', 'data_collection_6']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -764,7 +765,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }}
+          test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
