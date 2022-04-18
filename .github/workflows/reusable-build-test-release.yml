@@ -2,6 +2,11 @@
 name: build-test-release
 on:
   workflow_call:
+    inputs:
+      test-timeout:
+        required: false
+        type: number
+        default: 100
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -721,6 +726,8 @@ jobs:
         modinput-type: ["modinput_functional"]
         marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2', 'data_collection_3', 'data_collection_4', 'data_collection_5', 'data_collection_6']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
+        test-timeout:
+        - ${{ inputs.test-timeout }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -758,6 +765,7 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
       - name: run-tests
+        timeout-minutes: ${{ matrix.test-timeout }}
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
