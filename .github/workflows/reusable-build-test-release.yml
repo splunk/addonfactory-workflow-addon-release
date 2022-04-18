@@ -7,6 +7,10 @@ on:
         required: false
         type: number
         default: 100
+      marker:
+        required: false
+        type: string
+        default: ""
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
