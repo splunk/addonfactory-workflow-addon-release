@@ -730,10 +730,10 @@ jobs:
         modinput-type: ["modinput_functional"]
         #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         marker:
-          -configuration
-          -data_collection_flaky
-          -data_collection_1
-          -data_collection_2
+          -'configuration'
+          -'data_collection_flaky'
+          -'data_collection_1'
+          -'data_collection_2'
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         #marker:
         #- ${{ inputs.marker }}
