@@ -735,8 +735,7 @@ jobs:
           #-'data_collection_1'
           #-'data_collection_2'
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        marker: 
-        - [ ${{ inputs.marker }} ]
+        marker: [${{ inputs.marker }}]
         test-timeout:
         - ${{ inputs.test-timeout }}
     container:
