@@ -743,6 +743,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
+    timeout-minutes: ${{ matrix.test-timeout }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -769,7 +770,6 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
       - name: run-tests
-        timeout-minutes: ${{ matrix.test-timeout }}
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
