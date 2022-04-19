@@ -728,8 +728,10 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         modinput-type: ["modinput_functional"]
-        marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2', 'data_collection_3', 'data_collection_4', 'data_collection_5', 'data_collection_6']
+        #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2', 'data_collection_3', 'data_collection_4', 'data_collection_5', 'data_collection_6']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
+        marker:
+        - ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
     container:
