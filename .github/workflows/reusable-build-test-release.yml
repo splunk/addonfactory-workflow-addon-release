@@ -9,8 +9,8 @@ on:
         default: 100
       marker:
         required: false
-        type: steps
-        default: []
+        type: string
+        default: ""
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
