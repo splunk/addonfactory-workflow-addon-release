@@ -779,7 +779,26 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
       - name: run-tests
-   #     if: matrix.tags == ''
+        if: matrix.tags == ''
+        id: run-tests
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        uses: splunk/wfe-test-runner-action@v1.6
+        with:
+          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          test-type: ${{ env.TEST_TYPE }}
+          test-args: ${{ env.TEST_ARGS }} 
+          job-name: ${{ steps.create-job-name.outputs.job-name }}
+          labels: ${{ needs.setup.outputs.labels }}
+          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
+          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
+          delay-destroy: "No"
+          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
+          addon-name: ${{ needs.setup.outputs.addon-name }}
+          vendor-version: ${{ matrix.vendor-version.image }}
+          sc4s-version: "No"
+      - name: run-tests-parallel
+        if: matrix.tags != ''
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -797,25 +816,6 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
-#      - name: run-tests-parallel
-#        if: matrix.tags != ''
-#        id: run-tests
-#        env:
-#          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-#        uses: splunk/wfe-test-runner-action@v1.6
-#        with:
-#          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-#          test-type: ${{ env.TEST_TYPE }}
-#          test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
-#          job-name: ${{ steps.create-job-name.outputs.job-name }}
-#          labels: ${{ needs.setup.outputs.labels }}
-#          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
-#          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-#          delay-destroy: "No"
-#          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
-#          addon-name: ${{ needs.setup.outputs.addon-name }}
-#          vendor-version: ${{ matrix.vendor-version.image }}
-#          sc4s-version: "No"
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
