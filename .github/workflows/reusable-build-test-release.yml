@@ -737,7 +737,8 @@ jobs:
         modinput-type: ["modinput_functional"]
         #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
+        if inputs.tags != ''; then marker: ${{ fromJson(needs.setup.outputs.marker-list) }} ; fi
+        #marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
         #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
@@ -786,8 +787,9 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          if matrix.tags != ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
-          if matrix.tags == ''; then test-args: ${{ env.TEST_ARGS }} ; fi
+          #if matrix.marker != ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
+          #if matrix.marker == ''; then test-args: ${{ env.TEST_ARGS }} ; fi
+          test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
