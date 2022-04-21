@@ -786,8 +786,8 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          if matrix.tags == ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
-          if matrix.tags != ''; then test-args: ${{ env.TEST_ARGS }} ; fi
+          if matrix.tags != ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
+          if matrix.tags == ''; then test-args: ${{ env.TEST_ARGS }} ; fi
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
