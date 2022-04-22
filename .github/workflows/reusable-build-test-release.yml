@@ -522,7 +522,7 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
-      marker-list: ${{ steps.test-setup.outputs.marker-list }}
+      test-args-parallel: ${{ steps.test-setup.outputs.test-args-parallel }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -559,11 +559,17 @@ jobs:
 
           str="${{ inputs.marker }}"
           for i in "${str[@]}"; do MARKER_LIST+=[$i]; done
+          if [ "${{ inputs.marker }}" = "" ];
+          then
+              TEST_ARGS="${{ env.TEST_ARGS }}"
+          else
+              TEST_ARGS="${{ env.TEST_ARGS }}  -m $MARKER_LIST"
+          fi
 
           echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
           echo "::set-output name=directory-path::/tmp"
           echo "::set-output name=s3-bucket::ta-production-artifacts"
-          echo "::set-output name=marker-list::$MARKER_LIST"
+          echo "::set-output name=test-args-parallel::$TEST_ARGS"
 
 
 #   run-requirement-tests:
@@ -737,8 +743,7 @@ jobs:
         modinput-type: ["modinput_functional"]
         #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-      #  if inputs.tags != ''; then marker: ${{ fromJson(needs.setup.outputs.marker-list) }} ; fi
-        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
+        test-args-parallel: ${{ fromJson(needs.setup.outputs.test-args-parallel) }}
         #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
@@ -787,9 +792,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          #if matrix.marker != ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
-          #if matrix.marker == ''; then test-args: ${{ env.TEST_ARGS }} ; fi
-          test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
+          test-args: ${{ matrix.test-args-parallel }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
