@@ -563,7 +563,7 @@ jobs:
           then
               TEST_ARGS="${{ env.TEST_ARGS }}"
           else
-              TEST_ARGS="${{ env.TEST_ARGS }}
+              TEST_ARGS="${{ env.TEST_ARGS }}"
               TEST_ARGS+="  -m "
               TEST_ARGS+="$MARKER_LIST"
           fi
