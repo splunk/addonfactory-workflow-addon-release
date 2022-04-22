@@ -559,12 +559,13 @@ jobs:
 
           str="${{ inputs.marker }}"
           for i in "${str[@]}"; do MARKER_LIST+=[$i]; done
-          if [ "${{ inputs.marker }}" = "" ];
+          if [ "$str" = "" ];
           then
               TEST_ARGS="${{ env.TEST_ARGS }}"
           else
               TEST_ARGS="${{ env.TEST_ARGS }}  -m $MARKER_LIST"
           fi
+          echo $TEST_ARGS
 
           echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
           echo "::set-output name=directory-path::/tmp"
@@ -743,7 +744,7 @@ jobs:
         modinput-type: ["modinput_functional"]
         #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        test-args-parallel: "${{ fromJson(needs.setup.outputs.test-args-parallel) }}"
+        test-args-parallel: ${{ fromJson(needs.setup.outputs.test-args-parallel) }}
         #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
