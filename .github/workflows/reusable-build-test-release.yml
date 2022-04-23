@@ -741,7 +741,7 @@ jobs:
         #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
-       # marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
+        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
     #if: ${{ fromJSON( needs.setup.outputs.marker-list ).include[0] }}
 
     container:
@@ -791,8 +791,8 @@ jobs:
           test-type: ${{ env.TEST_TYPE }}
           #if matrix.marker != ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
           #if matrix.marker == ''; then test-args: ${{ env.TEST_ARGS }} ; fi
-          #test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
-          test-args: ${{ env.TEST_ARGS }}  -m ${{ needs.setup.outputs.marker-list }}
+          test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
+          #test-args: ${{ env.TEST_ARGS }}  -m ${{ needs.setup.outputs.marker-list }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
