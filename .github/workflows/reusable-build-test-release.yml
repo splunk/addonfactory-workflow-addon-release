@@ -724,7 +724,7 @@ jobs:
 #           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list == '' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list == '[]' }}
     needs:
       - build
       - test-inventory
@@ -890,7 +890,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests-parallel:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list != '' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list != '[]' }}
     needs:
       - build
       - test-inventory
