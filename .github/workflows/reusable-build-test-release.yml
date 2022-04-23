@@ -6,7 +6,7 @@ on:
       test-timeout:
         required: false
         type: number
-        default: 100
+        default: 60
       marker:
         required: false
         type: string
