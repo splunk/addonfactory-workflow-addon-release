@@ -742,7 +742,7 @@ jobs:
         test-timeout:
         - ${{ inputs.test-timeout }}
         marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
-      if: ${{ needs.setup.outputs.marker-list != '' }}
+      if: ${{ fromJSON( needs.setup.outputs.marker-list ).include[0] }}
 
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
