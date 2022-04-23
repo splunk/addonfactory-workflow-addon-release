@@ -737,11 +737,13 @@ jobs:
         modinput-type: ["modinput_functional"]
         #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-      #  if inputs.tags != ''; then marker: ${{ fromJson(needs.setup.outputs.marker-list) }} ; fi
-        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
+        #  if inputs.tags != ''; then marker: ${{ fromJson(needs.setup.outputs.marker-list) }} ; fi
         #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
+        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
+      if: ${{ needs.setup.outputs.marker-list != '' }}
+
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
