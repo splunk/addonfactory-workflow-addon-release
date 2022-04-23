@@ -522,7 +522,7 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
-      test-args-parallel: ${{ steps.test-setup.outputs.test-args-parallel }}
+      marker-list: ${{ steps.test-setup.outputs.marker-list }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -559,20 +559,11 @@ jobs:
 
           str="${{ inputs.marker }}"
           for i in "${str[@]}"; do MARKER_LIST+=[$i]; done
-          if [ "$str" = "" ];
-          then
-              TEST_ARGS="${{ env.TEST_ARGS }}"
-          else
-              TEST_ARGS="${{ env.TEST_ARGS }}"
-              TEST_ARGS+="  -m "
-              TEST_ARGS+="$MARKER_LIST"
-          fi
-          echo $TEST_ARGS
 
           echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
           echo "::set-output name=directory-path::/tmp"
           echo "::set-output name=s3-bucket::ta-production-artifacts"
-          echo "::set-output name=test-args-parallel::$TEST_ARGS"
+          echo "::set-output name=marker-list::$MARKER_LIST"
 
 
 #   run-requirement-tests:
@@ -746,7 +737,7 @@ jobs:
         modinput-type: ["modinput_functional"]
         #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        test-args-matrix: ${{ fromJson(needs.setup.outputs.test-args-parallel) }}
+        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
         #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
@@ -788,6 +779,7 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
       - name: run-tests
+        if: matrix.tags == ''
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -795,7 +787,26 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ matrix.test-args-matrix }}
+          test-args: ${{ env.TEST_ARGS }}
+          job-name: ${{ steps.create-job-name.outputs.job-name }}
+          labels: ${{ needs.setup.outputs.labels }}
+          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
+          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
+          delay-destroy: "No"
+          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
+          addon-name: ${{ needs.setup.outputs.addon-name }}
+          vendor-version: ${{ matrix.vendor-version.image }}
+          sc4s-version: "No"
+      - name: run-tests
+        if: matrix.tags != ''
+        id: run-tests
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        uses: splunk/wfe-test-runner-action@v1.6
+        with:
+          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          test-type: ${{ env.TEST_TYPE }}
+          test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
