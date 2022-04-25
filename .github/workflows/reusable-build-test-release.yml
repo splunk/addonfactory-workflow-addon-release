@@ -739,7 +739,6 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         test-timeout:
         - ${{ inputs.test-timeout }}
-        #marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
 
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -787,10 +786,6 @@ jobs:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
           test-args: ${{ env.TEST_ARGS }}
-          #if matrix.marker != ''; then test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }} ; fi
-          #if matrix.marker == ''; then test-args: ${{ env.TEST_ARGS }} ; fi
-          #test-args: ${{ env.TEST_ARGS }}  -m ${{ matrix.marker }}
-          #test-args: ${{ env.TEST_ARGS }}  -m ${{ needs.setup.outputs.marker-list }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -902,15 +897,10 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         modinput-type: [ "modinput_functional" ]
-        #marker: ['configuration', 'data_collection_flaky', 'data_collection_1', 'data_collection_2']
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        #  if inputs.tags != ''; then marker: ${{ fromJson(needs.setup.outputs.marker-list) }} ; fi
-        #- ${{ inputs.marker }}
         test-timeout:
         - ${{ inputs.test-timeout }}
         marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
-    #if: ${{ fromJSON( needs.setup.outputs.marker-list ).include[0] }}
-
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
