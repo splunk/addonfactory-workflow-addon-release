@@ -885,7 +885,9 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests-parallel:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list != '[]' }}
+    #if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list != '[]' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && inputs.marker != '[]' }}
+
     needs:
       - build
       - test-inventory
@@ -900,7 +902,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         test-timeout:
         - ${{ inputs.test-timeout }}
-        marker: ${{ fromJson(needs.setup.outputs.marker-list) }}
+        marker: ${{ fromJson(inputs.marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
