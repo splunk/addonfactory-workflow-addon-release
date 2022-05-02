@@ -17,6 +17,6 @@ jobs:
     steps:
       - run: echo "hello"
         shell: bash
-      - run: echo "$matrixvalue"
+      - run: echo ${{ matrix.splitvalues }}
         shell: bash
         
