@@ -1,6 +1,12 @@
 name: test-split 
 on:
   workflow_call:
+    inputs: 
+      matrixvalues:
+        description: 'Stringified JSON object listing target Node versions'
+        default: '14.x'
+        required: true
+        type: string
 jobs:
   split-matrix:
     runs-on: ubuntu-latest
