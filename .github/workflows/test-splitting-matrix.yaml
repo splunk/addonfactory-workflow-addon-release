@@ -4,7 +4,7 @@ on:
     inputs: 
       matrixvalues:
         description: 'Stringified JSON object listing target Node versions'
-        default: '15.x'
+        default: ''
         required: true
         type: string
 jobs:
