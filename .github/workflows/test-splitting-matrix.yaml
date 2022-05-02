@@ -19,6 +19,4 @@ jobs:
         shell: bash
       - run: echo "$matrixvalue"
         shell: bash
-        with:
-          matrixvalue: ${{ matrix.splitvalues }}
         
