@@ -1,0 +1,18 @@
+name: test-split 
+on:
+  workflow_call:
+jobs:
+  split-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix: 
+        splitvalues: ${{fromJson(inputs.matrixvalues)}}
+    steps:
+      - with:
+          matrixvalue: ${{ matrix.splitvalues }}
+      - run: echo "hello"
+        shell: bash
+      - run: echo "$matrixvalue"
+        shell: bash
+        
