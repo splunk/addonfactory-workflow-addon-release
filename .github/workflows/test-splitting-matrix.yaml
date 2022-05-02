@@ -9,10 +9,10 @@ jobs:
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
     steps:
-      - with:
-          matrixvalue: ${{ matrix.splitvalues }}
       - run: echo "hello"
         shell: bash
-      - run: echo "$matrixvalue"
-        shell: bash
+      # - run: echo "$matrixvalue"
+      #   shell: bash
+      #   with:
+      #     matrixvalue: ${{ matrix.splitvalues }}
         
