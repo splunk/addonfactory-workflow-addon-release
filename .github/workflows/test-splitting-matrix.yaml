@@ -28,9 +28,9 @@ jobs:
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
         marker_List: ${{fromJson(inputs.marker_list)}}
-        #test-timeout: ${{ inputs.test-timeout }}
+        test-timeout:
+        - ${{ inputs.test-timeout }}
         #marker_String: ${{fromJson(inputs.marker_string)}}
-
     steps:
       - run: echo "hello"
         shell: bash
