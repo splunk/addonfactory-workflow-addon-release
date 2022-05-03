@@ -43,7 +43,7 @@ jobs:
           else
             TEST_ARG="-m ${{ inputs.marker_string }}"         
           fi
-          echo "::set-output name=test-arg::$TEST-ARG"
+          echo "::set-output name=test-arg::$TEST_ARG"
       - run: echo "hello"
         shell: bash
       - run: echo ${{ matrix.splitvalues }}
