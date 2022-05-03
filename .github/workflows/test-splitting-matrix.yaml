@@ -19,7 +19,7 @@ on:
       marker_string:
         required: false
         type: string
-        default: "tag"
+        default: " "
 jobs:
   run-mod-inputs:
     runs-on: ubuntu-latest
