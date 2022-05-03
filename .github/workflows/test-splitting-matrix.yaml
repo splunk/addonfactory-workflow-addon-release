@@ -26,8 +26,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix: 
-        splitvalues: ${{inputs.matrixvalues}}
-        #splitvalues: ${{fromJson(inputs.matrixvalues)}}
+        splitvalues: ${{fromJson(inputs.matrixvalues)}}
         marker: ${{fromJson(inputs.marker)}}
         marker_String: ${{inputs.marker_string}}
         test-timeout: ${{ inputs.test-timeout }}
