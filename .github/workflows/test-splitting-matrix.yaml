@@ -7,6 +7,19 @@ on:
         default: ''
         required: false
         type: string
+      marker:
+        description: 'marker string'
+        default: ''
+        required: false
+        type: string
+      test-timeout:
+        required: false
+        type: number
+        default: 120
+      marker_string:
+        required: false
+        type: string
+        default: ''
 jobs:
   split-matrix:
     runs-on: ubuntu-latest
