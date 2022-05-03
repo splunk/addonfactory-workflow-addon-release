@@ -48,4 +48,6 @@ jobs:
         shell: bash
       - run: echo ${{ matrix.splitvalues }}
         shell: bash
+      - run: echo ${{ steps.create-test-arg.outputs.test-arg }}
+        shell: bash
         
