@@ -7,8 +7,8 @@ on:
         default: '15.x'
         required: false
         type: string
-      marker:
-        description: 'marker string'
+      marker_list:
+        description: 'marker list'
         default: ''
         required: false
         type: string
@@ -27,8 +27,8 @@ jobs:
       fail-fast: true
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
-        marker: ${{fromJson(inputs.marker)}}
-        marker_String: ${{inputs.marker_string}}
+        marker_List: ${{fromJson(inputs.marker_list)}}
+        marker_String: ${{fromJson(inputs.marker_string)}}
         test-timeout: ${{ inputs.test-timeout }}
         
     steps:
