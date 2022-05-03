@@ -4,7 +4,7 @@ on:
     inputs: 
       matrixvalues:
         description: 'Stringified JSON object listing target Node versions'
-        default: '3.2'
+        default: '15.x'
         required: false
         type: string
       marker:
