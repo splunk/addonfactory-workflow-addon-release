@@ -30,9 +30,20 @@ jobs:
         marker_List: ${{fromJson(inputs.marker_list)}}
         test-timeout:
         - ${{ inputs.test-timeout }}
-        marker_String: 
-        - ${{fromJson(inputs.marker_string)}}
+        #marker_String: 
+        #- ${{fromJson(inputs.marker_string)}}
     steps:
+      - name: create test argument
+        id: create-test-arg
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.marker_string }}" ]
+          then
+            TEST_ARG=""
+          else
+            TEST_ARG="-m ${{ inputs.marker_string }}"         
+          fi
+          echo "::set-output name=test-arg::$TEST-ARG"
       - run: echo "hello"
         shell: bash
       - run: echo ${{ matrix.splitvalues }}
