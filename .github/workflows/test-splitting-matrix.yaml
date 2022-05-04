@@ -21,7 +21,7 @@ on:
         type: string
         default: ''
 jobs:
-  set-up:
+  setup:
     runs-on: ubuntu-latest
     outputs:
       test-arg-first: ${{ steps.create-test-arg-first.outputs.test-arg-first }}
@@ -40,7 +40,7 @@ jobs:
   
   run-mod-inputs:
     needs:
-      - set-up
+      - setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
