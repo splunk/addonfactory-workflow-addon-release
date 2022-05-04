@@ -1242,7 +1242,6 @@ jobs:
     needs:
       - meta
       - compliance-sample-scanner
-      - compliance-dependencies
       - compliance-copyrights
       - lint
       - review_secrets
