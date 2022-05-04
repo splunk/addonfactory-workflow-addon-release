@@ -41,7 +41,7 @@ jobs:
           then
             TEST_ARG=""
           else
-            TEST_ARG="-m ${{ inputs.marker_string }}"         
+            TEST_ARG="-m ${{fromJson(inputs.marker_string)}}"         
           fi
           echo "::set-output name=test-arg::$TEST_ARG"
       - run: echo "hello"
