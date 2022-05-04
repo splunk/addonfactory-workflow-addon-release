@@ -27,21 +27,21 @@ jobs:
       fail-fast: true
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
-        marker_List: ${{fromJson(inputs.marker_list)}}
+        marker_list: ${{fromJson(inputs.marker_list)}}
         test-timeout:
         - ${{ inputs.test-timeout }}
-        #marker_String: 
-        #- ${{fromJson(inputs.marker_string)}}
+        marker_string: 
+        - ${{fromJson(inputs.marker_string)}}
     steps:
       - name: create test argument
         id: create-test-arg
         shell: bash
         run: |
-          if [ -z "${{ inputs.marker_string }}" ]
+          if [ -z "${{ inputs.marker_list }}" ]
           then
             TEST_ARG=""
           else
-            TEST_ARG="-m ${{fromJson(inputs.marker_string)}}"         
+            TEST_ARG="-m ${{fromJson(inputs.marker_list)}}"         
           fi
           echo "::set-output name=test-arg::$TEST_ARG"
       - run: echo "hello"
