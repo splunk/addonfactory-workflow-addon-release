@@ -21,35 +21,55 @@ on:
         type: string
         default: ''
 jobs:
+  set-up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: create test argument first
+        id: create-test-arg-first
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.marker_list }}" ]
+          then
+            TEST_ARG="-m ''"
+          else
+            TEST_ARG="-m ${{ inputs.marker_list }}"         
+          fi
+          echo "::set-output name=test-arg-first::$TEST_ARG"
+  
   run-mod-inputs:
+    needs:
+      - set-up
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
-        marker_list: ${{fromJson(inputs.marker_list)}}
+        #marker_list: ${{fromJson(inputs.marker_list)}}
+        marker_list: ${{ needs.setup.outputs.test-arg-first }}
         test-timeout:
         - ${{ inputs.test-timeout }}
        # marker_string: 
        # - ${{fromJson(inputs.marker_string)}}
     steps:
-      - name: create test argument
-        id: create-test-arg
-        shell: bash
-        run: |
-          if [ -z "${{ inputs.marker_list }}" ]
-          then
-            TEST_ARG=""
-          else
-            TEST_ARG="-m ${{ inputs.marker_list }}"         
-          fi
-          echo "::set-output name=test-arg::$TEST_ARG"
+#       - name: create test argument
+#         id: create-test-arg
+#         shell: bash
+#         run: |
+#           if [ -z "${{ inputs.marker_list }}" ]
+#           then
+#             TEST_ARG=""
+#           else
+#             TEST_ARG="-m ${{ inputs.marker_list }}"         
+#           fi
+#           echo "::set-output name=test-arg::$TEST_ARG"
       - run: echo "hello"
         shell: bash
       - run: echo ${{ matrix.splitvalues }}
         shell: bash
       - run: echo ${{ matrix.marker_list }}
         shell: bash
-      - run: echo ${{ steps.create-test-arg.outputs.test-arg }}
+      - run: echo ${{ needs.setup.outputs.test-arg-first }}
         shell: bash
+#       - run: echo ${{ steps.create-test-arg.outputs.test-arg }}
+#         shell: bash
         
