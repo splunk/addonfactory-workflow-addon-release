@@ -5,12 +5,15 @@ on:
     inputs:
       test-timeout:
         required: false
+        description: 'Timeout'
         type: number
         default: 120
       marker:
         required: false
+        description: 'Parallel run marker'
         type: string
-        default: ''
+        default: >-
+          [""]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -718,10 +721,7 @@ jobs:
 #           reporter: java-junit
 
   run-modinput-tests:
-    #if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.marker-list != '[]' }}
-    #if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && inputs.marker != '[]' }}
     if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' }}
-
     needs:
       - build
       - test-inventory
@@ -736,8 +736,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         test-timeout:
         - ${{ inputs.test-timeout }}
-        #marker:
-        #- ${{ fromJson(inputs.marker) }}
+        marker: ${{ fromJson(inputs.marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -775,17 +774,17 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
-      - name: create test argument
-        id: create-test-arg
-        shell: bash
-        run: |
-          if [ -z "${{ inputs.marker }}" ]
-          then
-            TEST_ARG="${{ env.TEST_ARGS }}"
-          else
-            TEST_ARG="${{ env.TEST_ARGS }} -m ${{ inputs.marker }}"
-          fi
-          echo "::set-output name=test-arg::$TEST_ARG"
+#      - name: create test argument
+#        id: create-test-arg
+#        shell: bash
+#        run: |
+#          if [ -z "${{ inputs.marker }}" ]
+#          then
+#            TEST_ARG="${{ env.TEST_ARGS }}"
+#          else
+#            TEST_ARG="${{ env.TEST_ARGS }} -m ${{ inputs.marker }}"
+#          fi
+#          echo "::set-output name=test-arg::$TEST_ARG"
       - name: run-tests
         id: run-tests
         env:
@@ -794,7 +793,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ steps.create-test-arg.outputs.test-arg }}
+          test-args: ${{ env.TEST_ARGS }} -m ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
