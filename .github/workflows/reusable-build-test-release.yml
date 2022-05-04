@@ -109,13 +109,15 @@ jobs:
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
           fossa report attribution --format text > /tmp/THIRDPARTY
+          ls -la /tmp/
+          ls -la /tmp/THIRDPARTY
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
         uses: actions/upload-artifact@v2
         with:
           name: THIRDPARTY
-          path: /tmp
+          path: /tmp/THIRDPARTY
       - name: run fossa test
         run: |
           fossa test --debug
@@ -256,6 +258,8 @@ jobs:
           path: /tmp/THIRDPARTY
       - name: Update Notices
         run: |
+          ls -la /tmp
+          ls -la /tmp/THIRDPARTY
           cp -f /tmp/THIRDPARTY package/THIRDPARTY
       - name: Build Package
         id: uccgen
