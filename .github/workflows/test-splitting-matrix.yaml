@@ -23,6 +23,8 @@ on:
 jobs:
   set-up:
     runs-on: ubuntu-latest
+    outputs:
+      test-arg-first: ${{ steps.create-test-arg-first.outputs.test-arg-first }}
     steps:
       - name: create test argument first
         id: create-test-arg-first
