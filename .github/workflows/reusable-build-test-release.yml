@@ -30,6 +30,9 @@ on:
       OTHER_TA_REQUIRED_CONFIGS:
         description: other required configs
         required: true
+      FOSSA_API_KEY:
+        description: API token for FOSSA app
+        required: true
 
 jobs:
   meta:
