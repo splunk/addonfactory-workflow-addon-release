@@ -10,7 +10,7 @@ on:
       marker_list:
         description: 'marker list'
         default: >-
-          [ ]
+          [" "]
         required: false
         type: string
       test-timeout:
