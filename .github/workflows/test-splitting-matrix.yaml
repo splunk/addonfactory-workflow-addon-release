@@ -22,26 +22,26 @@ on:
         type: string
         default: ''
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      test-arg-first: ${{ steps.create-test-arg-first.outputs.test-arg-first }}
-    steps:
-      - name: create test argument first
-        id: create-test-arg-first
-        shell: bash
-        run: |
-          if [ -z "${{ inputs.marker_list }}" ]
-          then
-            TEST_ARG=" "
-          else
-            TEST_ARG="-m"         
-          fi
-          echo "::set-output name=test-arg-first::$TEST_ARG"
+#   setup:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       test-arg-first: ${{ steps.create-test-arg-first.outputs.test-arg-first }}
+#     steps:
+#       - name: create test argument first
+#         id: create-test-arg-first
+#         shell: bash
+#         run: |
+#           if [ -z "${{ inputs.marker_list }}" ]
+#           then
+#             TEST_ARG=" "
+#           else
+#             TEST_ARG="-m"         
+#           fi
+#           echo "::set-output name=test-arg-first::$TEST_ARG"
   
   run-mod-inputs:
-    needs:
-      - setup
+#     needs:
+#       - setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -55,27 +55,27 @@ jobs:
        # marker_string: 
        # - ${{fromJson(inputs.marker_string)}}
     steps:
-#       - name: create test argument
-#         id: create-test-arg
-#         shell: bash
-#         run: |
-#           if [ -z "${{ inputs.marker_list }}" ]
-#           then
-#             TEST_ARG=""
-#           else
-#             TEST_ARG="-m ${{ inputs.marker_list }}"         
-#           fi
-#           echo "::set-output name=test-arg::$TEST_ARG"
+      - name: create test argument dash m
+        id: create-test-arg
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.marker_list }}" ]
+          then
+            TEST_ARG_M=""
+          else
+            TEST_ARG_M="-m"         
+          fi
+          echo "::set-output name=test-arg-m::$TEST_ARG_M"
       - run: echo "hello"
         shell: bash
       - run: echo ${{ matrix.splitvalues }}
         shell: bash
       - run: echo ${{ matrix.marker_list }}
         shell: bash
-      - run: echo ${{ matrix.marker_step }}
-        shell: bash
-      - run: echo ${{ needs.setup.outputs.test-arg-first }}
-        shell: bash
-#       - run: echo ${{ steps.create-test-arg.outputs.test-arg }}
+#       - run: echo ${{ matrix.marker_step }}
 #         shell: bash
+#       - run: echo ${{ needs.setup.outputs.test-arg-first }}
+#         shell: bash
+      - run: echo ${{ steps.create-test-arg.outputs.test-arg-m }}
+        shell: bash
      
