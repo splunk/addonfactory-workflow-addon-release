@@ -9,7 +9,7 @@ on:
         type: string
       marker_list:
         description: 'marker list'
-        default: '    '
+        default: '\ '
         required: false
         type: string
       test-timeout:
