@@ -104,38 +104,26 @@ compliance-sample-scanner
 <img src="images/sample_scanner/report_link.png" alt="report_link" style="width:200px;"/>
 
 
-compliance-dependencies
+fossa-scan
 =======================
 
 **Description:**
 
-- This action scans a project for third party components and reports the results. This action contains a curation file managed by Splunk Inc.
-
-**Action used:** https://github.com/splunk/addonfactory-ort-action
+- This action scans a project for third party components and reports the results. This action checks license compliance and vulnerabilities. This file uses `.fossa.yml` configuration file
 
 **Pass/fail behaviour:**
 
-- This stage fails if there are any errors or dependencies while installing requirements.txt generated from pyproject.toml
+- This stage fails if FOSSA finds any license or security issues. Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated per job and printed in logs. License issues should be checked by legal team, vulnerabilities should be solved by TA-dev or TA-qa team with assist of prodsec team if needed (some issues with critical status for example).
 
 **Troubleshooting steps for failures if any:** 
 
-- The error log is present in the stage as well as in the artifacts scan-report.xlsx , user should be able to reproduce that in local and fix/update the requirements accordingly.
-
-i.e <img src="images/compliance-dependencies/scan-reports-error.png" alt="scan-reports-error" style="width:200px;"/>
+- The error log is present in the stage as well user should be able to reproduce that in local environment with FOSSA CLI tool https://github.com/fossas/fossa-cli
 
 
 **Artifacts:**
 
 ```
-analysis-analyzer
-    - analyzer-result.json
-
-analysis-reports
-    - scan-report.xlsx
-    - NOTICE_summary
-    - NOTICE_default
-    - bom.spdx.yml
-    - AsciiDoc_disclosure_document.pdf
+THIRDPARTY
 ```
 
 compliance-copyrights
