@@ -33,7 +33,7 @@ jobs:
         run: |
           if [ -z "${{ inputs.marker_list }}" ]
           then
-            TEST_ARG="-m ''"
+            TEST_ARG=" "
           else
             TEST_ARG="-m ${{ inputs.marker_list }}"         
           fi
@@ -48,7 +48,8 @@ jobs:
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
         marker_list: ${{fromJson(inputs.marker_list)}}
-        #marker_list: ${{ needs.setup.outputs.test-arg-first }}
+        marker_step: ${{ needs.setup.outputs.test-arg-first }}
+        #marker_step: ${{ fromjson(needs.setup.outputs.test-arg-first) }}
         test-timeout:
         - ${{ inputs.test-timeout }}
        # marker_string: 
@@ -70,6 +71,8 @@ jobs:
       - run: echo ${{ matrix.splitvalues }}
         shell: bash
       - run: echo ${{ matrix.marker_list }}
+        shell: bash
+      - run: echo ${{ matrix.marker_step }}
         shell: bash
       - run: echo ${{ needs.setup.outputs.test-arg-first }}
         shell: bash
