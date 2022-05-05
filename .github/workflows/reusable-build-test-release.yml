@@ -12,8 +12,7 @@ on:
         required: false
         description: 'Parallel run marker'
         type: string
-        default: >-
-          [""]
+        default: ''
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
