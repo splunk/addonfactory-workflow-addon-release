@@ -9,7 +9,7 @@ on:
         type: string
       marker_list:
         description: 'marker list'
-        default: ''
+        default: ' '
         required: false
         type: string
       test-timeout:
@@ -54,6 +54,8 @@ jobs:
        # marker_string: 
        # - ${{fromJson(inputs.marker_string)}}
     steps:
+      - name: run-tests-parallel
+        id: run-tests
       - name: create test argument
         id: create-test-arg
         shell: bash
