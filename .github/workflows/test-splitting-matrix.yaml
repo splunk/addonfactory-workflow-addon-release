@@ -75,7 +75,4 @@ jobs:
         shell: bash
       - run: echo ${{ steps.create-test-arg.outputs.test-arg }}
         shell: bash
-      - name: run-tests
-        id: run-tests
-        with:
-          test-args: -m ${{ matrix.marker_list }}        
+     
