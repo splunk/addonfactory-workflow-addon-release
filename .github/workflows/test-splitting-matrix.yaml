@@ -47,7 +47,7 @@ jobs:
       matrix: 
         splitvalues: ${{fromJson(inputs.matrixvalues)}}
         marker_list: ${{fromJson(inputs.marker_list)}}
-        marker_step: ${{ needs.setup.outputs.test-arg-first }}
+  #      marker_step: ${{ needs.setup.outputs.test-arg-first }}
         #marker_step: ${{ fromjson(needs.setup.outputs.test-arg-first) }}
         test-timeout:
         - ${{ inputs.test-timeout }}
