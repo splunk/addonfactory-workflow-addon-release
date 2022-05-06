@@ -59,7 +59,7 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          export VAR=[" "]
+          export VAR=[ ]
           if [ "${{ inputs.marker_list }}" = "$VAR" ]
           then
             echo "right"
@@ -68,6 +68,7 @@ jobs:
           else
             echo "wrong, there is m"
             echo ${{ inputs.marker_list }}
+            echo $VAR
             TEST_ARG_M="-m"         
           fi
           echo "::set-output name=test-arg-m::$TEST_ARG_M"
