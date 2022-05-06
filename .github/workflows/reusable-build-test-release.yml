@@ -197,7 +197,7 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: 3.7
       - uses: actions/setup-node@v2
@@ -342,7 +342,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -400,7 +400,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Python 3
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
             python-version: 3.7
       - name: run-tests
