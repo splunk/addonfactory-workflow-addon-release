@@ -779,7 +779,7 @@ jobs:
         shell: bash
         run: |
           export VAR="[]"
-          if [ "${{ inputs.marker_list }}" == "$VAR" ]
+          if [ "${{ inputs.marker }}" == "$VAR" ]
           then
             TEST_ARG_M=""
           else
