@@ -64,6 +64,7 @@ jobs:
           then
             echo "right"
             echo ${{ inputs.marker_list }}
+            echo $VAR
             TEST_ARG_M=""
           else
             echo "wrong, there is m"
