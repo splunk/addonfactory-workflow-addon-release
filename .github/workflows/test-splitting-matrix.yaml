@@ -59,11 +59,14 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          if [ -z "${{ inputs.marker_list }}" ]
+          export VAR=[" "]
+          if [ "${{ inputs.marker_list }}" = "$VAR" ]
           then
+            echo "right"
             echo ${{ inputs.marker_list }}
             TEST_ARG_M=""
           else
+            echo "wrong, there is m"
             echo ${{ inputs.marker_list }}
             TEST_ARG_M="-m"         
           fi
