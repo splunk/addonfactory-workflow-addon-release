@@ -59,10 +59,12 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          if [[ ${{ inputs.marker_list }} = *[!\ ]* ]]
+          if [ -z "${{ inputs.marker_list }}" ]
           then
+            echo ${{ inputs.marker_list }}
             TEST_ARG_M=""
           else
+            echo ${{ inputs.marker_list }}
             TEST_ARG_M="-m"         
           fi
           echo "::set-output name=test-arg-m::$TEST_ARG_M"
