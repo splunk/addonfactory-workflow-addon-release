@@ -774,17 +774,18 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
-#      - name: create test argument
-#        id: create-test-arg
-#        shell: bash
-#        run: |
-#          if [ -z "${{ inputs.marker }}" ]
-#          then
-#            TEST_ARG="${{ env.TEST_ARGS }}"
-#          else
-#            TEST_ARG="${{ env.TEST_ARGS }} -m ${{ inputs.marker }}"
-#          fi
-#          echo "::set-output name=test-arg::$TEST_ARG"
+      - name: create test argument
+        id: create-test-arg
+        shell: bash
+        run: |
+          export VAR="[]"
+          if [ "${{ inputs.marker_list }}" == "$VAR" ]
+          then
+            TEST_ARG_M=""
+          else
+            TEST_ARG_M="-m"
+          fi
+          echo "::set-output name=test-arg::$TEST_ARG_M"
       - name: run-tests
         id: run-tests
         env:
@@ -793,7 +794,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }} -m ${{ matrix.marker }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
