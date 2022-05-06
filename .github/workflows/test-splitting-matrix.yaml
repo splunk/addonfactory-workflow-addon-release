@@ -59,7 +59,7 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          export VAR="[ ]"
+          export VAR="[\" \"]"
           if [ "${{ inputs.marker_list }}" = "$VAR" ]
           then
             echo "right"
