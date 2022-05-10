@@ -253,10 +253,9 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: THIRDPARTY
-          path: /tmp/THIRDPARTY
       - name: Update Notices
         run: |
-          cp -f /tmp/THIRDPARTY package/THIRDPARTY
+          cp -f THIRDPARTY package/THIRDPARTY
       - name: Build Package
         id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v1
