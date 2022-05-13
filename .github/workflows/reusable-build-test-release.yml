@@ -778,8 +778,8 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          export VAR="[]"
-          if [ "${{ inputs.marker }}" == "$VAR" ]
+          export comparing_variable="[]"
+          if [ "${{ inputs.marker }}" == "$comparing_variable" ]
           then
             TEST_ARG_M=""
           else
