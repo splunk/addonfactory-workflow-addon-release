@@ -7,7 +7,7 @@ on:
         required: false
         description: 'Timeout variable'
         type: number
-        default: 120
+        default: 360
       marker:
         required: false
         description: 'Parallel run marker'
