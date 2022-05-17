@@ -3,11 +3,6 @@ name: build-test-release
 on:
   workflow_call:
     inputs:
-      test-timeout:
-        required: false
-        description: 'Timeout variable'
-        type: number
-        default: 360
       marker:
         required: false
         description: 'Parallel run marker'
@@ -1096,8 +1091,6 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         modinput-type: ["modinput_functional"]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        test-timeout:
-        - ${{ inputs.test-timeout }}
         marker: ${{ fromJson(inputs.marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
