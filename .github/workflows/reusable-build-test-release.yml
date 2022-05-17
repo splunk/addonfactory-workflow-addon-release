@@ -205,13 +205,14 @@ jobs:
           cd build/package/
           ls -lat
           tar xvzf *.spl
+          rm -rf *.spl
           ls -lat
       - name: VirusTotal Scan
         uses: crazy-max/ghaction-virustotal@v2
         with:
           vt_api_key: ${{ secrets.VT_API_KEY }}
           files: |
-            build/package/*
+            build/package/**
   test-inventory:
     runs-on: ubuntu-latest
     # Map a step output to a job output
