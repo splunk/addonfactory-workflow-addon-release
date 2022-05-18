@@ -295,6 +295,7 @@ jobs:
           path: build/package/deployment**
         if: always()
   security-virustotal:
+    continue-on-error: true
     name: security-virustotal
     needs: build
     runs-on: ubuntu-latest
