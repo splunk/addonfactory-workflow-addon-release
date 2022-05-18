@@ -2,6 +2,13 @@
 name: build-test-release
 on:
   workflow_call:
+    inputs:
+      marker:
+        required: false
+        description: 'Parallel run marker'
+        type: string
+        default: >-
+          [""]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -1084,6 +1091,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         modinput-type: ["modinput_functional"]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
+        marker: ${{ fromJson(inputs.marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1120,6 +1128,18 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: create test argument
+        id: create-test-arg
+        shell: bash
+        run: |
+          export comparing_variable="[]"
+          if [ "${{ inputs.marker }}" == "$comparing_variable" ]
+          then
+            TEST_ARG_M=""
+          else
+            TEST_ARG_M="-m"
+          fi
+          echo "::set-output name=test-arg::$TEST_ARG_M"
       - name: run-tests
         id: run-tests
         env:
@@ -1128,7 +1148,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
