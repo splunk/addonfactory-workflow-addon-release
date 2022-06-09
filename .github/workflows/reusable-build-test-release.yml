@@ -80,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Docker meta
         id: docker_action_meta
-        uses: docker/metadata-action@v3.6.2
+        uses: docker/metadata-action@v4.0.1
         with:
           images: ghcr.io/${{ github.repository }}/container
           tags: |
@@ -259,13 +259,13 @@ jobs:
           PrNumber: ${{ github.event.number }}
       - name: Download THRIDPARTY
         if: github.event_name != 'pull_request'
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
       - name: Download THRIDPARTY (Optional for PR)
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
       - name: Update Notices
@@ -315,7 +315,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
           path: build/package/
@@ -361,7 +361,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: package-raw
           path: output
@@ -448,7 +448,7 @@ jobs:
           - "manual"
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
           path: build/package/
@@ -479,7 +479,7 @@ jobs:
       artifact: ${{ steps.artifactid.outputs.result }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
           path: build/package/splunkbase
@@ -506,7 +506,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v3.6.2
+        uses: docker/metadata-action@v4.0.1
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -1339,14 +1339,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         id: download-package-deployment
         with:
           name: package-deployment
           path: download/artifacts/
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         id: download-package-splunkbase
         with:
           name: package-splunkbase
@@ -1355,7 +1355,7 @@ jobs:
         id: download-cim-compliance-report
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: cim-compliance-report
           path: download/artifacts/deployment
@@ -1363,7 +1363,7 @@ jobs:
         id: download-cim-field-report
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: cim-field-report
           path: download/artifacts/deployment
