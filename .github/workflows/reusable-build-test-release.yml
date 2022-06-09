@@ -62,7 +62,7 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: '14'
       - name: Semantic Release
@@ -207,7 +207,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.7
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: 14
       - name: create requirements file for pip
@@ -230,7 +230,7 @@ jobs:
         run: if [ -f requirements_dev.txt ]; then echo "::set-output name=ENABLED::true"; fi
       - name: pip cache
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements_dev.txt') }}
@@ -1321,7 +1321,7 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v3
         with:
           node-version: '14'
       - name: Semantic Release
