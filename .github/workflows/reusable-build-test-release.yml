@@ -80,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Docker meta
         id: docker_action_meta
-        uses: docker/metadata-action@v3.6.2
+        uses: docker/metadata-action@v4.0.1
         with:
           images: ghcr.io/${{ github.repository }}/container
           tags: |
@@ -506,7 +506,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v3.6.2
+        uses: docker/metadata-action@v4.0.1
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
