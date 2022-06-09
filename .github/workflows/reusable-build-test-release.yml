@@ -115,7 +115,7 @@ jobs:
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
-          fossa report attribution --format text > /tmp/THIRDPARTY
+          fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
@@ -257,12 +257,20 @@ jobs:
         with:
           SemVer: ${{ steps.semantic.outputs.new_release_version }}
           PrNumber: ${{ github.event.number }}
-      - uses: actions/download-artifact@v2
+      - name: Download THRIDPARTY
+        if: github.event_name != 'pull_request'
+        uses: actions/download-artifact@v2
+        with:
+          name: THIRDPARTY
+      - name: Download THRIDPARTY (Optional for PR)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/download-artifact@v2
         with:
           name: THIRDPARTY
       - name: Update Notices
         run: |
-          cp -f THIRDPARTY package/THIRDPARTY
+          cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR)"
       - name: Build Package
         id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v1
