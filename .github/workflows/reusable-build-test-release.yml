@@ -58,7 +58,7 @@ jobs:
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: false
           persist-credentials: false
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: sample-scanner
         uses: splunk/addonfactory-sample-scanner@v1
         id: sample-scanner
@@ -134,7 +134,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@v1.1
 
@@ -142,7 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     name: quality-lint
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
@@ -162,13 +162,13 @@ jobs:
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: false
           fetch-depth: "0"
       - name: Checkout for PR
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: false
           fetch-depth: "0"
@@ -183,7 +183,7 @@ jobs:
     name: security-sast-semgrep
     if: github.actor != 'dependabot[bot]'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Semgrep
         id: semgrep
         uses: returntocorp/semgrep-action@v1
@@ -198,7 +198,7 @@ jobs:
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           # Very Important semantic-release won't trigger a tagged
           # build if this is not set false
@@ -336,7 +336,7 @@ jobs:
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - id: testset
         name: testsets
         run: |
@@ -355,7 +355,7 @@ jobs:
         python-version:
           - "3.7"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Setup python
         uses: actions/setup-python@v4
         with:
@@ -413,7 +413,7 @@ jobs:
       - build
       - test-inventory
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Python 3
         uses: actions/setup-python@v4
         with:
@@ -447,7 +447,7 @@ jobs:
           - "splunk_appinspect"
           - "manual"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
@@ -478,7 +478,7 @@ jobs:
     outputs:
       artifact: ${{ steps.artifactid.outputs.result }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
@@ -566,7 +566,7 @@ jobs:
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: setup for test
@@ -627,7 +627,7 @@ jobs:
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Configure AWS credentials
@@ -797,7 +797,7 @@ jobs:
       TEST_TYPE: "requirement_test"
       TEST_ARGS: ""
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Configure AWS credentials
@@ -955,7 +955,7 @@ jobs:
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Configure AWS credentials
@@ -1113,7 +1113,7 @@ jobs:
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Configure AWS credentials
@@ -1317,7 +1317,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: false
           persist-credentials: false
@@ -1388,5 +1388,5 @@ jobs:
       - publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: haya14busa/action-update-semver@v1
