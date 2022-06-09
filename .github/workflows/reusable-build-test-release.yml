@@ -119,7 +119,7 @@ jobs:
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
@@ -230,7 +230,7 @@ jobs:
         run: if [ -f requirements_dev.txt ]; then echo "::set-output name=ENABLED::true"; fi
       - name: pip cache
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements_dev.txt') }}
@@ -282,13 +282,13 @@ jobs:
         with:
           source: ${{ steps.uccgen.outputs.OUTPUT }}
       - name: artifact-splunk-unpacked
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: package-raw
           path: ${{ steps.uccgen.outputs.OUTPUT }}**
         if: always()
       - name: artifact-splunk-base
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: package-splunkbase
           path: ${{ steps.slim.outputs.OUTPUT }}
@@ -304,7 +304,7 @@ jobs:
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
       - name: artifact-splunk-parts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: package-deployment
           path: build/package/deployment**
@@ -400,7 +400,7 @@ jobs:
           fail_ci_if_error: true
           path_to_write_report: ./coverage/codecov_report.txt
           verbose: true
-      - uses: actions/upload-artifact@v2 # upload test results
+      - uses: actions/upload-artifact@v3 # upload test results
         if: success() || failure() # run this step even if previous step failed
         with:
           name: test-results-unit-python_${{ matrix.python-version }}
@@ -424,7 +424,7 @@ jobs:
           input-files: tests/requirement_test/logs
       - name: Archive production artifacts
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: |
@@ -459,13 +459,13 @@ jobs:
           included_tags: ${{ matrix.tags }}
       - name: upload-appinspect-report
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: appinspect_${{ matrix.tags }}_checks.json
           path: appinspect_result.json
       - name: upload-manual-check-markdown
         if: matrix.tags == 'manual'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: check_markdown.txt
           path: manual_check_markdown.txt
@@ -739,27 +739,27 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Upload cim-compliance-report for ${{ matrix.splunk.version }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ matrix.splunk.islatest == true }}
         with:
           name: cim-compliance-report
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/cim-compliance-report.md
       - name: Upload cim-field-report for ${{ matrix.splunk.version }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: ${{ matrix.splunk.islatest == true }}
         with:
           name: cim-field-report
@@ -909,13 +909,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk }} ${{ env.TEST_TYPE }} tests logs
@@ -1066,13 +1066,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests logs
@@ -1236,13 +1236,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v2.2.4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs
