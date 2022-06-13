@@ -574,7 +574,7 @@ jobs:
         id: test-setup
         shell: bash
         run: |
-          echo "::set-output name=argo-server::argo.wfe.splgdi.com:443"
+          echo "::set-output name=argo-server::argo.staging.wfe.splgdi.com:443"
           echo "::set-output name=argo-http1::true"
           echo "::set-output name=argo-secure::true"
           echo "::set-output name=argo-base-href::\'\'"
