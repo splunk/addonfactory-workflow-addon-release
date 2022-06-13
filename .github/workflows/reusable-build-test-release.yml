@@ -302,7 +302,7 @@ jobs:
         run: |
           echo "::set-output name=name::$(basename "${{ steps.slim.outputs.OUTPUT }}")"
           basename "${{ steps.slim.outputs.OUTPUT }}"
-          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
+          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-staging-artifacts/ta-apps/
       - name: artifact-splunk-parts
         uses: actions/upload-artifact@v3
         with:
@@ -598,10 +598,10 @@ jobs:
           LABELS="addon-name=${ADDON_NAME}"
           echo "::set-output name=labels::$LABELS"
 
-          ADDON_UPLOAD_PATH="s3://ta-production-artifacts/ta-apps/${{ needs.build.outputs.buildname }}"
+          ADDON_UPLOAD_PATH="s3://ta-staging-artifacts/ta-apps/${{ needs.build.outputs.buildname }}"
           echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
           echo "::set-output name=directory-path::/tmp"
-          echo "::set-output name=s3-bucket::ta-production-artifacts"
+          echo "::set-output name=s3-bucket::ta-staging-artifacts"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' }}
