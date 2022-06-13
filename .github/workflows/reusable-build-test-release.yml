@@ -640,7 +640,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6IjRpVFdCNmZsTGpyZEhuZUoyVWUwckc1MzZOYVZDT3RacGJ6TV9QN2R5N2sifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ3b3JrZmxvd3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiZ2l0aHViLXdvcmtmbG93LWF1dG9tYXRpb24tMTY1NTAyODQ3Mi10b2tlbi1wZzh3NSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiZDdjYzM0MDgtY2FkMC00ZmFmLWI1ZGYtYjlmZWMxY2JlMWYyIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OndvcmtmbG93czpnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIn0.kKgjPnWvLouRowV0g-obdiS63iQq8t6wPIb0kh0EIOyg7mSko290Z08LWJWXihPtP_P2uR6DgIU2335YTI04llWIHOROD1xcTQ-FJVoxiYBrdxIRHRa3IGdQMknzUNTsqVI73GH0aXlxvVQSaHYHUsDuaL90lB7hjeUj3Ip5UpeXS2Mq93edmU3EfGYPJlRxpPfPY4Lo8F16UuKpFlIF9lpxOQ0yr74qEoNMW9WSuWvuYsMc-R7NJc0g2XZSUkkgJSyNROxhgk-P7XWnf_JYNJV82zY2IbhXrOfLRjZm7wg5uAwPKV9QtsY-77xSxDVVO71zZ89g43tFQC7y1jRqAQ"
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -810,7 +810,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6IjRpVFdCNmZsTGpyZEhuZUoyVWUwckc1MzZOYVZDT3RacGJ6TV9QN2R5N2sifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ3b3JrZmxvd3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiZ2l0aHViLXdvcmtmbG93LWF1dG9tYXRpb24tMTY1NTAyODQ3Mi10b2tlbi1wZzh3NSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiZDdjYzM0MDgtY2FkMC00ZmFmLWI1ZGYtYjlmZWMxY2JlMWYyIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OndvcmtmbG93czpnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIn0.kKgjPnWvLouRowV0g-obdiS63iQq8t6wPIb0kh0EIOyg7mSko290Z08LWJWXihPtP_P2uR6DgIU2335YTI04llWIHOROD1xcTQ-FJVoxiYBrdxIRHRa3IGdQMknzUNTsqVI73GH0aXlxvVQSaHYHUsDuaL90lB7hjeUj3Ip5UpeXS2Mq93edmU3EfGYPJlRxpPfPY4Lo8F16UuKpFlIF9lpxOQ0yr74qEoNMW9WSuWvuYsMc-R7NJc0g2XZSUkkgJSyNROxhgk-P7XWnf_JYNJV82zY2IbhXrOfLRjZm7wg5uAwPKV9QtsY-77xSxDVVO71zZ89g43tFQC7y1jRqAQ"
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -968,7 +968,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6IjRpVFdCNmZsTGpyZEhuZUoyVWUwckc1MzZOYVZDT3RacGJ6TV9QN2R5N2sifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ3b3JrZmxvd3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiZ2l0aHViLXdvcmtmbG93LWF1dG9tYXRpb24tMTY1NTAyODQ3Mi10b2tlbi1wZzh3NSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiZDdjYzM0MDgtY2FkMC00ZmFmLWI1ZGYtYjlmZWMxY2JlMWYyIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OndvcmtmbG93czpnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIn0.kKgjPnWvLouRowV0g-obdiS63iQq8t6wPIb0kh0EIOyg7mSko290Z08LWJWXihPtP_P2uR6DgIU2335YTI04llWIHOROD1xcTQ-FJVoxiYBrdxIRHRa3IGdQMknzUNTsqVI73GH0aXlxvVQSaHYHUsDuaL90lB7hjeUj3Ip5UpeXS2Mq93edmU3EfGYPJlRxpPfPY4Lo8F16UuKpFlIF9lpxOQ0yr74qEoNMW9WSuWvuYsMc-R7NJc0g2XZSUkkgJSyNROxhgk-P7XWnf_JYNJV82zY2IbhXrOfLRjZm7wg5uAwPKV9QtsY-77xSxDVVO71zZ89g43tFQC7y1jRqAQ"
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -1126,7 +1126,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6IjRpVFdCNmZsTGpyZEhuZUoyVWUwckc1MzZOYVZDT3RacGJ6TV9QN2R5N2sifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ3b3JrZmxvd3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiZ2l0aHViLXdvcmtmbG93LWF1dG9tYXRpb24tMTY1NTAyODQ3Mi10b2tlbi1wZzh3NSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiZDdjYzM0MDgtY2FkMC00ZmFmLWI1ZGYtYjlmZWMxY2JlMWYyIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OndvcmtmbG93czpnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIn0.kKgjPnWvLouRowV0g-obdiS63iQq8t6wPIb0kh0EIOyg7mSko290Z08LWJWXihPtP_P2uR6DgIU2335YTI04llWIHOROD1xcTQ-FJVoxiYBrdxIRHRa3IGdQMknzUNTsqVI73GH0aXlxvVQSaHYHUsDuaL90lB7hjeUj3Ip5UpeXS2Mq93edmU3EfGYPJlRxpPfPY4Lo8F16UuKpFlIF9lpxOQ0yr74qEoNMW9WSuWvuYsMc-R7NJc0g2XZSUkkgJSyNROxhgk-P7XWnf_JYNJV82zY2IbhXrOfLRjZm7wg5uAwPKV9QtsY-77xSxDVVO71zZ89g43tFQC7y1jRqAQ"
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -1293,7 +1293,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6IjRpVFdCNmZsTGpyZEhuZUoyVWUwckc1MzZOYVZDT3RacGJ6TV9QN2R5N2sifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJ3b3JrZmxvd3MiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiZ2l0aHViLXdvcmtmbG93LWF1dG9tYXRpb24tMTY1NTAyODQ3Mi10b2tlbi1wZzh3NSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiZDdjYzM0MDgtY2FkMC00ZmFmLWI1ZGYtYjlmZWMxY2JlMWYyIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OndvcmtmbG93czpnaXRodWItd29ya2Zsb3ctYXV0b21hdGlvbi0xNjU1MDI4NDcyIn0.kKgjPnWvLouRowV0g-obdiS63iQq8t6wPIb0kh0EIOyg7mSko290Z08LWJWXihPtP_P2uR6DgIU2335YTI04llWIHOROD1xcTQ-FJVoxiYBrdxIRHRa3IGdQMknzUNTsqVI73GH0aXlxvVQSaHYHUsDuaL90lB7hjeUj3Ip5UpeXS2Mq93edmU3EfGYPJlRxpPfPY4Lo8F16UuKpFlIF9lpxOQ0yr74qEoNMW9WSuWvuYsMc-R7NJc0g2XZSUkkgJSyNROxhgk-P7XWnf_JYNJV82zY2IbhXrOfLRjZm7wg5uAwPKV9QtsY-77xSxDVVO71zZ89g43tFQC7y1jRqAQ"
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
