@@ -1279,7 +1279,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_input"
-      TEST_ARGS: "--uf-host=so1 --uf-os=redhat"
+      TEST_ARGS: "--uf-host=spl --uf-os=redhat"
     steps:
       - uses: actions/checkout@v3
         with:
