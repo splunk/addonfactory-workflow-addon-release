@@ -335,7 +335,7 @@ jobs:
       ui: ${{ steps.testset.outputs.ui }}
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
-      scripted_input: ${{ steps.testset.outputs.scripted_input }}
+      scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
     steps:
       - uses: actions/checkout@v3
       - id: testset
@@ -1258,7 +1258,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests:
-    if: ${{ needs.test-inventory.outputs.scripted_input == 'true' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1278,7 +1278,7 @@ jobs:
       ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-      TEST_TYPE: "scripted_input"
+      TEST_TYPE: "scripted_inputs"
       TEST_ARGS: "--uf-host=spl --uf-os=redhat"
     steps:
       - uses: actions/checkout@v3
