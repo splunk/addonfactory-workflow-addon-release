@@ -53,6 +53,7 @@ jobs:
       container_revision: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.revision'] }}
       container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
+      matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
@@ -774,7 +775,7 @@ jobs:
           reporter: java-junit
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' }} &&  ${{ matrix.splunk.islatest == true }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' }}
     needs:
       - build
       - test-inventory
@@ -784,7 +785,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
