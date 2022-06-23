@@ -1312,7 +1312,7 @@ jobs:
           exit 1
 
   publish:
-    if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request'
+    if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule'
     needs:
       - pre-publish
     runs-on: ubuntu-latest
