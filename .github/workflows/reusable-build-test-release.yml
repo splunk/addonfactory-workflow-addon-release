@@ -258,19 +258,19 @@ jobs:
           SemVer: ${{ steps.semantic.outputs.new_release_version }}
           PrNumber: ${{ github.event.number }}
       - name: Download THRIDPARTY
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
-      - name: Download THRIDPARTY (Optional for PR)
-        if: github.event_name == 'pull_request'
+      - name: Download THRIDPARTY (Optional for PR and schedule)
+        if: github.event_name == 'pull_request' || github.event_name == 'schedule'
         continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
       - name: Update Notices
         run: |
-          cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR)"
+          cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v1
