@@ -579,7 +579,7 @@ jobs:
           echo "::set-output name=argo-secure::true"
           echo "::set-output name=argo-base-href::\'\'"
           echo "::set-output name=argo-namespace::workflows"
-          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-scripted-inputs"
+          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-validate-scripted"
 
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
@@ -1269,6 +1269,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        os: ["ubuntu:18.04","ubuntu:20.04","ubuntu:22.04"]
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1279,7 +1280,6 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
-      TEST_ARGS: "--uf-host=spl --uf-os=ubuntu"
     steps:
       - uses: actions/checkout@v3
         with:
@@ -1305,15 +1305,25 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: get os name and version
+        id: os-name-version
+        shell: bash
+        run: |
+          OS_NAME_VERSION=${{ matrix.os }}
+          OS_NAME_VERSION=(${OS_NAME_VERSION//:/ })
+          OS_NAME=${OS_NAME_VERSION[0]}
+          OS_VERSION=${OS_NAME_VERSION[1]}
+          echo "::set-output name=os-name::$OS_NAME"
+          echo "::set-output name=os-version::$OS_VERSION"
       - name: run-tests
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@ci/update-scripted-inputs
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }}
+          test-args: "--uf-host=spl --uf-os=${{ steps.os-name-version.os-name }}"
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1323,6 +1333,8 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          os-name: ${{ steps.os-name-version.os-name }}
+          os-version: ${{ steps.os-name-version.os-version }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
