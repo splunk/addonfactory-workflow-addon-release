@@ -1323,7 +1323,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: "--uf-host=spl --uf-os=${{ steps.os-name-version.os-name }}"
+          test-args: "--uf-host=spl --uf-os=${{ steps.os-name-version.outputs.os-name }}"
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1333,8 +1333,8 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
-          os-name: ${{ steps.os-name-version.os-name }}
-          os-version: ${{ steps.os-name-version.os-version }}
+          os-name: ${{ steps.os-name-version.outputs.os-name }}
+          os-version: ${{ steps.os-name-version.outputs.os-version }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
