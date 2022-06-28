@@ -657,7 +657,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@ci/update-scripted-inputs
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -827,7 +827,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@ci/update-scripted-inputs
         with:
           splunk: ${{ matrix.splunk }}
           test-type: ${{ env.TEST_TYPE }}
@@ -984,7 +984,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@ci/update-scripted-inputs
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1154,7 +1154,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@ci/update-scripted-inputs
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1328,7 +1328,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "Yes"
+          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
