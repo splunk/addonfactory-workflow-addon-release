@@ -53,6 +53,7 @@ jobs:
       container_revision: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.revision'] }}
       container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
+      matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
@@ -93,7 +94,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.7.0
+        uses: splunk/addonfactory-test-matrix-action@v1.8
 
   compliance-sample-scanner:
     runs-on: ubuntu-latest
@@ -258,19 +259,19 @@ jobs:
           SemVer: ${{ steps.semantic.outputs.new_release_version }}
           PrNumber: ${{ github.event.number }}
       - name: Download THRIDPARTY
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
-      - name: Download THRIDPARTY (Optional for PR)
-        if: github.event_name == 'pull_request'
+      - name: Download THRIDPARTY (Optional for PR and schedule)
+        if: github.event_name == 'pull_request' || github.event_name == 'schedule'
         continue-on-error: true
         uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
       - name: Update Notices
         run: |
-          cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR)"
+          cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v1
@@ -785,7 +786,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ['8.2.1']
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -829,7 +830,7 @@ jobs:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@ci/update-scripted-inputs
         with:
-          splunk: ${{ matrix.splunk }}
+          splunk: ${{ matrix.splunk.version }}
           test-type: ${{ env.TEST_TYPE }}
           test-args: ""
           job-name: ${{ steps.create-job-name.outputs.job-name }}
@@ -913,20 +914,20 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: archive splunk ${{ matrix.splunk }} ${{ env.TEST_TYPE }} tests artifacts
+          name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: archive splunk ${{ matrix.splunk }} ${{ env.TEST_TYPE }} tests logs
+          name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: splunk ${{ matrix.splunk }} ${{ env.TEST_TYPE }} test report
+          name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
 
@@ -1268,7 +1269,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ["9.0.0"]
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         os: ["ubuntu:18.04"]
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -1479,7 +1480,7 @@ jobs:
           exit 1
 
   publish:
-    if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request'
+    if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule'
     needs:
       - pre-publish
     runs-on: ubuntu-latest
@@ -1548,13 +1549,3 @@ jobs:
           overwrite: true
           file_glob: true
           tag: v${{ steps.semantic.outputs.new_release_version }}
-
-  update-semver:
-    name: release-set-git-tags
-    if: always() && needs.publish.result == 'success' && startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - publish
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: haya14busa/action-update-semver@v1
