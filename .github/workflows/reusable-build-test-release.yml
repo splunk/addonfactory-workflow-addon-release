@@ -1268,8 +1268,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
-        os: ["ubuntu:18.04","ubuntu:20.04","ubuntu:22.04"]
+        splunk: ["9.0.0"]
+        os: ["ubuntu:18.04"]
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
