@@ -215,10 +215,14 @@ jobs:
         run: |
           if [ -f "poetry.lock" ]
           then
-            echo " potery.lock found "
+            echo " poetry.lock found "
             sudo pip3 install poetry
-            mkdir -p package/lib || true
-            poetry export --without-hashes -o package/lib/requirements.txt
+            if [ -f "globalConfig.json" ]
+            then
+              echo " globalConfig.json found, creating package/lib and exporting poetry dependencies "
+              mkdir -p package/lib || true
+              poetry export --without-hashes -o package/lib/requirements.txt
+            fi
             poetry export --without-hashes --dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
