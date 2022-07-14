@@ -1270,7 +1270,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
-        os: ["ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7.4", "centos:7.8", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5"]
+        os: ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7", "centos:7.4", "centos:7.8", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5"]
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1329,7 +1329,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: "Yes"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
