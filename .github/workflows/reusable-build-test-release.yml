@@ -177,7 +177,7 @@ jobs:
       - name: Trufflehog Actions Scan
         uses: edplato/trufflehog-actions-scan@v0.9l-beta
         with:
-          scanArguments: "--max_dept 1 -x .github/workflows/exclude-patterns.txt --allow .github/workflows/trufflehog-false-positive.json"
+          scanArguments: "--max_dept 5 -x .github/workflows/exclude-patterns.txt --allow .github/workflows/trufflehog-false-positive.json"
 
   semgrep:
     runs-on: ubuntu-latest
