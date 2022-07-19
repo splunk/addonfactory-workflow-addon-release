@@ -787,3 +787,9 @@ DOCKER_IMAGE=10.0.14-debian-10-r39
 ```
 
 - If and when Tomcat releases 11.x or 10.1.x or similar, all the developer/add-on team would have to do is just create a new stanza for the version and respective `DOCKER_IMAGE` to validate the behavior.
+
+# Write Customized Github Actions with TypeScript and Test Locally
+
+Here is a tutorial explains step by step how to develop a customized Github Actions with TypeScript and how to test Github Actions locally.
+
+https://github.com/xjin-splunk/ts-tutorial
