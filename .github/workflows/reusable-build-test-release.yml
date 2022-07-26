@@ -1311,7 +1311,7 @@ jobs:
         shell: bash
         run: |
           OS_NAME_VERSION=${{ matrix.os }}
-          OS_NAME_VERSION=(${OS_NAME_VERSION//:/ })
+          OS_NAME_VERSION=("${OS_NAME_VERSION//:/ }")
           OS_NAME=${OS_NAME_VERSION[0]}
           OS_VERSION=${OS_NAME_VERSION[1]}
           echo "::set-output name=os-name::$OS_NAME"
