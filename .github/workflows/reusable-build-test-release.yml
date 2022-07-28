@@ -1427,7 +1427,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' }} && ${{ github.base_ref == 'develop' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && github.base_ref == 'develop' }}
     needs:
       - build
       - test-inventory
