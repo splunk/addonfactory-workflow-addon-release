@@ -1311,7 +1311,7 @@ jobs:
         shell: bash
         run: |
           OS_NAME_VERSION=${{ matrix.os }}
-          # shellcheck disable=SC2128
+          # shellcheck disable=SC2206
           OS_NAME_VERSION=(${OS_NAME_VERSION//:/ })
           OS_NAME=${OS_NAME_VERSION[0]}
           OS_VERSION=${OS_NAME_VERSION[1]}
