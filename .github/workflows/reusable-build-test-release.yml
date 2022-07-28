@@ -1312,8 +1312,8 @@ jobs:
         run: |
           OS_NAME_VERSION=${{ matrix.os }}
           OS_NAME_VERSION=("${OS_NAME_VERSION//:/ }")
-          OS_NAME=${OS_NAME_VERSION[0]}
-          OS_VERSION=${OS_NAME_VERSION[1]}
+          OS_NAME="$(echo $OS_NAME_VERSION | cut -d':' -f1)"
+          OS_VERSION="$(echo $OS_NAME_VERSION | cut -d':' -f2)"
           echo "::set-output name=os-name::$OS_NAME"
           echo "::set-output name=os-version::$OS_VERSION"
       - name: run-tests
