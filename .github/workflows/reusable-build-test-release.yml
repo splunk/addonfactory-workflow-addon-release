@@ -148,7 +148,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: quality-lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4
+        uses: docker://ghcr.io/github/super-linter:slim-v4.9.4
         env:
           VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: main
@@ -215,10 +215,18 @@ jobs:
         run: |
           if [ -f "poetry.lock" ]
           then
-            echo " potery.lock found "
+            echo " poetry.lock found "
             sudo pip3 install poetry
-            mkdir -p package/lib || true
-            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes -o requirements.txt
+            if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
+            then
+                echo "Prod dependencies were found, creating package/lib folder"
+                mkdir -p package/lib || true
+                mv requirements.txt package/lib
+            else
+                echo "No prod dependencies were found"
+                rm requirements.txt
+            fi
             poetry export --without-hashes --dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
