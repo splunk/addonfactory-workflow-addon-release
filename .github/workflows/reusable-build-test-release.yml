@@ -1258,8 +1258,8 @@ jobs:
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
 
-  run-scripted-input-tests:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' }}
+  run-scripted-input-tests-full-matrix:
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) }}
     needs:
       - build
       - test-inventory
@@ -1313,6 +1313,173 @@ jobs:
           OS_NAME_VERSION=${{ matrix.os }}
           # shellcheck disable=SC2206
           OS_NAME_VERSION=(${OS_NAME_VERSION//:/ })
+          OS_NAME=${OS_NAME_VERSION[0]}
+          OS_VERSION=${OS_NAME_VERSION[1]}
+          echo "::set-output name=os-name::$OS_NAME"
+          echo "::set-output name=os-version::$OS_VERSION"
+      - name: run-tests
+        id: run-tests
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        uses: splunk/wfe-test-runner-action@v1.6.1
+        with:
+          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          test-type: ${{ env.TEST_TYPE }}
+          test-args: "--uf-host=spl --uf-os=${{ steps.os-name-version.outputs.os-name }} --uf-os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input"
+          job-name: ${{ steps.create-job-name.outputs.job-name }}
+          labels: ${{ needs.setup.outputs.labels }}
+          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
+          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
+          delay-destroy: "No"
+          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
+          addon-name: ${{ needs.setup.outputs.addon-name }}
+          vendor-version: ${{ matrix.vendor-version.image }}
+          sc4s-version: "No"
+          os-name: ${{ steps.os-name-version.outputs.os-name }}
+          os-version: ${{ steps.os-name-version.outputs.os-version }}
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        if: always()
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "::set-output name=retry-workflow::true"
+          fi
+      - name: Retrying workflow
+        id: retry-wf
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: always()
+        run: |
+          set -o xtrace
+          set +e
+          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
+          then
+            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
+            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
+          else
+            echo "No retry required"
+            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
+            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
+          fi
+      - name: check if workflow completed
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          echo "Status of workflow:" "$ARGO_STATUS"
+          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
+          do
+              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
+              argo wait "${WORKFLOW_NAME}" -n workflows || true
+              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          done
+      - name: pull artifacts from s3 bucket
+        if: always()
+        run: |
+          echo "pulling artifacts"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
+      - name: pull logs from s3 bucket
+        if: always()
+        run: |
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          echo "pulling logs"
+          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/test-results
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/argo-logs
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+
+  run-scripted-input-tests-canary:
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
+    needs:
+      - build
+      - test-inventory
+      - setup
+      - meta
+    runs-on: ubuntu-18.04
+    strategy:
+      fail-fast: false
+      matrix:
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        os: ["ubuntu:22.04", "centos:7","redhat:8.5"]
+    container:
+      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+    env:
+      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
+      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
+      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
+      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
+      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
+      SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+      TEST_TYPE: "scripted_inputs"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Read secrets from AWS Secrets Manager into environment variables
+        id: get-argo-token
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "::set-output name=argo-token::$ARGO_TOKEN"
+      - name: create job name
+        id: create-job-name
+        shell: bash
+        run: |
+          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
+          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
+          JOB_NAME=${JOB_NAME//[_.]/-}
+          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "::set-output name=job-name::$JOB_NAME"
+      - name: get os name and version
+        id: os-name-version
+        shell: bash
+        run: |
+          OS_NAME_VERSION=${{ matrix.os }}
+          OS_NAME_VERSION=("${OS_NAME_VERSION//:/ }")
           OS_NAME=${OS_NAME_VERSION[0]}
           OS_VERSION=${OS_NAME_VERSION[1]}
           echo "::set-output name=os-name::$OS_NAME"
