@@ -1333,7 +1333,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: "--uf-host=spl --uf-os=${{ steps.os-name-version.outputs.os-name }} --uf-os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input"
+          test-args: "--hostname=spl --os-name=${{ steps.os-name-version.outputs.os-name }} --os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input"
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1500,7 +1500,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: "--uf-host=spl --uf-os=${{ steps.os-name-version.outputs.os-name }} --uf-os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input"
+          test-args: "--hostname=spl --os-name=${{ steps.os-name-version.outputs.os-name }} --os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input"
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
