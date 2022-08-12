@@ -146,6 +146,8 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
+      - name: Adding eslint dependencies
+        run: npm install @typescript-eslint/parser @typescript-eslint/eslint-plugin
       - uses: pre-commit/action@v3.0.0
 
   review_secrets:
