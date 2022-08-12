@@ -163,44 +163,32 @@ i.e <img src="images/compliance-copyrights/license.png" alt="license" style="wid
 - No additional Artifacts.
 
 
-quality-lint 
-============
+lint 
+====
 
 **Description:** 
 
-- It is a simple combination of various linters, written in bash, to help validate your source code.
+- Workflow <2.0.0 used [super-linter](https://github.com/github/super-linter) to lint the code, which we don't use anymore now
 
-**Action used** https://github.com/github/super-linter
+- Uses [pre-commit](https://pre-commit.com) to run linters (Python, Java, JS and others)
+
+**Action used** https://github.com/pre-commit/action
 
 **Pass/fail behaviour:**
 
 - If the stage detects a linting error in the code the stage would fail with error information.
 
-**Exception file**
-
-- Since this action uses multiple linters there might be errors from multiple linters as well
-
-- If there is a flake8 failure we can use .flake8 file and similarly for other linters as well, However its not necessary each linter will have its own ignore file.
-
 **Troubleshooting steps for failures if any**
+
+- User can install `pre-commit` locally and run all the linters locally (`pre-commit run --all-files`) and resolve all the issues without the necessity to test changes in the CI.
 
 - User can look through the details for failures in logs and browse how to resolve a specific linters error i.e for flake8 failures one in install flake8 in local env and fix the failures and push to the repository.
 
-- Summary:<br />
- <img src="images/quality-lint/summary.png" alt="summary" style="width:200px;"/>
-<br />
-- Specific Error in logs: <br />
-<img src="images/quality-lint/error.png" alt="error" style="width:200px;"/> <br /> 
-- Summary for multiple lint failures: <br />
-<img src="images/quality-lint/summary2.png" alt="summary2" style="width:200px;"/>
-
-
-- If the logs are too long to display User can also access raw logs and search for issues. <br />
-<img src="images/quality-lint/raw-logs.png" alt="raw-logs" style="width:200px;"/>
+- If your add-on has some Java code, you need to have Java installed locally, so Java linter will work.
 
 **Artifacts:**
 
-- No additional artifacts, Failure details are available in the logs.
+- No additional artifacts, failure details are available in the logs.
 
 
 security-detect-secrets
