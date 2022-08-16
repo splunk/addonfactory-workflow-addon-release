@@ -1648,6 +1648,13 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: get escu detections
+        uses: actions/checkout@v3
+        id: get-escu-detections
+        run: |
+          DETECTIONS=$(cat .escu_detections | tr '\n' ',' | tr -d "[:space:]")
+          DETECTIONS="-tf $DETECTIONS"
+          echo "::set-output name=escu-detections::$DETECTIONS"
       - name: run-tests
         id: run-tests
         env:
@@ -1656,7 +1663,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: "-tf o365_pst_export_alert.test.yml"
+          test-args: ${{ setps.get-escu-detections.outputs.escu-detections }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
