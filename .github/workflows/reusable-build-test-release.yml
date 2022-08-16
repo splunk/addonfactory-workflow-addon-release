@@ -1651,7 +1651,7 @@ jobs:
       - name: get escu detections
         id: get-escu-detections
         run: |
-          DETECTIONS=$(cat .escu_detections | tr '\n' ',' | tr -d "[:space:]")
+          DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
           DETECTIONS="-tf $DETECTIONS"
           echo "::set-output name=escu-detections::$DETECTIONS"
       - name: run-tests
