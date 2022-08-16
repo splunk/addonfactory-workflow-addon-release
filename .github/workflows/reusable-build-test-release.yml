@@ -1612,7 +1612,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
