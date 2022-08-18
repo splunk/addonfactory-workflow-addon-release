@@ -141,22 +141,13 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    name: quality-lint
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
-          fetch-depth: 0
-      - name: quality-lint
-        uses: docker://ghcr.io/github/super-linter:slim-v4.9.4
-        env:
-          VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: main
-          LINTER_RULES_PATH: /
-          PYTHON_ISORT_CONFIG_FILE: pyproject.toml
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          FILTER_REGEX_EXCLUDE: README.md
-          VALIDATE_GITHUB_ACTIONS: false
+          python-version: "3.7"
+      - uses: pre-commit/action@v3.0.0
+
   review_secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
