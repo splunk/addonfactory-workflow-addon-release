@@ -549,7 +549,7 @@ jobs:
     needs:
       - build
       - test-inventory
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     outputs:
