@@ -1437,13 +1437,11 @@ jobs:
       - security-virustotal
       - test-inventory
       - run-unit-tests
-      - run-requirements-unit-tests
       - appinspect
       - setup
       - run-knowledge-tests
       - run-modinput-tests
       - run-ui-tests
-      - run-requirement-tests
       - validate-pr-title
     runs-on: ubuntu-latest
     env:
