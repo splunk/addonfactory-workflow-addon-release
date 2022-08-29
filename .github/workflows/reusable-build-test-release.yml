@@ -1259,7 +1259,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) }}
     needs:
       - build
       - test-inventory
@@ -1592,6 +1592,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+
   run-escu-tests:
     if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
     needs:
