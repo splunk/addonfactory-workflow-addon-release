@@ -1644,10 +1644,14 @@ jobs:
         id: get-escu-detections
         run: |
           DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
+          RUN_TEST=true
+          [ -z "$DETECTIONS" ] && RUN_TEST=false
           DETECTIONS="-tf $DETECTIONS"
           echo "::set-output name=escu-detections::$DETECTIONS"
+          echo "::set-output name=escu-test-run::$RUN_TEST"
       - name: run-tests
         id: run-tests
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6.1
@@ -1666,7 +1670,7 @@ jobs:
           sc4s-version: "No"
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1680,7 +1684,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         run: |
           set -o xtrace
           set +e
@@ -1697,7 +1701,7 @@ jobs:
       - name: check if workflow completed
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         shell: bash
         run: |
           set +e
@@ -1716,13 +1720,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1734,20 +1738,20 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
