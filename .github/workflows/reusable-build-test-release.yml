@@ -309,6 +309,7 @@ jobs:
           name: package-deployment
           path: build/package/deployment**
         if: always()
+
   security-virustotal:
     continue-on-error: true
     name: security-virustotal
@@ -326,6 +327,7 @@ jobs:
           vt_api_key: ${{ secrets.VT_API_KEY }}
           files: |
             build/package/*
+
   test-inventory:
     runs-on: ubuntu-latest
     # Map a step output to a job output
@@ -1749,6 +1751,13 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
+      - name: Upload results
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: escu-test-result
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/test-results/test-result.xml
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
