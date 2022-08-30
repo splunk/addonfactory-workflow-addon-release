@@ -1944,6 +1944,14 @@ jobs:
         with:
           name: cim-field-report
           path: download/artifacts/deployment
+      - name: Download escu-test-xml
+        id: download-escu-xml
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v3
+        with:
+          name: escu-test-result
+          path: download/artifacts/deployment
       - name: List of assets
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         run: |
