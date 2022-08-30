@@ -1645,9 +1645,17 @@ jobs:
       - name: get escu detections
         id: get-escu-detections
         run: |
+          RUN_TEST=false
           DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
-          RUN_TEST=true
-          [ -z "$DETECTIONS" ] && RUN_TEST=false
+          
+          if [ -z "$DETECTIONS" ]
+          then
+                echo "Detection list is empty."
+          else
+                RUN_TEST=true
+          fi
+
+          ![ -z "$DETECTIONS" ] && RUN_TEST=false
           DETECTIONS="-tf $DETECTIONS"
           echo "::set-output name=escu-detections::$DETECTIONS"
           echo "::set-output name=escu-test-run::$RUN_TEST"
