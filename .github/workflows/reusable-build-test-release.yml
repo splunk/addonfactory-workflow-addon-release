@@ -1654,8 +1654,6 @@ jobs:
           else
                 RUN_TEST=true
           fi
-
-          ![ -z "$DETECTIONS" ] && RUN_TEST=false
           DETECTIONS="-tf $DETECTIONS"
           echo "::set-output name=escu-detections::$DETECTIONS"
           echo "::set-output name=escu-test-run::$RUN_TEST"
