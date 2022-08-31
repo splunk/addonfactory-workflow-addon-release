@@ -1645,9 +1645,15 @@ jobs:
       - name: get escu detections
         id: get-escu-detections
         run: |
+          RUN_TEST=false
           DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
-          RUN_TEST=true
-          [ -z "$DETECTIONS" ] && RUN_TEST=false
+          
+          if [ -z "$DETECTIONS" ]
+          then
+                echo "Detection list is empty."
+          else
+                RUN_TEST=true
+          fi
           DETECTIONS="-tf $DETECTIONS"
           echo "::set-output name=escu-detections::$DETECTIONS"
           echo "::set-output name=escu-test-run::$RUN_TEST"
@@ -1937,6 +1943,14 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cim-field-report
+          path: download/artifacts/deployment
+      - name: Download escu-test-xml
+        id: download-escu-xml
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v3
+        with:
+          name: escu-test-result
           path: download/artifacts/deployment
       - name: List of assets
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
