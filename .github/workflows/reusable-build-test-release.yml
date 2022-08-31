@@ -184,7 +184,7 @@ jobs:
 
   build:
     name: build
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     needs:
       - fossa-scan
     outputs:
@@ -207,7 +207,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            sudo pip3 install poetry
+            sudo pip3 install poetry==1.1.13
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
