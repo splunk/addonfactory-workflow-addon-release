@@ -1772,67 +1772,6 @@ jobs:
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
 
-  test-artifacts:
-    if: always()
-    name: Checking artifacts
-    needs:
-      - meta
-      - compliance-sample-scanner
-      - compliance-copyrights
-      - lint
-      - review_secrets
-      - semgrep
-      - build
-      - security-virustotal
-      - test-inventory
-      - run-unit-tests
-      - run-requirements-unit-tests
-      - appinspect
-      - setup
-      - run-knowledge-tests
-      - run-ui-tests
-      - run-requirement-tests
-      - run-escu-tests
-      - validate-pr-title
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download package-deployment
-        uses: actions/download-artifact@v3
-        id: download-package-deployment
-        with:
-          name: package-deployment
-          path: download/artifacts/
-      - name: Download package-splunkbase
-        uses: actions/download-artifact@v3
-        id: download-package-splunkbase
-        with:
-          name: package-splunkbase
-          path: download/artifacts/deployment
-      - name: Download cim-compliance-report
-        id: download-cim-compliance-report
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: cim-compliance-report
-          path: download/artifacts/deployment
-      - name: Download cim-field-report
-        id: download-cim-field-report
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: cim-field-report
-          path: download/artifacts/deployment
-      - name: Download escu xml
-        id: download-escu-xml
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: escu-test-result
-          path: download/artifacts/deployment
-      - name: List of assets
-        run: |
-          ls -la ${{ steps.download-package-splunkbase.outputs.download-path }}
-
   validate-pr-title:
     name: Validate PR title
     if: github.event_name == 'pull_request'
