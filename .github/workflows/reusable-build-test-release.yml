@@ -1646,8 +1646,8 @@ jobs:
         id: get-escu-detections
         run: |
           RUN_TEST=false
+          # shellcheck disable=SC2002
           DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
-          
           if [ -z "$DETECTIONS" ]
           then
                 echo "Detection list is empty."
@@ -1763,7 +1763,7 @@ jobs:
         with:
           name: escu-test-result
           path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results/test-result.xml
+            ${{ needs.setup.outputs.directory-path }}/test-results/escu-result.xml
       - name: Test Report
         uses: dorny/test-reporter@v1
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
