@@ -1883,7 +1883,7 @@ jobs:
         with:
           name: cim-field-report
           path: download/artifacts/deployment
-      - name: Download escu-test-xml
+      - name: Download escu-test-results
         id: download-escu-xml
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
