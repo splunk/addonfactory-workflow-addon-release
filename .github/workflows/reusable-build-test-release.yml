@@ -207,7 +207,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            sudo pip3 install poetry==1.1.13
+            sudo pip3 install poetry==1.1.15
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -374,7 +374,7 @@ jobs:
           if [ -f "poetry.lock" ]
            then
              mkdir -p package/lib || true
-             pip install poetry==1.1.13
+             pip install poetry==1.1.15
              poetry export --without-hashes -o package/lib/requirements.txt
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
