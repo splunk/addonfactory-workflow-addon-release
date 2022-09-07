@@ -4,9 +4,11 @@ on:
   workflow_call:
     inputs:
       TA_BUILD:
+        description: 'TA build number (e.g. s3://ta-production-artifacts/ta-apps/{ta-name}-$build_number$.spl)'
         required: true
         type: string
       TESTS:
+        description: 'Comma-Separated List of detections to run (e.g. detection1,detection2,detection3)'
         required: true
         type: string
     secrets:
