@@ -9,7 +9,6 @@ on:
       TESTS:
         required: true
         type: string
-
     secrets:
       AWS_ACCESS_KEY_ID:
         description: AWS access key id
