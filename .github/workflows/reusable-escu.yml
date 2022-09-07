@@ -5,8 +5,10 @@ on:
     inputs:
       TA_BUILD:
         required: true
+        type: string
       TESTS:
         required: true
+        type: string
 
     secrets:
       GH_TOKEN_ADMIN:
