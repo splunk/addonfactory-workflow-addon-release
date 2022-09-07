@@ -11,15 +11,6 @@ on:
         type: string
 
     secrets:
-      GH_TOKEN_ADMIN:
-        description: Github admin token
-        required: true
-      GH_TOKEN:
-        description: Github token
-        required: true
-      SEMGREP_PUBLISH_TOKEN:
-        description: Semgrep token
-        required: true
       AWS_ACCESS_KEY_ID:
         description: AWS access key id
         required: true
@@ -29,17 +20,8 @@ on:
       AWS_SECRET_ACCESS_KEY:
         description: AWS secret access key
         required: true
-      VT_API_KEY:
-        description: Virustotal api key
-        required: true
-      CODECOV_TOKEN:
-        description: Codecov token
-        required: true
       OTHER_TA_REQUIRED_CONFIGS:
         description: other required configs
-        required: true
-      FOSSA_API_KEY:
-        description: API token for FOSSA app
         required: true
 
 jobs:
