@@ -1,5 +1,4 @@
-# jscpd:ignore-start
-name: escu-manual
+name: escu-manual-workflow
 on:
   workflow_call:
     inputs:
