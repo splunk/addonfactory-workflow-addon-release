@@ -40,6 +40,9 @@ on:
       FOSSA_API_KEY:
         description: API token for FOSSA app
         required: true
+      SKYNET_TOKEN:
+        description: API token for Skynet
+        required: false
 
 jobs:
   meta:
@@ -1711,3 +1714,16 @@ jobs:
           overwrite: true
           file_glob: true
           tag: v${{ steps.semantic.outputs.new_release_version }}
+          
+  get_workflow_conclusion:
+    if: always()
+    needs: [publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send logs to Skynet
+        uses: splunk/collect-ta-logs@main
+        with:
+          git_token: ${{secrets.GH_TOKEN}}
+          skynet-token: ${{ secrets.SKYNET_TOKEN }}
+          skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
+    
