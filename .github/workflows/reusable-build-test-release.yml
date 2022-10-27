@@ -550,7 +550,7 @@ jobs:
           echo "::set-output name=argo-secure::true"
           echo "::set-output name=argo-base-href::\'\'"
           echo "::set-output name=argo-namespace::workflows"
-          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-INFRA-38537"
+          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-infra-38537"
 
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
