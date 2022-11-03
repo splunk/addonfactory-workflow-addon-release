@@ -1169,12 +1169,18 @@ jobs:
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+      - name: Refresh secrets from AWS Secrets Manager
+        id: update-argo-token
+        if: always()
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
         shell: bash
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
@@ -1184,7 +1190,7 @@ jobs:
         id: retry-wf
         shell: bash
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         if: always()
         run: |
           set -o xtrace
@@ -1201,7 +1207,7 @@ jobs:
           fi
       - name: check if workflow completed
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         if: always()
         shell: bash
         run: |
@@ -1336,12 +1342,18 @@ jobs:
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+      - name: Refresh secrets from AWS Secrets Manager
+        id: update-argo-token
+        if: always()
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
         shell: bash
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
@@ -1351,7 +1363,7 @@ jobs:
         id: retry-wf
         shell: bash
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         if: always()
         run: |
           set -o xtrace
@@ -1368,7 +1380,7 @@ jobs:
           fi
       - name: check if workflow completed
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         if: always()
         shell: bash
         run: |
@@ -1506,12 +1518,18 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+      - name: Refresh secrets from AWS Secrets Manager
+        id: update-argo-token
+        if: always()
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         shell: bash
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
@@ -1521,7 +1539,7 @@ jobs:
         id: retry-wf
         shell: bash
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         run: |
           set -o xtrace
@@ -1538,7 +1556,7 @@ jobs:
           fi
       - name: check if workflow completed
         env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         shell: bash
         run: |
