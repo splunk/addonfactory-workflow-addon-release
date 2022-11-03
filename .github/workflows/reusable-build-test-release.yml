@@ -762,7 +762,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
-        browser: ["chrome"]
+        browser: ["chrome","firefox"]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
