@@ -581,6 +581,8 @@ jobs:
           else
             DELAY_DESTROY="No"
           fi
+          echo ${{ github.event.label.name }}
+          echo "$DELAY_DESTROY"
           echo "::set-output name=delay-destroy::$DELAY_DESTROY"
 
   run-knowledge-tests:
