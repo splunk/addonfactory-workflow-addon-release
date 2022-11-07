@@ -633,7 +633,8 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "JOB_NAME: $JOB_NAME "
+          echo "JOB_NAME: $JOB_NAME"
+          echo "${{ needs.setup.outputs.delay-destroy }}"
           echo "::set-output name=job-name::$JOB_NAME"
 
       - name: run-tests
