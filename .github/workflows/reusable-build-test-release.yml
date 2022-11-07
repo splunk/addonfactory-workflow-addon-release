@@ -537,6 +537,7 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
+      delay-destroy: ${{ steps.test-setup.outputs.delay-destroy }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -573,6 +574,14 @@ jobs:
           echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
           echo "::set-output name=directory-path::/tmp"
           echo "::set-output name=s3-bucket::ta-production-artifacts"
+
+          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]];
+          then
+            DELAY_DESTROY="Yes"
+          else
+            DELAY_DESTROY="No"
+          fi
+          echo "::set-output name=delay-destroy::$DELAY_DESTROY"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' }}
@@ -622,6 +631,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "JOB_NAME: $JOB_NAME "
           echo "::set-output name=job-name::$JOB_NAME"
 
       - name: run-tests
@@ -637,7 +647,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -813,7 +823,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -988,7 +998,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1159,7 +1169,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1326,7 +1336,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1498,7 +1508,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
