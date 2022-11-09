@@ -595,7 +595,7 @@ jobs:
                 DELAY_DESTROY_KO="True"
             fi
             if [[ $tests =~ "ui" ]]; then
-                DELAY_DESTROY_KO="True"
+                DELAY_DESTROY_UI="True"
             fi
             if [[ $tests =~ "modinput" ]]; then
                 DELAY_DESTROY_MODINPUT="True"
