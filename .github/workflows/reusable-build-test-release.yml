@@ -537,7 +537,9 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
-      delay-destroy: ${{ steps.test-setup.outputs.delay-destroy }}
+      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
+      delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
+      delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -584,6 +586,35 @@ jobs:
           echo ${{ github.event.label.name }}
           echo "$DELAY_DESTROY"
           echo "::set-output name=delay-destroy::$DELAY_DESTROY"
+        
+      - name: set delay destroy
+        id: delay-destroy-setup
+        shell: bash
+        run: |
+          DELAY_DESTROY_KO="False"
+          DELAY_DESTROY_UI="False"
+          DELAY_DESTROY_MODINPUT="False"
+          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]];
+          then
+            echo "${{ github.event.pull_request.body }}" >> body.txt
+            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            if [[ $tests =~ "ko" ]]; then
+                DELAY_DESTROY_KO="True"
+            fi
+            if [[ $tests =~ "ko" ]]; then
+                DELAY_DESTROY_KO="True"
+            fi
+            if [[ $tests =~ "modinput" ]]; then
+                DELAY_DESTROY_MODINPUT="True"
+            fi
+          fi
+          echo ${{ github.event.label.name }}
+          echo "$DELAY_DESTROY_KO"
+          echo "$DELAY_DESTROY_UI"
+          echo "$DELAY_DESTROY_MODINPUT"
+          echo "::set-output name=delay-destroy-ko::$DELAY_DESTROY_KO"
+          echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_UI"
+          echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_MODINPUT"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' }}
@@ -634,7 +665,7 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "JOB_NAME: $JOB_NAME"
-          echo "${{ needs.setup.outputs.delay-destroy }}"
+          echo "${{ needs.setup.outputs.delay-destroy-ko }}"
           echo "::set-output name=job-name::$JOB_NAME"
 
       - name: run-tests
@@ -826,7 +857,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy-ui }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1001,7 +1032,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy }}
+          delay-destroy: ${{ needs.setup.outputs.delay-destroy-modinput }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
