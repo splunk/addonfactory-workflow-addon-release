@@ -582,23 +582,23 @@ jobs:
         id: delay-destroy-setup
         shell: bash
         run: |
-          DELAY_DESTROY_KO="False"
-          DELAY_DESTROY_UI="False"
-          DELAY_DESTROY_MODINPUT="False"
-          PRESERVE_INFRA="False"
+          DELAY_DESTROY_KO="No"
+          DELAY_DESTROY_UI="No"
+          DELAY_DESTROY_MODINPUT="No"
+          PRESERVE_INFRA="false"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]];
           then
-            PRESERVE_INFRA="True"
+            PRESERVE_INFRA="true"
             echo "${{ github.event.pull_request.body }}" >> body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
             if [[ $tests =~ "ko" ]]; then
-                DELAY_DESTROY_KO="True"
+                DELAY_DESTROY_KO="Yes"
             fi
             if [[ $tests =~ "ui" ]]; then
-                DELAY_DESTROY_UI="True"
+                DELAY_DESTROY_UI="Yes"
             fi
             if [[ $tests =~ "modinput" ]]; then
-                DELAY_DESTROY_MODINPUT="True"
+                DELAY_DESTROY_MODINPUT="Yes"
             fi
           fi
           echo ${{ github.event.label.name }}
@@ -611,7 +611,7 @@ jobs:
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && !( needs.setup.outputs.preserve-infra == 'true' && needs.setup.outputs.delay-destroy-ko != 'true' ) }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && !( needs.setup.outputs.preserve-infra == 'true' && needs.setup.outputs.delay-destroy-ko == 'No' ) }}
     needs:
       - build
       - test-inventory
@@ -789,7 +789,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && !( needs.setup.outputs.preserve-infra != 'true' && needs.setup.outputs.delay-destroy-ui != 'true' ) }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && !( needs.setup.outputs.preserve-infra == 'true' && needs.setup.outputs.delay-destroy-ui == 'No' ) }}
     needs:
       - build
       - test-inventory
@@ -951,7 +951,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && !( needs.setup.outputs.preserve-infra != 'true' && needs.setup.outputs.delay-destroy-modinput != 'true' ) }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && !( needs.setup.outputs.preserve-infra == 'true' && needs.setup.outputs.delay-destroy-modinput == 'No' ) }}
     needs:
       - build
       - test-inventory
