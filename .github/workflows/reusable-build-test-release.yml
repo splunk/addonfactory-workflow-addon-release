@@ -611,7 +611,7 @@ jobs:
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && ( needs.setup.outputs.preserve-infra != 'true' || needs.setup.outputs.delay-destroy-ko == 'true' ) }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && !( needs.setup.outputs.preserve-infra == 'true' && needs.setup.outputs.delay-destroy-ko != 'true' ) }}
     needs:
       - build
       - test-inventory
@@ -789,7 +789,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && ( needs.setup.outputs.preserve-infra != 'true' || needs.setup.outputs.delay-destroy-ui == 'true' ) }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && !( needs.setup.outputs.preserve-infra != 'true' && needs.setup.outputs.delay-destroy-ui != 'true' ) }}
     needs:
       - build
       - test-inventory
@@ -951,7 +951,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && ( needs.setup.outputs.preserve-infra != 'true' || needs.setup.outputs.delay-destroy-modinput == 'true' ) }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && !( needs.setup.outputs.preserve-infra != 'true' && needs.setup.outputs.delay-destroy-modinput != 'true' ) }}
     needs:
       - build
       - test-inventory
