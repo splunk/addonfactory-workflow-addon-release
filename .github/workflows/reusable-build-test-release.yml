@@ -582,6 +582,7 @@ jobs:
         id: delay-destroy-setup
         shell: bash
         run: |
+          set +e
           DELAY_DESTROY_KO="No"
           DELAY_DESTROY_UI="No"
           DELAY_DESTROY_MODINPUT="No"
