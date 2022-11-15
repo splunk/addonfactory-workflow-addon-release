@@ -104,6 +104,8 @@ jobs:
         run: | 
           echo ${{ steps.matrix.outputs.supportedSplunk }}
           echo "========"
+          jq -V
+          echo "========"
           echo ${{ steps.matrix.outputs.supportedSplunk }} | jq '.[].version'  
 
   fossa-scan:
