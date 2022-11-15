@@ -99,6 +99,10 @@ jobs:
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.8
 
+      - name: set-delay-destroy
+        id: delay-destroy
+        
+
   fossa-scan:
     continue-on-error: true
     runs-on: ubuntu-latest
@@ -583,37 +587,27 @@ jobs:
         shell: bash
         run: |
           set +e
-          DELAY_DESTROY_KO="No"
-          DELAY_DESTROY_UI="No"
-          DELAY_DESTROY_MODINPUT="No"
+          TESTSET="knowledge ui modinput_functional"
+          for i in $TESTSET; do
+              evalDELAY_DESTROY_$i="No"
+          done
           PRESERVE_INFRA="false"
-          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]];
-          then
+          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             PRESERVE_INFRA="true"
             echo "${{ github.event.pull_request.body }}" >> body.txt
-            cat body.txt
-            echo "====="
-            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            echo $?
-            echo $tests
-            echo "====="
-            if [[ $tests =~ "ko" ]]; then
-                DELAY_DESTROY_KO="Yes"
-            fi
-            if [[ $tests =~ "ui" ]]; then
-                DELAY_DESTROY_UI="Yes"
-            fi
-            if [[ $tests =~ "modinput" ]]; then
-                DELAY_DESTROY_MODINPUT="Yes"
-            fi
+            for i in $TESTSET; do
+                if [[ $tests =~ "$i" ]]; then
+                    DELAY_DESTROY_$i="Yes"
+                fi
+            done
           fi
           echo ${{ github.event.label.name }}
-          echo "$DELAY_DESTROY_KO"
-          echo "$DELAY_DESTROY_UI"
-          echo "$DELAY_DESTROY_MODINPUT"
-          echo "::set-output name=delay-destroy-ko::$DELAY_DESTROY_KO"
-          echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_UI"
-          echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_MODINPUT"
+          echo "$DELAY_DESTROY_knowledge"
+          echo "$DELAY_DESTROY_ui"
+          echo "$DELAY_DESTROY_modinput_functional"
+          echo "::set-output name=delay-destroy-ko::$DELAY_DESTROY_knowledge"
+          echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_ui"
+          echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_modinput_functional"
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
 
   run-knowledge-tests:
