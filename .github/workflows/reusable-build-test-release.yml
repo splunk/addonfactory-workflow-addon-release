@@ -106,7 +106,7 @@ jobs:
           echo "========"
           jq -V
           echo "========"
-          echo "${{ steps.matrix.outputs.supportedSplunk }}" | jq '.[].version'  
+          echo '''${{ steps.matrix.outputs.supportedSplunk }}''' | jq '.[].version'  
 
   fossa-scan:
     continue-on-error: true
