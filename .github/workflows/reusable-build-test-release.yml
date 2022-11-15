@@ -593,7 +593,10 @@ jobs:
             echo "${{ github.event.pull_request.body }}" >> body.txt
             cat body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            echo "====="
+            echo $?
             echo $tests
+            echo "====="
             if [[ $tests =~ "ko" ]]; then
                 DELAY_DESTROY_KO="Yes"
             fi
