@@ -102,11 +102,11 @@ jobs:
       - name: update matrix
         id: update_matrix
         run: | 
-          echo ${{ steps.matrix.outputs.supportedSplunk }}
+          echo "${{ steps.matrix.outputs.supportedSplunk }}"
           echo "========"
           jq -V
           echo "========"
-          echo ${{ steps.matrix.outputs.supportedSplunk }} | jq '.[].version'  
+          echo "${{ steps.matrix.outputs.supportedSplunk }}" | jq '.[].version'  
 
   fossa-scan:
     continue-on-error: true
