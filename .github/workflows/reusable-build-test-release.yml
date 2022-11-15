@@ -103,7 +103,9 @@ jobs:
         id: update_matrix
         run: | 
           echo ${{ steps.matrix.outputs.supportedSplunk }}
-          echo ${{ fromJson(steps.matrix.outputs.supportedSplunk) }}
+          for i in ${{ fromJson(steps.matrix.outputs.supportedSplunk) }}; do
+            echo "$i"
+          done
 
   fossa-scan:
     continue-on-error: true
