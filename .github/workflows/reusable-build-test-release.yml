@@ -97,11 +97,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.8
-
-      - name: set-delay-destroy
-        id: delay-destroy
-        
+        uses: splunk/addonfactory-test-matrix-action@v1.8   
 
   fossa-scan:
     continue-on-error: true
