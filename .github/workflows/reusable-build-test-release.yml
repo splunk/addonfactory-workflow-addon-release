@@ -100,7 +100,7 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v1.8
 
       - name: update matrix
-        id: update matrix
+        id: update_matrix
         run: | 
           echo ${{ steps.matrix.outputs.supportedSplunk }}
 
