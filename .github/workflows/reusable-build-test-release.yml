@@ -103,8 +103,11 @@ jobs:
         id: update_matrix
         run: | 
           echo ${{ steps.matrix.outputs.supportedSplunk }}
+          echo "========"
           for i in ${{ fromJson(steps.matrix.outputs.supportedSplunk) }}; do
+            echo "------"
             echo "$i"
+            echo "------"
           done
 
   fossa-scan:
