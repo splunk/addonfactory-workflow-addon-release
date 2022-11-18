@@ -601,7 +601,9 @@ jobs:
             PRESERVE_INFRA="true"
             echo "${{ github.event.pull_request.body }}" >> body.txt
             for i in $TESTSET; do
+                echo "$i"
                 if [[ $tests =~ "$i" ]]; then
+                    echo "Here"
                     eval DELAY_DESTROY_$i="Yes"
                 fi
             done
