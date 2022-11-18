@@ -591,6 +591,7 @@ jobs:
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             PRESERVE_INFRA="true"
             echo "${{ github.event.pull_request.body }}" >> body.txt
+            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
             for i in $TESTSET; do
                 echo "$i"
                 if [[ $tests =~ "$i" ]]; then
