@@ -583,7 +583,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          TESTSET="knowledge ui modinput_functional"
+          TESTSET="knowledge ui modinput_functional escu scripted_inputs"
           for i in $TESTSET; do
               eval DELAY_DESTROY_$i="No"
           done
