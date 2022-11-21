@@ -625,6 +625,12 @@ jobs:
           echo "::set-output name=run_scripted_inputs::$RUN_scripted_inputs"
           echo "::set-output name=run_escu:$RUN_escu"
           echo "Value of variables are as follows"
+          echo "$RUN_knowledge"
+          echo "$RUN_ui"
+          echo "$RUN_modinput_functional"
+          echo "$RUN_scripted_inputs"
+          echo "$RUN_escu"
+          echo "Value of variables after replacement is"
           echo "$run_knowledge"
           echo "$run_ui"
           echo "$run_modinput"
@@ -859,6 +865,11 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+          echo "$run_knowledge"
+          echo "$run_ui"
+          echo "$run_modinput"
+          echo "$run_scripted_inputs"
+          echo "$run_escu"
       - name: run-tests
         id: run-tests
         env:
