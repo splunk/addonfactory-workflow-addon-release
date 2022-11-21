@@ -542,7 +542,9 @@ jobs:
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
       run_knowledge: ${{ steps.delay-destroy-setup.outputs.run_knowlege }}
       run_ui: ${{ steps.delay-destroy-setup.outputs.run_ui }}
-      run_modinput: ${{ steps.delay-destroy-setup.outputs.run_modinput_functional }}
+      run_modinput: ${{ steps.delay-destroy-setup.outputs.run_modinput }}
+      run_scripted_input: ${{ steps.delay-destroy-setup.outputs.run_scripted_input }}
+      run_escu: ${{ steps.delay-destroy-setup.outputs.escu }}
       preserve-infra: ${{ steps.delay-destroy-setup.outputs.preserve-infra }}
     steps:
       - uses: actions/checkout@v3
@@ -616,9 +618,13 @@ jobs:
           echo "::set-output name=run_knowledge::$RUN_knowledge"
           echo "::set-output name=run_ui::$RUN_ui"
           echo "::set-output name=run_modinput:$RUN_modinput_functional"
-          echo "Value of run-ui variable is $run_ui"
-          echo "Value of run-knowledge variable is $run_knowledge"
-          echo "Value of run-modinput variable is $run_modinput"
+          echo "::set-output name=run_scripted_input::$RUN_scripted_inputs"
+          echo "::set-output name=run_escu:$RUN_escu"
+          echo "Value of run_ui variable is $run_ui"
+          echo "Value of run_knowledge variable is $run_knowledge"
+          echo "Value of run_modinput variable is $run_modinput"
+          echo "Value of run_scripted_input variable is $run_scripted_input"
+          echo "Value of run_escu variable is $run_escu"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run_knowledge == 'Yes' }}
@@ -1136,7 +1142,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.run_scripted_input == 'Yes'  }}
     needs:
       - build
       - test-inventory
@@ -1304,7 +1310,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run_scripted_input == 'Yes'  }}
     needs:
       - build
       - test-inventory
@@ -1471,7 +1477,7 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run_escu == 'Yes'  }}
     needs:
       - build
       - test-inventory
@@ -1789,4 +1795,5 @@ jobs:
           git_token: ${{secrets.GH_TOKEN}}
           skynet-token: ${{ secrets.SKYNET_TOKEN }}
           skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
+
     
