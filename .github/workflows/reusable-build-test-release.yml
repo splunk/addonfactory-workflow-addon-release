@@ -540,9 +540,9 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
-      run-knowledge: ${{ steps.delay-destroy-setup.outputs.RUN_knowlege }}
-      run-ui: ${{ steps.delay-destroy-setup.outputs.RUN_ui }}
-      run-modinput: ${{ steps.delay-destroy-setup.outputs.RUN_modinput_functional }}
+      run_knowledge: ${{ steps.delay-destroy-setup.outputs.run_knowlege }}
+      run_ui: ${{ steps.delay-destroy-setup.outputs.run_ui }}
+      run_modinput: ${{ steps.delay-destroy-setup.outputs.run_modinput_functional }}
       preserve-infra: ${{ steps.delay-destroy-setup.outputs.preserve-infra }}
     steps:
       - uses: actions/checkout@v3
@@ -613,12 +613,15 @@ jobs:
           echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_ui"
           echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_modinput_functional"
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
-          echo "::set-output name=run-knowledge::$RUN_knowledge"
-          echo "::set-output name=run-ui::$RUN_ui"
-          echo "::set-output name=run-modinput:$RUN_modinput_functional"
+          echo "::set-output name=run_knowledge::$RUN_knowledge"
+          echo "::set-output name=run_ui::$RUN_ui"
+          echo "::set-output name=run_modinput:$RUN_modinput_functional"
+          echo "Value of run-ui variable is $run_ui"
+          echo "Value of run-knowledge variable is $run_knowledge"
+          echo "Value of run-modinput variable is $run_modinput"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run-knowledge== 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run_knowledge == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -796,7 +799,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.run-ui== 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.run_ui == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -958,7 +961,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.run-modinput== 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.run_modinput == 'Yes' }}
     needs:
       - build
       - test-inventory
