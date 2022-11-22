@@ -646,7 +646,7 @@ jobs:
           echo "${{ needs.setup.outputs.delay-destroy-escu }}"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run_knowledge == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.delay-destory-ko == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -823,7 +823,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.run_ui == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.delay-destroy-ui == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -992,7 +992,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.run_modinput == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.delay-destroy-modinput == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1167,7 +1167,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.run_scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.delay-destory-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1335,7 +1335,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run_scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1502,7 +1502,7 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run_escu == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.delay-destroy-escu == 'Yes' }}
     needs:
       - build
       - test-inventory
