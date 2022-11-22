@@ -540,11 +540,11 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
-      run-knowledge: ${{ steps.delay-destroy-setup.outputs.run-knowlege }}
-      run-ui: ${{ steps.delay-destroy-setup.outputs.run-ui }}
-      run-modinput: ${{ steps.delay-destroy-setup.outputs.run-modinput }}
-      run-scripted-input: ${{ steps.delay-destroy-setup.outputs.run-scripted-input }}
-      run-escu: ${{ steps.delay-destroy-setup.outputs.run-escu }}
+      run_knowledge: ${{ steps.delay-destroy-setup.outputs.run-knowlege }}
+      run_ui: ${{ steps.delay-destroy-setup.outputs.run-ui }}
+      run_modinput: ${{ steps.delay-destroy-setup.outputs.run-modinput }}
+      run_scripted_inputs: ${{ steps.delay-destroy-setup.outputs.run-scripted-input }}
+      run_escu: ${{ steps.delay-destroy-setup.outputs.run-escu }}
       preserve-infra: ${{ steps.delay-destroy-setup.outputs.preserve-infra }}
     steps:
       - uses: actions/checkout@v3
@@ -620,11 +620,11 @@ jobs:
           echo "::set-output name=delay-destroy-scripted_inputs::$DELAY_DESTROY_scripted_inputs"
           echo "::set-output name=delay-destroy-escu::$DELAY_DESTROY_escu"
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
-          echo "::set-output name=run-knowledge::$RUN_knowledge"
-          echo "::set-output name=run-ui::$RUN_ui"
-          echo "::set-output name=run-modinput:$RUN_modinput_functional"
-          echo "::set-output name=run-scripted-inputs::$RUN_scripted_inputs"
-          echo "::set-output name=run-escu:$RUN_escu"
+          echo "::set-output name=run_knowledge::$RUN_knowledge"
+          echo "::set-output name=run_ui::$RUN_ui"
+          echo "::set-output name=run_modinput:$RUN_modinput_functional"
+          echo "::set-output name=run_scripted_inputs::$RUN_scripted_inputs"
+          echo "::set-output name=run_escu:$RUN_escu"
           echo "Value of variables are as follows"
           echo "$RUN_knowledge"
           echo "$RUN_ui"
@@ -632,14 +632,14 @@ jobs:
           echo "$RUN_scripted_inputs"
           echo "$RUN_escu"
           echo "Value of variables after replacement is"
-          echo "$run-knowledge"
-          echo "$run-ui"
-          echo "$run-modinput"
-          echo "$run-scripted-inputs"
-          echo "$run-escu"
+          echo "${{ needs.setup.outputs.run_knowledge }}"
+          echo "${{ needs.setup.output.run_ui }}" 
+          echo "${{ needs.setup.output.run_modinput }}"
+          echo "${{ needs.setup.output.run_scripted_inputs }}"
+          echo "${{ needs.setup.output.run_escu }}"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run-knowledge == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run_knowledge == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -687,7 +687,6 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "JOB_NAME: $JOB_NAME"
-          echo "${{ needs.setup.outputs.delay-destroy-ko }}"
           echo "::set-output name=job-name::$JOB_NAME"
 
       - name: run-tests
@@ -817,7 +816,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.run-ui == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.run_ui == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -986,7 +985,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.run-modinput == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.run_modinput == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1161,7 +1160,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.run-scripted-input == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.run_scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1329,7 +1328,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run-scripted-input == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run_scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1496,7 +1495,7 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run-escu == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.run_escu == 'Yes' }}
     needs:
       - build
       - test-inventory
