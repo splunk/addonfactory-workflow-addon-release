@@ -646,7 +646,7 @@ jobs:
           echo "${{ needs.setup.outputs.delay-destroy-escu }}"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.delay-destory-ko == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.delay-destroy-ko == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1167,7 +1167,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.delay-destory-scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
