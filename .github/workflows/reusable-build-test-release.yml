@@ -540,11 +540,11 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
-      run_knowledge: ${{ steps.delay-destroy-setup.outputs.run-knowlege }}
-      run_ui: ${{ steps.delay-destroy-setup.outputs.run-ui }}
-      run_modinput: ${{ steps.delay-destroy-setup.outputs.run-modinput }}
-      run_scripted_inputs: ${{ steps.delay-destroy-setup.outputs.run-scripted-input }}
-      run_escu: ${{ steps.delay-destroy-setup.outputs.run-escu }}
+      run_knowledge: ${{ steps.delay-destroy-setup.outputs.run_knowlege }}
+      run_ui: ${{ steps.delay-destroy-setup.outputs.run_ui }}
+      run_modinput: ${{ steps.delay-destroy-setup.outputs.run_modinput }}
+      run_scripted_inputs: ${{ steps.delay-destroy-setup.outputs.run_scripted_inputs }}
+      run_escu: ${{ steps.delay-destroy-setup.outputs.run_escu }}
       preserve-infra: ${{ steps.delay-destroy-setup.outputs.preserve-infra }}
     steps:
       - uses: actions/checkout@v3
