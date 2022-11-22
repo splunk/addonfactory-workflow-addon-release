@@ -633,10 +633,10 @@ jobs:
           echo "$RUN_escu"
           echo "Value of variables after replacement is"
           echo "${{ needs.setup.outputs.run_knowledge }}"
-          echo "${{ needs.setup.output.run_ui }}" 
-          echo "${{ needs.setup.output.run_modinput }}"
-          echo "${{ needs.setup.output.run_scripted_inputs }}"
-          echo "${{ needs.setup.output.run_escu }}"
+          echo "${{ needs.setup.outputs.run_ui }}" 
+          echo "${{ needs.setup.outputs.run_modinput }}"
+          echo "${{ needs.setup.outputs.run_scripted_inputs }}"
+          echo "${{ needs.setup.outputs.run_escu }}"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run_knowledge == 'Yes' }}
@@ -866,11 +866,11 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
           echo "JOB_NAME: $JOB_NAME"
-          echo "${{ needs.setup.output.run_knowledge }}"
-          echo "${{ needs.setup.output.run_ui }}" 
-          echo "${{ needs.setup.output.run_modinput }}"
-          echo "${{ needs.setup.output.run_scripted_inputs }}"
-          echo "${{ needs.setup.output.run_escu }}"
+          echo "${{ needs.setup.outputs.run_knowledge }}"
+          echo "${{ needs.setup.outputs.run_ui }}" 
+          echo "${{ needs.setup.outputs.run_modinput }}"
+          echo "${{ needs.setup.outputs.run_scripted_inputs }}"
+          echo "${{ needs.setup.outputs.run_escu }}"
           echo "Finally print true"
       - name: run-tests
         id: run-tests
