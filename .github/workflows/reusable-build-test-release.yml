@@ -540,6 +540,8 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
+      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
+      delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
       run_knowledge: ${{ steps.delay-destroy-setup.outputs.run_knowlege }}
       run_ui: ${{ steps.delay-destroy-setup.outputs.run_ui }}
       run_modinput: ${{ steps.delay-destroy-setup.outputs.run_modinput }}
@@ -637,6 +639,11 @@ jobs:
           echo "${{ needs.setup.outputs.run_modinput }}"
           echo "${{ needs.setup.outputs.run_scripted_inputs }}"
           echo "${{ needs.setup.outputs.run_escu }}"
+          echo "${{ needs.setup.outputs.delay-destroy-ko }}"
+          echo "${{ needs.setup.outputs.delay-destroy-ui }}" 
+          echo "${{ needs.setup.outputs.delay-destroy-modinput }}"
+          echo "${{ needs.setup.outputs.delay-destroy-scripted_inputs }}"
+          echo "${{ needs.setup.outputs.delay-destroy-escu }}"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.run_knowledge == 'Yes' }}
