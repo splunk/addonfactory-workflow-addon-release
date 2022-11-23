@@ -542,11 +542,6 @@ jobs:
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
       delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
       delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
-      execute-knowledge: ${{ steps.delay-destroy-setup.outputs.execute-knowlege }}
-      execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
-      execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
-      execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
-      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
       preserve-infra: ${{ steps.delay-destroy-setup.outputs.preserve-infra }}
     steps:
       - uses: actions/checkout@v3
@@ -593,7 +588,6 @@ jobs:
           TESTSET="knowledge ui modinput_functional escu scripted_inputs"
           for i in $TESTSET; do
               eval DELAY_DESTROY_$i="No"
-              eval EXECUTE_$i="No"
           done
           PRESERVE_INFRA="false"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
@@ -606,7 +600,6 @@ jobs:
                     echo "Inside changing if condition"
                     echo "$i"
                     eval DELAY_DESTROY_$i="Yes"
-                    eval EXECUTE_$i="Yes"
                 fi
             done
           fi
@@ -622,20 +615,9 @@ jobs:
           echo "::set-output name=delay-destroy-scripted_inputs::$DELAY_DESTROY_scripted_inputs"
           echo "::set-output name=delay-destroy-escu::$DELAY_DESTROY_escu"
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
-          echo "::set-output name=execute-knowledge::$EXECUTE_knowledge"
-          echo "::set-output name=execute-ui::$EXECUTE_ui"
-          echo "::set-output name=execute-modinput:$EXECUTE_modinput_functional"
-          echo "::set-output name=execute-scripted_inputs::$EXECUTE_scripted_inputs"
-          echo "::set-output name=execute-escu:$EXECUTE_escu"
-          echo "Value of variables are as follows"
-          echo "$EXECUTE_knowledge"
-          echo "$EXECUTE_ui"
-          echo "$EXECUTE_modinput_functional"
-          echo "$EXECUTE_scripted_inputs"
-          echo "$EXECUTE_escu"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.delay-destroy-ko == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.delay-destroy-ko == 'Yes' || needs.setup.outputs.preserve-infra == 'false' }}
     needs:
       - build
       - test-inventory
@@ -812,7 +794,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.delay-destroy-ui == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.delay-destroy-ui == 'Yes' || needs.setup.outputs.preserve-infra == 'false' }}
     needs:
       - build
       - test-inventory
@@ -981,7 +963,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.delay-destroy-modinput == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.delay-destroy-modinput == 'Yes' || needs.setup.outputs.preserve-infra == 'false' }}
     needs:
       - build
       - test-inventory
@@ -1156,7 +1138,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' || needs.setup.outputs.preserve-infra == 'false' }}
     needs:
       - build
       - test-inventory
@@ -1324,7 +1306,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' || needs.setup.outputs.preserve-infra == 'false' }}
     needs:
       - build
       - test-inventory
@@ -1491,7 +1473,7 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.delay-destroy-escu == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.delay-destroy-escu == 'Yes' || needs.setup.outputs.preserve-infra == 'false' }}
     needs:
       - build
       - test-inventory
