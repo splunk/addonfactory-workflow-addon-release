@@ -48,7 +48,7 @@ jobs:
       - id: testset
         name: testsets
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "::set-output name=$TESTSET::true"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> $GITHUB_OUTPUT; echo "$TESTSET::true"; done
 
   setup:
     runs-on: ubuntu-latest
@@ -76,12 +76,12 @@ jobs:
         id: test-setup
         shell: bash
         run: |
-          echo "::set-output name=argo-server::argo.wfe.splgdi.com:443"
-          echo "::set-output name=argo-http1::true"
-          echo "::set-output name=argo-secure::true"
-          echo "::set-output name=argo-base-href::\'\'"
-          echo "::set-output name=argo-namespace::workflows"
-          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow"
+          echo "argo-server=argo.wfe.splgdi.com:443" >> $GITHUB_OUTPUT
+          echo "argo-http1=true" >> $GITHUB_OUTPUT
+          echo "argo-secure=true" >> $GITHUB_OUTPUT
+          echo "argo-base-href=\'\'" >> $GITHUB_OUTPUT
+          echo "argo-namespace=workflows" >> $GITHUB_OUTPUT
+          echo "argo-workflow-tmpl-name=ta-workflow" >> $GITHUB_OUTPUT
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
@@ -90,17 +90,17 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          echo "::set-output name=addon-name::\"$ADDON_NAME\""
+          echo "addon-name=\" >> $GITHUB_OUTPUT$ADDON_NAME\""
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
-          echo "::set-output name=job-name::wf-$JOB_NAME"
+          echo "job-name=wf-$JOB_NAME" >> $GITHUB_OUTPUT
           LABELS="addon-name=${ADDON_NAME}"
-          echo "::set-output name=labels::$LABELS"
+          echo "labels=$LABELS" >> $GITHUB_OUTPUT
           ADDON_BUILD_NAME=$(crudini --get package/default/app.conf id name)
           ADDON_UPLOAD_PATH="s3://ta-production-artifacts/ta-apps/${ADDON_BUILD_NAME}-${{ inputs.TA_BUILD }}.spl"
-          echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
-          echo "::set-output name=directory-path::/tmp"
-          echo "::set-output name=s3-bucket::ta-production-artifacts"
+          echo "addon-upload-path=$ADDON_UPLOAD_PATH" >> $GITHUB_OUTPUT
+          echo "directory-path=/tmp" >> $GITHUB_OUTPUT
+          echo "s3-bucket=ta-production-artifacts" >> $GITHUB_OUTPUT
 
   run-escu-tests:
     if: ${{ needs.test-inventory.outputs.escu == 'true' }}
@@ -137,7 +137,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -147,7 +147,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: run-tests
         id: run-tests
         env:
@@ -175,7 +175,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -189,7 +189,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
