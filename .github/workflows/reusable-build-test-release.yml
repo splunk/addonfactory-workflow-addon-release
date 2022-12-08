@@ -315,10 +315,10 @@ jobs:
       - name: Get pip cache dir
         id: pip-cache
         run: |
-          echo "::set-output name=dir::$(pip cache dir)"
+          echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
       - name: Run Check there are libraries to scan
         id: checklibs
-        run: if [ -f requirements_dev.txt ]; then echo "::set-output name=ENABLED::true"; fi
+        run: if [ -f requirements_dev.txt ]; then echo "ENABLED=true" >> $GITHUB_OUTPUT; fi
       - name: pip cache
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
         uses: actions/cache@v3
@@ -391,7 +391,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          echo "::set-output name=name::$(basename "${{ steps.slim.outputs.OUTPUT }}")"
+          echo "name=$(basename " >> $GITHUB_OUTPUT${{ steps.slim.outputs.OUTPUT }}")"
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
       - name: artifact-splunk-parts
@@ -437,7 +437,7 @@ jobs:
       - id: testset
         name: testsets
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "::set-output name=$TESTSET::true"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> $GITHUB_OUTPUT; echo "$TESTSET::true"; done
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -483,7 +483,7 @@ jobs:
         run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Run Check if codecov enabled
         id: checkcodecov
-        run: if [ -n "$CODECOV_TOKEN" ]; then echo "::set-output name=ENABLED::true"; fi
+        run: if [ -n "$CODECOV_TOKEN" ]; then echo "ENABLED=true" >> $GITHUB_OUTPUT; fi
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload coverage to Codecov
@@ -587,7 +587,7 @@ jobs:
         run: |
           appid=$(jq -r '.info.id.name' package/app.manifest)
           echo appid="$appid"
-          echo "::set-output name=result::$appid"
+          echo "result=$appid" >> $GITHUB_OUTPUT
       - run: |
           curl -LO https://github.com/oras-project/oras/releases/download/v0.12.0/oras_0.12.0_linux_amd64.tar.gz
           mkdir -p oras-install/
@@ -641,7 +641,7 @@ jobs:
       - name: Output artifact locator
         id: artifactid
         run: |
-          echo "::set-output name=result:: ${{ needs.meta.outputs.sc4s }}"
+          echo "result= ${{ needs.meta.outputs.sc4s }}" >> $GITHUB_OUTPUT
 
   setup:
     needs:
@@ -674,14 +674,14 @@ jobs:
         id: test-setup
         shell: bash
         run: |
-          echo "::set-output name=argo-server::argo.wfe.splgdi.com:443"
-          echo "::set-output name=argo-http1::true"
-          echo "::set-output name=argo-secure::true"
-          echo "::set-output name=spl-host-suffix::wfe.splgdi.com"
-          echo "::set-output name=argo-base-href::\'\'"
-          echo "::set-output name=argo-namespace::workflows"
-          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow"
-          echo "::set-output name=k8s-manifests-branch::main"
+          echo "argo-server=argo.wfe.splgdi.com:443" >> $GITHUB_OUTPUT
+          echo "argo-http1=true" >> $GITHUB_OUTPUT
+          echo "argo-secure=true" >> $GITHUB_OUTPUT
+          echo "spl-host-suffix=wfe.splgdi.com" >> $GITHUB_OUTPUT
+          echo "argo-base-href=\'\'" >> $GITHUB_OUTPUT
+          echo "argo-namespace=workflows" >> $GITHUB_OUTPUT
+          echo "argo-workflow-tmpl-name=ta-workflow" >> $GITHUB_OUTPUT
+          echo "k8s-manifests-branch=main" >> $GITHUB_OUTPUT
 
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
@@ -691,19 +691,19 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          echo "::set-output name=addon-name::\"$ADDON_NAME\""
+          echo "addon-name=\" >> $GITHUB_OUTPUT$ADDON_NAME\""
 
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
-          echo "::set-output name=job-name::wf-$JOB_NAME"
+          echo "job-name=wf-$JOB_NAME" >> $GITHUB_OUTPUT
 
           LABELS="addon-name=${ADDON_NAME}"
-          echo "::set-output name=labels::$LABELS"
+          echo "labels=$LABELS" >> $GITHUB_OUTPUT
 
           ADDON_UPLOAD_PATH="s3://ta-production-artifacts/ta-apps/${{ needs.build.outputs.buildname }}"
-          echo "::set-output name=addon-upload-path::$ADDON_UPLOAD_PATH"
-          echo "::set-output name=directory-path::/tmp"
-          echo "::set-output name=s3-bucket::ta-production-artifacts"
+          echo "addon-upload-path=$ADDON_UPLOAD_PATH" >> $GITHUB_OUTPUT
+          echo "directory-path=/tmp" >> $GITHUB_OUTPUT
+          echo "s3-bucket=ta-production-artifacts" >> $GITHUB_OUTPUT
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-ko == 'Yes' }}
@@ -744,7 +744,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -754,7 +754,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
@@ -789,7 +789,7 @@ jobs:
         if: always()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -799,7 +799,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -813,7 +813,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
@@ -1124,7 +1124,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -1134,7 +1134,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}-${{ matrix.browser }}}
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
@@ -1169,7 +1169,7 @@ jobs:
         if: always()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1179,7 +1179,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted" ; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1193,7 +1193,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
@@ -1312,7 +1312,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -1322,7 +1322,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional == 'Yes' }}
@@ -1344,7 +1344,7 @@ jobs:
           else
             TEST_ARG_M="-m"
           fi
-          echo "::set-output name=test-arg::$TEST_ARG_M"
+          echo "test-arg=$TEST_ARG_M" >> $GITHUB_OUTPUT
       - name: run-tests
         id: run-tests
         env:
@@ -1369,7 +1369,7 @@ jobs:
         if: always()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1379,7 +1379,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1393,7 +1393,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
@@ -1509,7 +1509,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -1519,7 +1519,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
@@ -1539,8 +1539,8 @@ jobs:
           OS_NAME_VERSION=(${OS_NAME_VERSION//:/ })
           OS_NAME=${OS_NAME_VERSION[0]}
           OS_VERSION=${OS_NAME_VERSION[1]}
-          echo "::set-output name=os-name::$OS_NAME"
-          echo "::set-output name=os-version::$OS_VERSION"
+          echo "os-name=$OS_NAME" >> $GITHUB_OUTPUT
+          echo "os-version=$OS_VERSION" >> $GITHUB_OUTPUT
       - name: run-tests
         id: run-tests
         env:
@@ -1571,7 +1571,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1585,7 +1585,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
@@ -1701,7 +1701,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -1711,7 +1711,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: Splunk instance details 
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
@@ -1730,8 +1730,8 @@ jobs:
           OS_NAME_VERSION=("${OS_NAME_VERSION//:/ }")
           OS_NAME=${OS_NAME_VERSION[0]}
           OS_VERSION=${OS_NAME_VERSION[1]}
-          echo "::set-output name=os-name::$OS_NAME"
-          echo "::set-output name=os-version::$OS_VERSION"
+          echo "os-name=$OS_NAME" >> $GITHUB_OUTPUT
+          echo "os-version=$OS_VERSION" >> $GITHUB_OUTPUT
       - name: run-tests
         id: run-tests
         env:
@@ -1762,7 +1762,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1776,7 +1776,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
@@ -1891,7 +1891,7 @@ jobs:
         id: get-argo-token
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "::set-output name=argo-token::$ARGO_TOKEN"
+          echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
       - name: create job name
         id: create-job-name
         shell: bash
@@ -1901,7 +1901,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "::set-output name=job-name::$JOB_NAME"
+          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
@@ -1925,8 +1925,8 @@ jobs:
                 RUN_TEST=true
           fi
           DETECTIONS="-tf $DETECTIONS"
-          echo "::set-output name=escu-detections::$DETECTIONS"
-          echo "::set-output name=escu-test-run::$RUN_TEST"
+          echo "escu-detections=$DETECTIONS" >> $GITHUB_OUTPUT
+          echo "escu-test-run=$RUN_TEST" >> $GITHUB_OUTPUT
       - name: run-tests
         id: run-tests
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
@@ -1956,7 +1956,7 @@ jobs:
         run: |
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "::set-output name=retry-workflow::true"
+            echo "retry-workflow=true" >> $GITHUB_OUTPUT
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1970,7 +1970,7 @@ jobs:
           if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
           then
             WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "::set-output name=workflow-name::$WORKFLOW_NAME"
+            echo "workflow-name=$WORKFLOW_NAME" >> $GITHUB_OUTPUT
             argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
           else
             echo "No retry required"
@@ -2098,9 +2098,9 @@ jobs:
           RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
           if [[ "$RUN_PUBLISH" != *'false'* ]]
           then
-              echo "::set-output name=run-publish::true"
+              echo "run-publish=true" >> $GITHUB_OUTPUT
           else
-              echo "::set-output name=run-publish::false"
+              echo "run-publish=false" >> $GITHUB_OUTPUT
           fi
       - name: exit without publish
         if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled' && github.event.label.name == 'preserve_infra' ) }}
