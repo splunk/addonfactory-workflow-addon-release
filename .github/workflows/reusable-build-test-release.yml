@@ -391,7 +391,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          echo "name=$(basename " >> $GITHUB_OUTPUT${{ steps.slim.outputs.OUTPUT }}")"
+          echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> $GITHUB_OUTPUT
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
       - name: artifact-splunk-parts
@@ -691,7 +691,7 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          echo "addon-name=\" >> $GITHUB_OUTPUT$ADDON_NAME\""
+          echo "addon-name=\"$ADDON_NAME\"" >> $GITHUB_OUTPUT
 
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
