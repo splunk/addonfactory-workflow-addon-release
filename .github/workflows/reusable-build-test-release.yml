@@ -790,6 +790,7 @@ jobs:
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> $GITHUB_OUTPUT
+          echo $GITHUB_OUTPUT
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
