@@ -90,7 +90,7 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          echo "addon-name=\" >> $GITHUB_OUTPUT$ADDON_NAME\""
+          echo "addon-name=\"$ADDON_NAME\"" >> $GITHUB_OUTPUT
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           echo "job-name=wf-$JOB_NAME" >> $GITHUB_OUTPUT
