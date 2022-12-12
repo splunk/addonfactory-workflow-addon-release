@@ -182,7 +182,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@fix/patch-set-output
+        uses: splunk/addonfactory-test-matrix-action@v1.8
 
   fossa-scan:
     continue-on-error: true
@@ -344,7 +344,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: Determine the version to build
         id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@fix/patch-set-output
+        uses: splunk/addonfactory-get-splunk-package-version-action@v1
         with:
           SemVer: ${{ steps.semantic.outputs.new_release_version }}
           PrNumber: ${{ github.event.number }}
@@ -364,12 +364,12 @@ jobs:
           cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@fix/patch-set-output
+        uses: splunk/addonfactory-ucc-generator-action@v1
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
       - name: Slim Package
         id: slim
-        uses: splunk/addonfactory-packaging-toolkit-action@fix/patch-set-output
+        uses: splunk/addonfactory-packaging-toolkit-action@v1
         with:
           source: ${{ steps.uccgen.outputs.OUTPUT }}
       - name: artifact-splunk-unpacked
@@ -769,7 +769,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/patch-set-output
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1149,7 +1149,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/patch-set-output
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1349,7 +1349,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/patch-set-output
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1545,7 +1545,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/patch-set-output
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1736,7 +1736,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/patch-set-output
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1932,7 +1932,7 @@ jobs:
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/patch-set-output
+        uses: splunk/wfe-test-runner-action@v1.6
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
