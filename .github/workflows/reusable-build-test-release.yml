@@ -448,11 +448,20 @@ jobs:
         with:
           name: package-splunkbase
           path: build/package/
-      - name: Scan
+      - name: Scan-manual
+        if: matrix.tags == 'manual'
         uses: splunk/appinspect-cli-action@v1.4
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
+          app_vetting: .app-vetting-manual.yaml
+      - name: Scan-non-manual
+        if: matrix.tags != 'manual'
+        uses: splunk/appinspect-cli-action@v1.4
+        with:
+          app_path: build/package/
+          included_tags: ${{ matrix.tags }}
+          app_vetting: .app-vetting-expected.yaml
       - name: upload-appinspect-report
         if: always()
         uses: actions/upload-artifact@v3
