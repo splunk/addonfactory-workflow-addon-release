@@ -441,7 +441,6 @@ jobs:
           - "future"
           - "self-service"
           - "splunk_appinspect"
-          - "manual"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
