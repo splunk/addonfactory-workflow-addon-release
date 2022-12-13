@@ -630,7 +630,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:latest
+      image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -702,6 +702,8 @@ jobs:
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         run: |
+          apt update -y
+          apt update jsonnet -y
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
             echo "::set-output name=retry-workflow::true"
