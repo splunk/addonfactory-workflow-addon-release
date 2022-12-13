@@ -666,7 +666,12 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "JOB_NAME: $JOB_NAME"
           echo "::set-output name=job-name::$JOB_NAME"
-
+      - name: Download jsonnet
+        id: install-jsonnet
+        shell: bash
+        run: |
+          apt update -y 
+          apt install jsonnet -y
       - name: run-tests
         id: run-tests
         env:
