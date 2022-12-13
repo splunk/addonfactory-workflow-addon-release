@@ -455,7 +455,10 @@ jobs:
         with:
           name: package-splunkbase
           path: build/package/splunkbase
-
+      - id: Installing jsonnet
+        run: | 
+          apt update -y
+          apt install jsonnet -y
       - id: getappid
         run: |
           appid=$(jq -r '.info.id.name' package/app.manifest)
