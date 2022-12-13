@@ -672,6 +672,7 @@ jobs:
         run: |
           apt update -y 
           apt install jsonnet -y
+          jsonnet -V
       - name: run-tests
         id: run-tests
         env:
