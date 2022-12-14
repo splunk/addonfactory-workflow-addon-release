@@ -457,7 +457,7 @@ jobs:
           app_vetting: .app-vetting-manual.yaml
       - name: Scan-non-manual
         if: matrix.tags != 'manual'
-        uses: splunk/appinspect-cli-action@v1.4
+        uses: splunk/appinspect-cli-action@dependabot/pip/main/splunk-appinspect-2.30.0
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
