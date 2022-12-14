@@ -467,6 +467,12 @@ jobs:
           tar -zxf oras_0.12.0_*.tar.gz -C oras-install/
           mv oras-install/oras /usr/local/bin/
           rm -rf oras_0.12.0_*.tar.gz oras-install/
+      - name: Print os version 
+        id: os-version-print
+        shell: bash 
+        run: | 
+        temp_os=$(lsb_release -a)
+        echo "$temp_os"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       - name: Login to GitHub Packages Docker Registry
@@ -666,6 +672,12 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "JOB_NAME: $JOB_NAME"
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Print os version 
+        id: os-version-print
+        shell: bash 
+        run: | 
+        temp_os=$(lsb_release -a)
+        echo "$temp_os"
       - name: Download jsonnet
         id: install-jsonnet
         shell: bash
