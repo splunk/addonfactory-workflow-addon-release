@@ -672,18 +672,6 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "JOB_NAME: $JOB_NAME"
           echo "::set-output name=job-name::$JOB_NAME"
-      - name: Print os version 
-        id: os-version-print
-        shell: bash 
-        run: | 
-        temp_os=$(lsb_release -a)
-        echo "$temp_os"
-      - name: Download jsonnet
-        id: install-jsonnet
-        shell: bash
-        run: |
-          apt update -y 
-          apt install jsonnet -y
       - name: run-tests
         id: run-tests
         env:
@@ -714,8 +702,6 @@ jobs:
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         run: |
-          apt update
-          apt install jsonnet -y
           set -o xtrace
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
             echo "::set-output name=retry-workflow::true"
