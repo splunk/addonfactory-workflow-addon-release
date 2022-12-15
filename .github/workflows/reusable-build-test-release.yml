@@ -449,7 +449,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@test/update_appinspect_vesion
+        uses: splunk/appinspect-cli-action@test/update_failure_logic
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
