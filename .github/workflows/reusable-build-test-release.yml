@@ -530,6 +530,7 @@ jobs:
       argo-href: ""
       argo-base-href: ${{ steps.test-setup.outputs.argo-base-href }}
       argo-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-workflow-tmpl-name }}
+      k8s-manifests-branch: ${{ steps.test-setup.outputs.k8s-manifests-branch }}
       argo-namespace: ${{ steps.test-setup.outputs.argo-namespace }}
       addon-name: ${{ steps.test-setup.outputs.addon-name }}
       job-name: ${{ steps.test-setup.outputs.job-name }}
@@ -556,7 +557,8 @@ jobs:
           echo "::set-output name=argo-secure::true"
           echo "::set-output name=argo-base-href::\'\'"
           echo "::set-output name=argo-namespace::workflows"
-          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-delay-destroy"
+          echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-jsonnet"
+          echo "::set-output name=k8s-manifests-branch::update-jsonnet"
 
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
@@ -684,6 +686,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
@@ -867,6 +870,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
@@ -1042,6 +1046,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
@@ -1215,6 +1220,7 @@ jobs:
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1382,6 +1388,7 @@ jobs:
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1552,6 +1559,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
