@@ -1778,146 +1778,146 @@ jobs:
   #         path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
   #         reporter: java-junit
 
-  validate-pr-title:
-    name: Validate PR title
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: amannn/action-semantic-pull-request@v4.5.0
-        with:
-          wip: true
-          validateSingleCommit: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # validate-pr-title:
+  #   name: Validate PR title
+  #   if: github.event_name == 'pull_request'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: amannn/action-semantic-pull-request@v4.5.0
+  #       with:
+  #         wip: true
+  #         validateSingleCommit: true
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  pre-publish:
-    if: always()
-    needs:
-      - meta
-      - compliance-copyrights
-      - lint
-      - review_secrets
-      - semgrep
-      - build
-      - security-virustotal
-      - test-inventory
-      - run-unit-tests
-      - appinspect
-      - setup
-      - run-knowledge-tests
-      - run-modinput-tests
-      - run-ui-tests
-      - validate-pr-title
-    runs-on: ubuntu-latest
-    env:
-      NEEDS: ${{ toJson(needs) }}
-    steps:
-      - name: check if tests have passed or skipped
-        id: check
-        shell: bash
-        run: |
-          RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
-          if [[ "$RUN_PUBLISH" != *'false'* ]]
-          then
-              echo "::set-output name=run-publish::true"
-          else
-              echo "::set-output name=run-publish::false"
-          fi
-      - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' }}
-        run: |
-          echo " some test job failed. "
-          exit 1
+  # pre-publish:
+  #   if: always()
+  #   needs:
+  #     - meta
+  #     - compliance-copyrights
+  #     - lint
+  #     - review_secrets
+  #     - semgrep
+  #     - build
+  #     - security-virustotal
+  #     - test-inventory
+  #     - run-unit-tests
+  #     - appinspect
+  #     - setup
+  #     - run-knowledge-tests
+  #     - run-modinput-tests
+  #     - run-ui-tests
+  #     - validate-pr-title
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     NEEDS: ${{ toJson(needs) }}
+  #   steps:
+  #     - name: check if tests have passed or skipped
+  #       id: check
+  #       shell: bash
+  #       run: |
+  #         RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
+  #         if [[ "$RUN_PUBLISH" != *'false'* ]]
+  #         then
+  #             echo "::set-output name=run-publish::true"
+  #         else
+  #             echo "::set-output name=run-publish::false"
+  #         fi
+  #     - name: exit without publish
+  #       if: ${{ steps.check.outputs.run-publish == 'false' }}
+  #       run: |
+  #         echo " some test job failed. "
+  #         exit 1
 
-  publish:
-    if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule'
-    needs:
-      - pre-publish
-      - run-escu-tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: false
-          persist-credentials: false
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '14'
-      - name: Semantic Release
-        id: semantic
-        uses: cycjimmy/semantic-release-action@v2.7.0
-        with:
-          semantic_version: 17
-          extra_plugins: |
-            @semantic-release/exec
-            @semantic-release/git
-            @semantic-release/commit-analyzer
-            @semantic-release/release-notes-generator
-            @semantic-release/github
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
-      - name: Download package-deployment
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
-        id: download-package-deployment
-        with:
-          name: package-deployment
-          path: download/artifacts/
-      - name: Download package-splunkbase
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
-        id: download-package-splunkbase
-        with:
-          name: package-splunkbase
-          path: download/artifacts/deployment
-      - name: Download cim-compliance-report
-        id: download-cim-compliance-report
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: cim-compliance-report
-          path: download/artifacts/deployment
-      - name: Download cim-field-report
-        id: download-cim-field-report
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: cim-field-report
-          path: download/artifacts/deployment
-      - name: Download escu-test-results
-        id: download-escu-xml
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: escu-test-result
-          path: download/artifacts/deployment
-      - name: List of assets
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        run: |
-          ls -la ${{ steps.download-package-splunkbase.outputs.download-path }}
-      - name: Upload assets to release
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GH_TOKEN_ADMIN }}
-          file: ${{ steps.download-package-splunkbase.outputs.download-path }}/*
-          overwrite: true
-          file_glob: true
-          tag: v${{ steps.semantic.outputs.new_release_version }}
+  # publish:
+  #   if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+  #   needs:
+  #     - pre-publish
+  #     - run-escu-tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #       with:
+  #         submodules: false
+  #         persist-credentials: false
+  #     - uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '14'
+  #     - name: Semantic Release
+  #       id: semantic
+  #       uses: cycjimmy/semantic-release-action@v2.7.0
+  #       with:
+  #         semantic_version: 17
+  #         extra_plugins: |
+  #           @semantic-release/exec
+  #           @semantic-release/git
+  #           @semantic-release/commit-analyzer
+  #           @semantic-release/release-notes-generator
+  #           @semantic-release/github
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+  #     - name: Download package-deployment
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       uses: actions/download-artifact@v3
+  #       id: download-package-deployment
+  #       with:
+  #         name: package-deployment
+  #         path: download/artifacts/
+  #     - name: Download package-splunkbase
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       uses: actions/download-artifact@v3
+  #       id: download-package-splunkbase
+  #       with:
+  #         name: package-splunkbase
+  #         path: download/artifacts/deployment
+  #     - name: Download cim-compliance-report
+  #       id: download-cim-compliance-report
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       continue-on-error: true
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: cim-compliance-report
+  #         path: download/artifacts/deployment
+  #     - name: Download cim-field-report
+  #       id: download-cim-field-report
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       continue-on-error: true
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: cim-field-report
+  #         path: download/artifacts/deployment
+  #     - name: Download escu-test-results
+  #       id: download-escu-xml
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       continue-on-error: true
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: escu-test-result
+  #         path: download/artifacts/deployment
+  #     - name: List of assets
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       run: |
+  #         ls -la ${{ steps.download-package-splunkbase.outputs.download-path }}
+  #     - name: Upload assets to release
+  #       if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+  #       uses: svenstaro/upload-release-action@v2
+  #       with:
+  #         repo_token: ${{ secrets.GH_TOKEN_ADMIN }}
+  #         file: ${{ steps.download-package-splunkbase.outputs.download-path }}/*
+  #         overwrite: true
+  #         file_glob: true
+  #         tag: v${{ steps.semantic.outputs.new_release_version }}
 
-  get_workflow_conclusion:
-    if: always()
-    needs: [ publish ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send logs to Skynet
-        uses: splunk/collect-ta-logs@main
-        with:
-          git_token: ${{secrets.GH_TOKEN}}
-          skynet-token: ${{ secrets.SKYNET_TOKEN }}
-          skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
+  # get_workflow_conclusion:
+  #   if: always()
+  #   needs: [ publish ]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Send logs to Skynet
+  #       uses: splunk/collect-ta-logs@main
+  #       with:
+  #         git_token: ${{secrets.GH_TOKEN}}
+  #         skynet-token: ${{ secrets.SKYNET_TOKEN }}
+  #         skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
     
