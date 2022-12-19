@@ -464,7 +464,8 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: check_markdown.txt
-          path: manual_check_markdown.txt
+          path: |
+            *_markdown.txt
 
   # artifact-registry:
   #   runs-on: ubuntu-latest
