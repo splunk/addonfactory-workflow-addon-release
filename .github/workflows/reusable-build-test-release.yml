@@ -432,16 +432,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        tags:
-          - "cloud"
-          - "appapproval"
-          - "deprecated_feature"
-          - "developer_guidance"
-          - "future"
-          - "self-service"
-          - "splunk_appinspect"
-          - "manual"
+      # matrix:
+      #   tags:
+      #     - "cloud"
+      #     - "appapproval"
+      #     - "deprecated_feature"
+      #     - "developer_guidance"
+      #     - "future"
+      #     - "self-service"
+      #     - "splunk_appinspect"
+      #     - "manual"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -452,7 +452,7 @@ jobs:
         uses: splunk/appinspect-cli-action@test/except_two_vetting_files
         with:
           app_path: build/package/
-          included_tags: ${{ matrix.tags }}
+          included_tags: cloud
       - name: upload-appinspect-report
         if: always()
         uses: actions/upload-artifact@v3
