@@ -453,13 +453,14 @@ jobs:
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
+          result_file: appinspect_result_${{ matrix.tags }}.json
       - name: upload-appinspect-report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: appinspect_${{ matrix.tags }}_checks.json
-          path: appinspect_result.json
-      - name: upload-manual-check-markdown
+          path: appinspect_result_${{ matrix.tags }}.json
+      - name: upload-markdown
         if: matrix.tags == 'manual'
         uses: actions/upload-artifact@v3
         with:
