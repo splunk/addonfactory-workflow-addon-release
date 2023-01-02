@@ -611,7 +611,8 @@ jobs:
         shell: bash
         run: |
           set +e
-          TESTSET="knowledge ui modinput_functional escu scripted_inputs"
+          # PRESERVE_INFRA for escu test-type is not supported yet.
+          TESTSET="knowledge ui modinput_functional scripted_inputs"
           for i in $TESTSET; do
               eval DELAY_DESTROY_$i="No"
           done
@@ -623,8 +624,6 @@ jobs:
             for i in $TESTSET; do
                 echo "$i"
                 if [[ $tests =~ "$i" ]]; then
-                    echo "Inside changing if condition"
-                    echo "$i"
                     eval DELAY_DESTROY_$i="Yes"
                 fi
             done
