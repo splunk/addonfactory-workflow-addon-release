@@ -612,8 +612,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          # PRESERVE_INFRA for escu test-type is not supported yet.
-          TESTSET="knowledge ui modinput_functional scripted_inputs requirement_test"
+          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           for i in $TESTSET; do
               eval DELAY_DESTROY_$i="No"
           done
@@ -633,6 +632,8 @@ jobs:
                 fi
             done
           fi
+          # PRESERVE_INFRA for escu test-type is not supported yet.
+          DELAY_DESTROY_escu="No"
           echo ${{ github.event.label.name }}
           echo "$DELAY_DESTROY_knowledge"
           echo "$DELAY_DESTROY_ui"
