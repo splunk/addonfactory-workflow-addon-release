@@ -635,7 +635,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -669,7 +669,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -810,7 +810,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -967,7 +967,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -1000,7 +1000,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1130,7 +1130,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -1175,7 +1175,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1302,7 +1302,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -1470,7 +1470,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
@@ -1636,7 +1636,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
       - name: create job name
         id: create-job-name
