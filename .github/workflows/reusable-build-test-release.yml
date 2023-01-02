@@ -625,6 +625,7 @@ jobs:
             echo $tests
             if [[ $tests =~ "escu" ]]; then
               echo "preserve_infra for escu test-type is not supported yet"
+            fi
             for i in $TESTSET; do
                 echo "$i"
                 if [[ $tests =~ "$i" ]]; then
