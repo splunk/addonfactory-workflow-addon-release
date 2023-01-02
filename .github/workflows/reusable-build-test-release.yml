@@ -653,7 +653,7 @@ jobs:
           echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_modinput_functional"
           echo "::set-output name=delay-destroy-scripted_inputs::$DELAY_DESTROY_scripted_inputs"
           echo "::set-output name=delay-destroy-escu::$DELAY_DESTROY_escu"
-          echo "::set-output name=delay-destroy-requirement_test::$requirement_test"
+          echo "::set-output name=delay-destroy-requirement_test::$DELAY_DESTROY_requirement_test"
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
 
   run-knowledge-tests:
