@@ -621,6 +621,9 @@ jobs:
             PRESERVE_INFRA="true"
             echo "${{ github.event.pull_request.body }}" >> body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            echo $tests
+            if [[ $tests =~ "escu" ]]; then
+              echo "preserve_infra for escu test-type is not supported yet"
             for i in $TESTSET; do
                 echo "$i"
                 if [[ $tests =~ "$i" ]]; then
