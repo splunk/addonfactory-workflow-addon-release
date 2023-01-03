@@ -449,7 +449,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@test/except_two_vetting_files
+        uses: splunk/appinspect-cli-action@v1.6
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
