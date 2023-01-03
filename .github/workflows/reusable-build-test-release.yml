@@ -454,8 +454,6 @@ jobs:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
           result_file: appinspect_result_${{ matrix.tags }}.json
-      - run: |
-          cat $GITHUB_OUTPUT
       - name: upload-appinspect-report
         if: always()
         uses: actions/upload-artifact@v3
