@@ -449,22 +449,24 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v1.4
+        uses: splunk/appinspect-cli-action@v1.6
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
+          result_file: appinspect_result_${{ matrix.tags }}.json
       - name: upload-appinspect-report
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: appinspect_${{ matrix.tags }}_checks.json
-          path: appinspect_result.json
-      - name: upload-manual-check-markdown
+          path: appinspect_result_${{ matrix.tags }}.json
+      - name: upload-markdown
         if: matrix.tags == 'manual'
         uses: actions/upload-artifact@v3
         with:
-          name: check_markdown.txt
-          path: manual_check_markdown.txt
+          name: check_markdown
+          path: |
+            *_markdown.txt
 
   artifact-registry:
     runs-on: ubuntu-latest
