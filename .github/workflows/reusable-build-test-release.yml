@@ -672,7 +672,7 @@ jobs:
           echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && && needs.setup.outputs.execute-ko == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.execute-ko == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -849,7 +849,7 @@ jobs:
           reporter: java-junit
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && && needs.setup.outputs.execute-requirement-test == 'Yes' ) }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup.outputs.execute-requirement-test == 'Yes' ) }}
     needs:
       - build
       - test-inventory
@@ -1004,7 +1004,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && && needs.setup.outputs.execute-ui == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.execute-ui == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1174,7 +1174,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && && needs.setup.outputs.execute-modinput == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.execute-modinput == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1350,7 +1350,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && && needs.setup.outputs.execute-scripted-inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.execute-scripted-inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1519,7 +1519,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && && needs.setup.outputs.execute-scripted-inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.execute-scripted-inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1687,7 +1687,7 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && && needs.setup.outputs.execute-escu == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.execute-escu == 'Yes' }}
     needs:
       - build
       - test-inventory
