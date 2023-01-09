@@ -849,7 +849,7 @@ jobs:
           reporter: java-junit
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup.outputs.execute-requirement-test == 'Yes' ) }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup.outputs.execute-requirement-test == 'Yes' }}
     needs:
       - build
       - test-inventory
