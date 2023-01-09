@@ -574,7 +574,6 @@ jobs:
       execute-modinput: ${{ steps.delay-destroy-setup.outputs.execute-modinput }}
       execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
       execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
-      preserve-infra: ${{ steps.delay-destroy-setup.outputs.preserve-infra }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -623,9 +622,7 @@ jobs:
               eval DELAY_DESTROY_$i="No"
               eval EXECUTE_$i="Yes"
           done
-          PRESERVE_INFRA="false"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            PRESERVE_INFRA="true"
             echo "${{ github.event.pull_request.body }}" >> body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
             echo $tests
@@ -669,7 +666,6 @@ jobs:
           echo "::set-output name=execute-scripted-inputs::$EXECUTE_scripted_inputs"
           echo "::set-output name=execute-escu::$EXECUTE_escu"
           echo "::set-output name=execute-requirement-test::$EXECUTE_requirement_test"
-          echo "::set-output name=preserve-infra::$PRESERVE_INFRA"
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.execute-ko == 'Yes' }}
