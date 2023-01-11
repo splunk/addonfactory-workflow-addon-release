@@ -701,6 +701,13 @@ jobs:
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "JOB_NAME: $JOB_NAME"
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: access splunk
+        id: access-splunk
+        if: ${{ needs.setup.outputs.delay-destroy-ko == 'Yes' }}
+        shell: bash 
+        run: |
+          URL="https://${{ steps.create-job-name.outputs.job-name }}.staging.wfe.splgdi.com:8000"
+          echo "$URL"
       - name: run-tests
         id: run-tests
         env:
