@@ -670,6 +670,7 @@ jobs:
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
+        if: always()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
@@ -1001,6 +1002,7 @@ jobs:
           sc4s-version: "No"
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
+        if: always()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
@@ -1176,6 +1178,7 @@ jobs:
           sc4s-version: "No"
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
+        if: always()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "::set-output name=argo-token::$ARGO_TOKEN"
