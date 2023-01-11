@@ -722,6 +722,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}/diag 
       - name: pull artifacts from s3 bucket
         if: always()
         run: |
@@ -740,6 +746,12 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag
       - uses: actions/upload-artifact@v3
         if: always()
         with:
