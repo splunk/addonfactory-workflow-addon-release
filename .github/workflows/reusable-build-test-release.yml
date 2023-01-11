@@ -551,6 +551,7 @@ jobs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
       argo-secure: ${{ steps.test-setup.outputs.argo-secure }}
+      spl-host-suffix: ${{ steps.test-setup.outputs.spl-host-suffix }}
       argo-href: ""
       argo-base-href: ${{ steps.test-setup.outputs.argo-base-href }}
       argo-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-workflow-tmpl-name }}
@@ -585,6 +586,7 @@ jobs:
           echo "::set-output name=argo-server::argo.staging.wfe.splgdi.com:443"
           echo "::set-output name=argo-http1::true"
           echo "::set-output name=argo-secure::true"
+          echo "::set-output name=spl-host-suffix::staging.wfe.splgdi.com"
           echo "::set-output name=argo-base-href::\'\'"
           echo "::set-output name=argo-namespace::workflows"
           echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-jsonnet"
@@ -705,8 +707,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-ko == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: run-tests
         id: run-tests
         env:
@@ -887,8 +888,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-requirement_test == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: run-tests
         id: run-tests
         env:
@@ -1051,8 +1051,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-ui == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: run-tests
         id: run-tests
         env:
@@ -1222,8 +1221,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-modinput == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: create test argument
         id: create-test-arg
         shell: bash
@@ -1402,8 +1400,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1578,8 +1575,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1752,8 +1748,7 @@ jobs:
         if: ${{ needs.setup.outputs.delay-destroy-escu == 'Yes' }}
         shell: bash 
         run: |
-          URL="https://${{ steps.create-job-name.outputs.job-name }}.wfe.splgdi.com:8000"
-          echo "Splunk will be accessible at $URL after test execution starts"
+          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
       - name: get escu detections
         id: get-escu-detections
         run: |
