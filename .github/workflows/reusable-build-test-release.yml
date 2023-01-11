@@ -701,7 +701,6 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "JOB_NAME: $JOB_NAME"
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
@@ -1047,7 +1046,6 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
-          echo "JOB_NAME: $JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup.outputs.delay-destroy-ui == 'Yes' }}
