@@ -907,6 +907,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
