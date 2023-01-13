@@ -99,6 +99,24 @@ jobs:
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.8
 
+  skip-tests:
+    steps:
+      - name: skip stage based on description
+        run: |
+          set +e
+          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          execute_all="No"
+          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
+            echo "${{ github.event.pull_request.body }}" >> body.txt
+            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            for i in $TESTSET; do
+                if [[ $tests =~ "$i" ]]; then
+                    eval execute_all="Yes"
+                fi
+            done
+          fi
+          echo "$execute_all"
+
   fossa-scan:
     continue-on-error: true
     runs-on: ubuntu-latest
