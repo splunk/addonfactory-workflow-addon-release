@@ -220,7 +220,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            echo "${{ needs.skip-tests.outputs.skip_tests == 'No' }}" 
+            echo "Value of skip_tests variable is ${{ needs.skip-tests.outputs.skip_tests }}" 
             sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
