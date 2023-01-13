@@ -903,6 +903,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull artifacts from s3 bucket
         if: always()
         run: |
@@ -1065,6 +1071,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull artifacts from s3 bucket
         if: always()
         run: |
@@ -1240,6 +1252,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull artifacts from s3 bucket
         if: always()
         run: |
@@ -1408,6 +1426,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull artifacts from s3 bucket
         if: always()
         run: |
@@ -1575,6 +1599,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull artifacts from s3 bucket
         if: always()
         run: |
@@ -1745,6 +1775,12 @@ jobs:
               argo wait "${WORKFLOW_NAME}" -n workflows || true
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
+      - name: pull diag from s3 bucket
+        if: always()
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull artifacts from s3 bucket
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         run: |
