@@ -100,6 +100,7 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v1.8
 
   skip-tests:
+    runs-on: ubuntu-latest
     steps:
       - name: skip stage based on description
         run: |
