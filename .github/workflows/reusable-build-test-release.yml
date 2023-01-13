@@ -56,6 +56,7 @@ jobs:
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           SKIP_TESTS="No"
+          echo "${{ github.event.pull_request.type }}"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.pull_request.type }}' == 'labeled' ]]; then
             echo "${{ github.event.pull_request.body }}" >> body.txt
             SKIP_TESTS="Yes" 
