@@ -79,7 +79,7 @@ jobs:
     needs:
       - skip-workflow
     # if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
-    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.skip-workflow.result != 'failed' }}
     outputs:
       sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_tags: ${{ steps.docker_action_meta.outputs.tags }}
@@ -145,6 +145,7 @@ jobs:
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
+          echo "${{ needs.skip-workflow.result }}"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
