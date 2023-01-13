@@ -203,7 +203,7 @@ jobs:
     needs:
       - fossa-scan
       - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == "No" }}
+    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
