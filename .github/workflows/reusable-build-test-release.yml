@@ -200,8 +200,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
-      - skip-tests
-    if: ${{ needs.skip-tests.outputs.skip_tests == 'No' }} 
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
