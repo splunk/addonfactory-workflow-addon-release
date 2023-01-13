@@ -361,6 +361,7 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
+    needs: skip-tests-labaled
     if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
     # Map a step output to a job output
     outputs:
@@ -1923,6 +1924,7 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
+    needs: skip-tests-labeled
     if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
