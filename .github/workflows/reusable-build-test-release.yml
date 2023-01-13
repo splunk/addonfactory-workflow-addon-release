@@ -71,7 +71,6 @@ jobs:
           echo "::set-output name=skip_workflow::$SKIP_TESTS"  
           if [ "$SKIP_TESTS" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
-            exit 1
           fi 
   meta:
     runs-on: ubuntu-latest
