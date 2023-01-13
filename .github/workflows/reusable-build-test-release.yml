@@ -136,7 +136,7 @@ jobs:
     continue-on-error: true
     needs:
       - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -162,7 +162,7 @@ jobs:
     name: compliance-copyrights
     needs:
       - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -174,7 +174,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -212,7 +212,8 @@ jobs:
     name: security-sast-semgrep
     needs:
       - skip-workflow
-    if: ${{ github.actor != 'dependabot[bot]' && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    # if: ${{ github.actor != 'dependabot[bot]' && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -370,7 +371,7 @@ jobs:
   test-inventory:
     runs-on: ubuntu-latest
     needs: skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -1934,6 +1935,7 @@ jobs:
     name: Validate PR title
     needs: skip-workflow
     if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v4.5.0
