@@ -227,6 +227,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
+      - skip-workflow
+    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
