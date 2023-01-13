@@ -204,8 +204,7 @@ jobs:
     name: security-sast-semgrep
     needs:
       - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]' && ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
