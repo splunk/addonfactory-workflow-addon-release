@@ -198,9 +198,10 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
-    if: ${{ needs.skip-tests.outputs.skip_tests == 'No' }} 
     needs:
       - fossa-scan
+      - skip-tests
+    if: ${{ needs.skip-tests.outputs.skip_tests == 'No' }} 
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
