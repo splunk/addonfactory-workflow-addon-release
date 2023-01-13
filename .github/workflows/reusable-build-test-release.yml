@@ -45,10 +45,10 @@ on:
         required: false
 
 jobs:
-  skip-tests-labeled:
+  skip-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip_tests: ${{ steps.skip-tests.outputs.skip_tests }}
+      skip_workflow: ${{ steps.skip-tests.outputs.skip_workflow }}
     steps:
       - name: skip stage based on description
         id: skip-tests
@@ -68,15 +68,16 @@ jobs:
             done
           fi
           echo "$SKIP_TESTS"
-          echo "::set-output name=skip_tests::$SKIP_TESTS"  
-          if [[ '$SKIP_TESTS' == 'Yes' ]]; then
+          echo "::set-output name=skip_workflow::$SKIP_TESTS"  
+          if [ "$SKIP_TESTS" == "Yes" ]; then 
+            echo "No description is provided with preserve infra label"
             exit 1
-          fi
+          fi 
   meta:
     runs-on: ubuntu-latest
     needs:
-      - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+      - skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' }}
     outputs:
       sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_tags: ${{ steps.docker_action_meta.outputs.tags }}
@@ -132,8 +133,8 @@ jobs:
   fossa-scan:
     continue-on-error: true
     needs:
-      - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+      - skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -158,8 +159,8 @@ jobs:
   compliance-copyrights:
     name: compliance-copyrights
     needs:
-      - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+      - skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -170,8 +171,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     needs:
-      - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+      - skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -183,8 +184,8 @@ jobs:
     name: security-detect-secrets
     runs-on: ubuntu-latest
     needs:
-      - skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+      - skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -208,8 +209,8 @@ jobs:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
     needs:
-      - skip-tests-labeled
-    if: ${{ github.actor != 'dependabot[bot]' && needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+      - skip-workflow
+    if: ${{ github.actor != 'dependabot[bot]' && needs.skip-workflow.outputs.skip_workflow == 'No' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -366,8 +367,8 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
-    needs: skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+    needs: skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -1929,8 +1930,8 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
-    needs: skip-tests-labeled
-    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' && github.event_name == 'pull_request' }}
+    needs: skip-workflow
+    if: ${{ needs.skip-workflow.outputs.skip_workflow == 'No' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v4.5.0
