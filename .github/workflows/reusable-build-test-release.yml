@@ -775,13 +775,13 @@ jobs:
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
       - name: pull diag from s3 bucket
-        if: ${{steps.test_report.outputs.conclusion == 'succees'}}
+        if: ${{steps.test_report.outputs.conclusion == 'success'}}
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }} 
       - uses: actions/upload-artifact@v3
-        if: ${{steps.test_report.outputs.conclusion == 'failure'}}
+        if: ${{steps.test_report.outputs.conclusion == 'success'}}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
           path: |
