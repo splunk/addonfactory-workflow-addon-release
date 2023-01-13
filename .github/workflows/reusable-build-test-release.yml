@@ -117,9 +117,8 @@ jobs:
                 fi
             done
           fi
-          echo "$skip_tests"
+          echo "$SKIP_TESTS"
           echo "::set-output name=skip_tests::$SKIP_TESTS"    
-  
 
   fossa-scan:
     continue-on-error: true
