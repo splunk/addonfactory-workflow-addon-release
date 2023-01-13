@@ -60,7 +60,6 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      skip_tests: ${{ steps.skip-tests.outputs.skip_tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -102,8 +101,11 @@ jobs:
 
   skip-tests:
     runs-on: ubuntu-latest
+    outputs:
+      skip_tests: ${{ steps.skip-tests.outputs.skip_tests }}
     steps:
       - name: skip stage based on description
+        id: skip-tests
         run: |
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
