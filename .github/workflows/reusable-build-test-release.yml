@@ -1934,7 +1934,7 @@ jobs:
   validate-pr-title:
     name: Validate PR title
     needs: skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
+    # if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
     if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
