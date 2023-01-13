@@ -930,6 +930,12 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
@@ -1095,6 +1101,12 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}
       - uses: actions/upload-artifact@v3
         if: always()
         with:
@@ -1279,6 +1291,12 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
@@ -1450,6 +1468,12 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}
       - uses: actions/upload-artifact@v3
         if: always()
         with:
@@ -1626,6 +1650,12 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
@@ -1799,6 +1829,12 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}
       - uses: actions/upload-artifact@v3
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         with:
