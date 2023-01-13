@@ -361,7 +361,7 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
-    needs: skip-tests-labaled
+    needs: skip-tests-labeled
     if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
     # Map a step output to a job output
     outputs:
