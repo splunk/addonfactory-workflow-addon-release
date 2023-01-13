@@ -204,7 +204,7 @@ jobs:
     name: security-sast-semgrep
     needs:
       - skip-tests-labeled
-    if: github.actor != 'dependabot[bot]' && ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
+    if: ${{ github.actor != 'dependabot[bot]' && needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -361,6 +361,7 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
+    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -1922,7 +1923,7 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
-    if: github.event_name == 'pull_request'
+    if: ${{ needs.skip-tests-labeled.outputs.skip_tests == 'No' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v4.5.0
