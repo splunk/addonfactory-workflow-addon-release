@@ -80,7 +80,6 @@ jobs:
       - skip-workflow
     # if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
     if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
-    needs: 
     outputs:
       sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_tags: ${{ steps.docker_action_meta.outputs.tags }}
