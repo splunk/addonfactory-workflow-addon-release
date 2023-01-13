@@ -47,8 +47,6 @@ on:
 jobs:
   skip-workflow:
     runs-on: ubuntu-latest
-    if: ${{ github.event.action == 'labeled' }}
-    continue-on-error: true
     outputs:
       skip_workflow: ${{ steps.skip-workflow.outputs.skip_workflow }}
     steps:
