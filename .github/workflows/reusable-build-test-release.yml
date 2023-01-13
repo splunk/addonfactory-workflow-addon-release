@@ -785,7 +785,7 @@ jobs:
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
           path: |
-            ${{ needs.setup.outputs.directory-path }}
+            ${{ needs.setup.outputs.directory-path }}/diag
 
   run-requirement-tests:
     if: ${{ needs.test-inventory.outputs.requirement_test == 'true' }}
