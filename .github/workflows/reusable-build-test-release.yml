@@ -62,7 +62,7 @@ jobs:
       execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
       execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
     steps:
-      - name: skip workflow for labeled pr
+      - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
         run: |
           set +e
