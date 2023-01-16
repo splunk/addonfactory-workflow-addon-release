@@ -45,13 +45,25 @@ on:
         required: false
 
 jobs:
-  skip-workflow:
+  setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip_workflow: ${{ steps.skip-workflow.outputs.skip_workflow }}
+      skip_workflow: ${{ steps.delay-destroy-setup.outputs.skip_workflow }}
+      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
+      delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
+      delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
+      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
+      delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
+      delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
+      execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
+      execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
+      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
+      execute-modinput: ${{ steps.delay-destroy-setup.outputs.execute-modinput }}
+      execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
+      execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
     steps:
-      - name: skip workflow if empty description with label preserve infra
-        id: skip-workflow
+      - name: set delay destroy
+        id: delay-destroy-setup
         run: |
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
@@ -61,9 +73,15 @@ jobs:
             echo "${{ github.event.pull_request.body }}" >> body.txt
             SKIP_WORKFLOW="Yes" 
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            if [[ $tests =~ "escu" ]]; then
+              echo "preserve_infra for escu test-type is not supported yet"
+            fi
             for i in $TESTSET; do
                 if [[ $tests =~ "$i" ]]; then
                     eval SKIP_WORKFLOW="No"
+                    eval DELAY_DESTROY_$i="Yes"
+                else
+                    eval EXECUTE_$i="No" 
                 fi
             done
           fi
@@ -72,11 +90,26 @@ jobs:
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
           fi 
+          # PRESERVE_INFRA for escu test-type is not supported yet.
+          DELAY_DESTROY_escu="No"
+          echo "::set-output name=delay-destroy-ko::$DELAY_DESTROY_knowledge"
+          echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_ui"
+          echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_modinput_functional"
+          echo "::set-output name=delay-destroy-scripted_inputs::$DELAY_DESTROY_scripted_inputs"
+          echo "::set-output name=delay-destroy-escu::$DELAY_DESTROY_escu"
+          echo "::set-output name=delay-destroy-requirement_test::$DELAY_DESTROY_requirement_test"
+          echo "::set-output name=execute-ko::$EXECUTE_knowledge"
+          echo "::set-output name=execute-ui::$EXECUTE_ui"
+          echo "::set-output name=execute-modinput::$EXECUTE_modinput_functional"
+          echo "::set-output name=execute-scripted-inputs::$EXECUTE_scripted_inputs"
+          echo "::set-output name=execute-escu::$EXECUTE_escu"
+          echo "::set-output name=execute-requirement-test::$EXECUTE_requirement_test"
+
   meta:
     runs-on: ubuntu-latest
     needs:
-      - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     outputs:
       sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_tags: ${{ steps.docker_action_meta.outputs.tags }}
@@ -132,8 +165,8 @@ jobs:
   fossa-scan:
     continue-on-error: true
     needs:
-      - skip-workflow
-    if: ${{ always() && needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+      - setup-workflow
+    if: ${{ always() && needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -158,8 +191,8 @@ jobs:
   compliance-copyrights:
     name: compliance-copyrights
     needs:
-      - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -170,8 +203,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     needs:
-      - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -183,8 +216,8 @@ jobs:
     name: security-detect-secrets
     runs-on: ubuntu-latest
     needs:
-      - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -208,8 +241,8 @@ jobs:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
     needs:
-      - skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -366,8 +399,8 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
-    needs: skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' }}
+    needs: setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -609,18 +642,6 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
-      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
-      delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
-      delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
-      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
-      delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
-      delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
-      execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
-      execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
-      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
-      execute-modinput: ${{ steps.delay-destroy-setup.outputs.execute-modinput }}
-      execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
-      execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -660,47 +681,8 @@ jobs:
           echo "::set-output name=directory-path::/tmp"
           echo "::set-output name=s3-bucket::ta-staging-artifacts"
 
-      - name: set delay destroy
-        id: delay-destroy-setup
-        shell: bash
-        run: |
-          set +e
-          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
-          for i in $TESTSET; do
-              eval DELAY_DESTROY_$i="No"
-              eval EXECUTE_$i="Yes"
-          done
-          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            echo "${{ github.event.pull_request.body }}" >> body.txt
-            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            if [[ $tests =~ "escu" ]]; then
-              echo "preserve_infra for escu test-type is not supported yet"
-            fi
-            for i in $TESTSET; do
-                if [[ $tests =~ "$i" ]]; then
-                    eval DELAY_DESTROY_$i="Yes"
-                else
-                    eval EXECUTE_$i="No" 
-                fi
-            done
-          fi
-          # PRESERVE_INFRA for escu test-type is not supported yet.
-          DELAY_DESTROY_escu="No"
-          echo "::set-output name=delay-destroy-ko::$DELAY_DESTROY_knowledge"
-          echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_ui"
-          echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_modinput_functional"
-          echo "::set-output name=delay-destroy-scripted_inputs::$DELAY_DESTROY_scripted_inputs"
-          echo "::set-output name=delay-destroy-escu::$DELAY_DESTROY_escu"
-          echo "::set-output name=delay-destroy-requirement_test::$DELAY_DESTROY_requirement_test"
-          echo "::set-output name=execute-ko::$EXECUTE_knowledge"
-          echo "::set-output name=execute-ui::$EXECUTE_ui"
-          echo "::set-output name=execute-modinput::$EXECUTE_modinput_functional"
-          echo "::set-output name=execute-scripted-inputs::$EXECUTE_scripted_inputs"
-          echo "::set-output name=execute-escu::$EXECUTE_escu"
-          echo "::set-output name=execute-requirement-test::$EXECUTE_requirement_test"
-
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup.outputs.execute-ko == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-ko == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -767,7 +749,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-ko }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ko }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -882,7 +864,7 @@ jobs:
           reporter: java-junit
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup.outputs.execute-requirement-test == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-test == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -948,7 +930,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-requirement_test }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-requirement_test }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -1044,7 +1026,7 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup.outputs.execute-ui == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1112,7 +1094,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-ui }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ui }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1213,7 +1195,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup.outputs.execute-modinput == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1294,7 +1276,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-modinput }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-modinput }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1395,7 +1377,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup.outputs.execute-scripted-inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted-inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1472,7 +1454,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-scripted_inputs }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1570,7 +1552,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.execute-scripted-inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted-inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1646,7 +1628,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-scripted_inputs }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1744,7 +1726,7 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup.outputs.execute-escu == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-escu == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1825,7 +1807,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup.outputs.delay-destroy-escu }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-escu }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1929,8 +1911,8 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
-    needs: skip-workflow
-    if: ${{ needs.skip-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
+    needs: setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v4.5.0
