@@ -262,7 +262,7 @@ jobs:
     name: security-sast-semgrep
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
