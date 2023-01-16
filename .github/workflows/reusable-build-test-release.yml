@@ -68,6 +68,10 @@ jobs:
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           SKIP_WORKFLOW="No"
+          for i in $TESTSET; do
+              eval DELAY_DESTROY_$i="No"
+              eval EXECUTE_$i="Yes"
+          done
           echo "${{ github.event.action }}"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.action }}' == 'labeled' ]]; then
             echo "${{ github.event.pull_request.body }}" >> body.txt
