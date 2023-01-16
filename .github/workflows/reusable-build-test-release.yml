@@ -87,7 +87,7 @@ jobs:
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
           fi 
-      - name: set delay destroy
+      - name: setup for delay destroy
         id: delay-destroy-setup
         shell: bash
         run: |
@@ -207,7 +207,6 @@ jobs:
         run: |
           fossa test --debug
           echo "Check working of output variables inside fossa step"
-          echo "${{ needs.setup-workflow.outputs.execute-ko }}"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -279,7 +278,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
-      - setup-workflow
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
@@ -302,7 +300,6 @@ jobs:
             echo " poetry.lock found "
             sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
             poetry export --without-hashes -o requirements.txt
-            echo "${{ needs.setup-workflow.outputs.delay-destroy-modinput }}"
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
                 echo "Prod dependencies were found, creating package/lib folder"
