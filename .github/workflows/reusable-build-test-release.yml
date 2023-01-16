@@ -687,6 +687,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
@@ -869,6 +870,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
@@ -1031,6 +1033,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
@@ -1200,6 +1203,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
@@ -1382,6 +1386,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
@@ -1557,6 +1562,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
@@ -1731,6 +1737,7 @@ jobs:
       - build
       - test-inventory
       - setup
+      - setup-workflow
       - meta
     runs-on: ubuntu-latest
     strategy:
