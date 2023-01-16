@@ -48,7 +48,7 @@ jobs:
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip_workflow: ${{ steps.delay-destroy-setup.outputs.skip_workflow }}
+      skip_workflow: ${{ steps.skip-workflow.outputs.skip_workflow }}
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
@@ -62,8 +62,8 @@ jobs:
       execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
       execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
     steps:
-      - name: set delay destroy
-        id: delay-destroy-setup
+      - name: skip workflow for labeled pr
+        id: skip-workflow
         run: |
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
@@ -92,6 +92,10 @@ jobs:
           fi 
           # PRESERVE_INFRA for escu test-type is not supported yet.
           DELAY_DESTROY_escu="No"
+      - name: set delay destroy
+        id: delay-destroy-setup 
+        run: |
+          set +e
           echo "::set-output name=delay-destroy-ko::$DELAY_DESTROY_knowledge"
           echo "::set-output name=delay-destroy-ui::$DELAY_DESTROY_ui"
           echo "::set-output name=delay-destroy-modinput::$DELAY_DESTROY_modinput_functional"
@@ -256,6 +260,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
+      - setup-workflow
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     steps:
@@ -278,6 +283,7 @@ jobs:
             echo " poetry.lock found "
             sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
             poetry export --without-hashes -o requirements.txt
+            echo "${{ needs.setup-workflow.outputs.delay-destroy-modinput }}"
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
                 echo "Prod dependencies were found, creating package/lib folder"
