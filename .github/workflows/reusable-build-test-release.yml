@@ -586,7 +586,7 @@ jobs:
           echo "::set-output name=argo-server::argo.wfe.splgdi.com:443"
           echo "::set-output name=argo-http1::true"
           echo "::set-output name=argo-secure::true"
-          echo "::set-output name=spl-host-suffix::staging.wfe.splgdi.com"
+          echo "::set-output name=spl-host-suffix::wfe.splgdi.com"
           echo "::set-output name=argo-base-href::\'\'"
           echo "::set-output name=argo-namespace::workflows"
           echo "::set-output name=argo-workflow-tmpl-name::ta-workflow-jsonnet"
