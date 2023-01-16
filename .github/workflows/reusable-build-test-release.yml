@@ -68,7 +68,6 @@ jobs:
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           SKIP_WORKFLOW="No"
-          echo "${{ github.event.action }}"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.action }}' == 'labeled' ]]; then
             echo "${{ github.event.pull_request.body }}" >> body.txt
             SKIP_WORKFLOW="Yes" 
@@ -82,7 +81,6 @@ jobs:
                 fi
             done
           fi
-          echo "$SKIP_WORKFLOW"
           echo "::set-output name=skip_workflow::$SKIP_WORKFLOW"  
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
