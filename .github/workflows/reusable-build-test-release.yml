@@ -182,12 +182,11 @@ jobs:
       - name: matrix
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.8
- 
   fossa-scan:
     continue-on-error: true
     needs:
       - setup-workflow
-    if: ${{ always() && needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -206,7 +205,6 @@ jobs:
       - name: run fossa test
         run: |
           fossa test --debug
-          echo "Check working of output variables inside fossa step"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
