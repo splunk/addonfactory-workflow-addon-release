@@ -732,7 +732,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-ko == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -913,7 +913,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-requirement_test == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-requirement_test == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -1077,7 +1077,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-ui == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -1247,7 +1247,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-modinput == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -1426,7 +1426,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -1601,7 +1601,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details 
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-scripted_inputs == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -1774,7 +1774,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup.outputs.delay-destroy-escu == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
