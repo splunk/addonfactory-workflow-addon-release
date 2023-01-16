@@ -195,6 +195,8 @@ jobs:
       - name: run fossa test
         run: |
           fossa test --debug
+          echo "Check working of output variables inside fossa step"
+          echo "${{ needs.setup-workflow.outputs.execute-ko }}"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
