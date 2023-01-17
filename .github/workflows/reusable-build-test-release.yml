@@ -102,7 +102,7 @@ jobs:
         run: |
           echo "Check if variable is accessible from other stage"
           echo "$DELAY_DESTROY_knowledge"
-          echo "steps.skip-workflow.outputs.DELAY_DESTROY_knowledge"
+          echo "${{ steps.skip-workflow.outputs.DELAY_DESTROY_knowledge }}"
           DELAY_DESTROY_escu="No"
           echo "delay-destroy-ko=steps.skip-workflow.outputs.DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
           echo "delay-destroy-ui=steps.skip-workflow.outputs.DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
