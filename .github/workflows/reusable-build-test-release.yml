@@ -92,8 +92,8 @@ jobs:
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           for i in $TESTSET; do
-              eval DELAY_DESTROY_$i="No"
-              eval EXECUTE_$i="Yes"
+              eval DELAY_DESTROY_"$i"="No"
+              eval EXECUTE_"$i"="Yes"
           done
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "${{ github.event.pull_request.body }}" >> body.txt
@@ -103,9 +103,9 @@ jobs:
             fi
             for i in $TESTSET; do
                 if [[ $tests =~ $i ]]; then
-                    eval DELAY_DESTROY_$i="Yes"
+                    eval DELAY_DESTROY_"$i"="Yes"
                 else
-                    eval EXECUTE_$i="No" 
+                    eval EXECUTE_"$i"="No" 
                 fi
             done
           fi
