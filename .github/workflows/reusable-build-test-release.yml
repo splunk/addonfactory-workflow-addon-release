@@ -48,7 +48,6 @@ jobs:
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip_workflow: ${{ steps.skip-workflow.outputs.skip_workflow }}
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
