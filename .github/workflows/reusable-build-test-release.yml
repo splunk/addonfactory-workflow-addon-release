@@ -81,7 +81,7 @@ jobs:
                 fi
             done
           fi
-          echo "::set-output name=skip_workflow::$SKIP_WORKFLOW"  
+          echo "skip_workflow=$SKIP_WORKFLOW" >> $GITHUB_OUTPUT
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
           fi 
