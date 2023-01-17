@@ -111,8 +111,6 @@ jobs:
                 fi
             done
           fi
-          echo "$DELAY_DESTROY_knowledge"
-          echo "$EXECUTE_knowledge"
           # PRESERVE_INFRA for escu test-type is not supported yet.
           DELAY_DESTROY_escu="No"
           {
