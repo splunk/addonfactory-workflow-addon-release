@@ -69,14 +69,12 @@ jobs:
         run: |
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
           SKIP_WORKFLOW="No"
-          if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.action }}' == 'labeled' ]]; then
+          if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "$PR_BODY" >> body.txt
             SKIP_WORKFLOW="Yes" 
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            if [[ $tests =~ "escu" ]]; then
-              echo "preserve_infra for escu test-type is not supported yet"
-            fi
             for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
                     eval SKIP_WORKFLOW="No"
@@ -94,7 +92,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
-          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          TESTSET=${{ steps.skip-workflow.outputs.testset }}
           for i in $TESTSET; do
               eval DELAY_DESTROY_"$i"="No"
               eval EXECUTE_"$i"="Yes"
@@ -761,6 +759,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: run-tests
         id: run-tests
         env:
@@ -943,6 +943,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: run-tests
         id: run-tests
         env:
@@ -1108,6 +1110,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: run-tests
         id: run-tests
         env:
@@ -1279,6 +1283,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: create test argument
         id: create-test-arg
         shell: bash
@@ -1459,6 +1465,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1635,6 +1643,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1809,6 +1819,8 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk username is admin"
+          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
       - name: get escu detections
         id: get-escu-detections
         run: |
@@ -1988,7 +2000,7 @@ jobs:
               echo "::set-output name=run-publish::false"
           fi
       - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.label.name == 'preserve_infra' && github.event.action == 'labeled' ) }}
+        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled' && github.event.label.name == 'preserve_infra' ) }}
         run: |
           echo " Some test job failed or Workflow has triggred on preserve_infra label. "
           exit 1
