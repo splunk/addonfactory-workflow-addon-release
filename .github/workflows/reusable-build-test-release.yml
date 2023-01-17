@@ -76,12 +76,12 @@ jobs:
               echo "preserve_infra for escu test-type is not supported yet"
             fi
             for i in $TESTSET; do
-                if [[ $tests =~ "$i" ]]; then
+                if [[ $tests =~ $i ]]; then
                     eval SKIP_WORKFLOW="No"
                 fi
             done
           fi
-          echo "skip-workflow=$SKIP_WORKFLOW" >> $GITHUB_OUTPUT
+          echo "skip-workflow=$SKIP_WORKFLOW" >> "$GITHUB_OUTPUT"
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
           fi 
@@ -102,7 +102,7 @@ jobs:
               echo "preserve_infra for escu test-type is not supported yet"
             fi
             for i in $TESTSET; do
-                if [[ $tests =~ "$i" ]]; then
+                if [[ $tests =~ $i ]]; then
                     eval DELAY_DESTROY_$i="Yes"
                 else
                     eval EXECUTE_$i="No" 
@@ -111,18 +111,18 @@ jobs:
           fi
           # PRESERVE_INFRA for escu test-type is not supported yet.
           DELAY_DESTROY_escu="No"
-          echo "delay-destroy-ko=$DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
-          echo "delay-destroy-ui=$DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
-          echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
-          echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs" >> $GITHUB_OUTPUT
-          echo "delay-destroy-escu=$DELAY_DESTROY_escu" >> $GITHUB_OUTPUT
-          echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test" >> $GITHUB_OUTPUT
-          echo "execute-ko=$EXECUTE_knowledge" >> $GITHUB_OUTPUT
-          echo "execute-ui=$EXECUTE_ui" >> $GITHUB_OUTPUT
-          echo "execute-modinput_functional=$EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
-          echo "execute-scripted_inputs=$EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
-          echo "execute-escu=$EXECUTE_escu" >> $GITHUB_OUTPUT
-          echo "execute-requirement_test=$EXECUTE_requirement_test" >> $GITHUB_OUTPUT
+          echo "delay-destroy-ko=$DELAY_DESTROY_knowledge" >> "$GITHUB_OUTPUT"
+          echo "delay-destroy-ui=$DELAY_DESTROY_ui" >> "$GITHUB_OUTPUT"
+          echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional" >> "$GITHUB_OUTPUT"
+          echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs" >> "$GITHUB_OUTPUT"
+          echo "delay-destroy-escu=$DELAY_DESTROY_escu" >> "$GITHUB_OUTPUT"
+          echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test" >> "$GITHUB_OUTPUT"
+          echo "execute-ko=$EXECUTE_knowledge" >> "$GITHUB_OUTPUT"
+          echo "execute-ui=$EXECUTE_ui" >> "$GITHUB_OUTPUT"
+          echo "execute-modinput_functional=$EXECUTE_modinput_functional" >> "$GITHUB_OUTPUT"
+          echo "execute-scripted_inputs=$EXECUTE_scripted_inputs" >> "$GITHUB_OUTPUT"
+          echo "execute-escu=$EXECUTE_escu" >> "$GITHUB_OUTPUT"
+          echo "execute-requirement_test=$EXECUTE_requirement_test" >> "$GITHUB_OUTPUT"
   meta:
     runs-on: ubuntu-latest
     needs:
