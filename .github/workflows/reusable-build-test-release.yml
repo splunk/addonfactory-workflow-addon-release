@@ -64,12 +64,14 @@ jobs:
     steps:
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           SKIP_WORKFLOW="No"
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.action }}' == 'labeled' ]]; then
-            echo "${{ github.event.pull_request.body }}" >> body.txt
+            echo "$PR_BODY" >> body.txt
             SKIP_WORKFLOW="Yes" 
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
             if [[ $tests =~ "escu" ]]; then
@@ -88,6 +90,8 @@ jobs:
       - name: setup for delay destroy
         id: delay-destroy-setup
         shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
@@ -96,7 +100,7 @@ jobs:
               eval EXECUTE_"$i"="Yes"
           done
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            echo "${{ github.event.pull_request.body }}" >> body.txt
+            echo "$PR_BODY" >> body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
             if [[ $tests =~ "escu" ]]; then
               echo "preserve_infra for escu test-type is not supported yet"
