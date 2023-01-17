@@ -118,7 +118,7 @@ jobs:
           # PRESERVE_INFRA for escu test-type is not supported yet.
           DELAY_DESTROY_escu="No"
           echo "=======DEBUG======"
-          echo $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
           echo "============"
           {
             echo "delay-destroy-knowledge=$DELAY_DESTROY_knowledge"
