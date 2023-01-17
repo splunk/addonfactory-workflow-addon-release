@@ -68,6 +68,12 @@ jobs:
           set +e
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           SKIP_WORKFLOW="No"
+          for i in $TESTSET; do
+              eval DELAY_DESTROY_$i="No"
+              eval EXECUTE_$i="Yes"
+              echo "DELAY_DESTROY_$i=Yes" >> $GITHUB_OUTPUT
+              echo "EXECUTE_$i=No" >> $GITHUB_OUTPUT
+          done
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.action }}' == 'labeled' ]]; then
             echo "${{ github.event.pull_request.body }}" >> body.txt
             SKIP_WORKFLOW="Yes" 
@@ -78,6 +84,11 @@ jobs:
             for i in $TESTSET; do
                 if [[ $tests =~ "$i" ]]; then
                     eval SKIP_WORKFLOW="No"
+                    eval DELAY_DESTROY_$i="Yes"
+                    echo "DELAY_DESTROY_$i=No" >> $GITHUB_OUTPUT
+                else
+                    eval EXECUTE_$i="No" 
+                    echo "EXECUTE_$i=No" >> $GITHUB_OUTPUT
                 fi
             done
           fi
@@ -89,40 +100,22 @@ jobs:
         id: delay-destroy-setup
         shell: bash
         run: |
-          set +e
-          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
-          for i in $TESTSET; do
-              eval DELAY_DESTROY_$i="No"
-              eval EXECUTE_$i="Yes"
-          done
-          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            echo "${{ github.event.pull_request.body }}" >> body.txt
-            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            if [[ $tests =~ "escu" ]]; then
-              echo "preserve_infra for escu test-type is not supported yet"
-            fi
-            for i in $TESTSET; do
-                if [[ $tests =~ "$i" ]]; then
-                    eval DELAY_DESTROY_$i="Yes"
-                else
-                    eval EXECUTE_$i="No" 
-                fi
-            done
-          fi
-          # PRESERVE_INFRA for escu test-type is not supported yet.
+          echo "Check if variable is accessible from other stage"
+          echo "$DELAY_DESTROY_knowledge"
+          echo "steps.skip-workflow.outputs.DELAY_DESTROY_knowledge"
           DELAY_DESTROY_escu="No"
-          echo "delay-destroy-ko=$DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
-          echo "delay-destroy-ui=$DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
-          echo "delay-destroy-modinput=$DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
-          echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs" >> $GITHUB_OUTPUT
-          echo "delay-destroy-escu=$DELAY_DESTROY_escu" >> $GITHUB_OUTPUT
-          echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test" >> $GITHUB_OUTPUT
-          echo "execute-ko=$EXECUTE_knowledge" >> $GITHUB_OUTPUT
-          echo "execute-ui=$EXECUTE_ui" >> $GITHUB_OUTPUT
-          echo "execute-modinput=$EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
-          echo "execute-scripted-inputs=$EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
-          echo "execute-escu=$EXECUTE_escu" >> $GITHUB_OUTPUT
-          echo "execute-requirement-test=$EXECUTE_requirement_test" >> $GITHUB_OUTPUT
+          echo "delay-destroy-ko=steps.skip-workflow.outputs.DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
+          echo "delay-destroy-ui=steps.skip-workflow.outputs.DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
+          echo "delay-destroy-modinput=steps.skip-workflow.outputs.DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
+          echo "delay-destroy-scripted_inputs=steps.skip-workflow.outputs.DELAY_DESTROY_scripted_inputs" >> $GITHUB_OUTPUT
+          echo "delay-destroy-escu=steps.skip-workflow.outputs.DELAY_DESTROY_escu" >> $GITHUB_OUTPUT
+          echo "delay-destroy-requirement_test=steps.skip-workflow.outputs.DELAY_DESTROY_requirement_test" >> $GITHUB_OUTPUT
+          echo "execute-ko=steps.skip-workflow.outputs.EXECUTE_knowledge" >> $GITHUB_OUTPUT
+          echo "execute-ui=steps.skip-workflow.outputs.EXECUTE_ui" >> $GITHUB_OUTPUT
+          echo "execute-modinput=steps.skip-workflow.outputs.EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
+          echo "execute-scripted-inputs=steps.skip-workflow.outputs.EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
+          echo "execute-escu=steps.skip-workflow.outputs.EXECUTE_escu" >> $GITHUB_OUTPUT
+          echo "execute-requirement-test=steps.skip-workflow.outputs.EXECUTE_requirement_test" >> $GITHUB_OUTPUT
   meta:
     runs-on: ubuntu-latest
     needs:
