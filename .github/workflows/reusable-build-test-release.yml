@@ -48,19 +48,19 @@ jobs:
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip_workflow: ${{ steps.skip-workflow.outputs.skip_workflow }}
+      skip-workflow: ${{ steps.skip-workflow.outputs.skip-workflow }}
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
-      delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
+      delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
       delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
       delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
       delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
       execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
       execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
       execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
-      execute-modinput: ${{ steps.delay-destroy-setup.outputs.execute-modinput }}
-      execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
-      execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
+      execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
+      execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
+      execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
     steps:
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
@@ -81,7 +81,7 @@ jobs:
                 fi
             done
           fi
-          echo "skip_workflow=$SKIP_WORKFLOW" >> $GITHUB_OUTPUT
+          echo "skip-workflow=$SKIP_WORKFLOW" >> $GITHUB_OUTPUT
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
             echo "No description is provided with preserve infra label"
           fi 
@@ -113,21 +113,21 @@ jobs:
           DELAY_DESTROY_escu="No"
           echo "delay-destroy-ko=$DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
           echo "delay-destroy-ui=$DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
-          echo "delay-destroy-modinput=$DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
+          echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
           echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs" >> $GITHUB_OUTPUT
           echo "delay-destroy-escu=$DELAY_DESTROY_escu" >> $GITHUB_OUTPUT
           echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test" >> $GITHUB_OUTPUT
           echo "execute-ko=$EXECUTE_knowledge" >> $GITHUB_OUTPUT
           echo "execute-ui=$EXECUTE_ui" >> $GITHUB_OUTPUT
-          echo "execute-modinput=$EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
-          echo "execute-scripted-inputs=$EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
+          echo "execute-modinput_functional=$EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
+          echo "execute-scripted_inputs=$EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
           echo "execute-escu=$EXECUTE_escu" >> $GITHUB_OUTPUT
-          echo "execute-requirement-test=$EXECUTE_requirement_test" >> $GITHUB_OUTPUT
+          echo "execute-requirement_test=$EXECUTE_requirement_test" >> $GITHUB_OUTPUT
   meta:
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
       sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_tags: ${{ steps.docker_action_meta.outputs.tags }}
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: run fossa anlyze and create report
@@ -211,7 +211,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -222,7 +222,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -235,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -260,7 +260,7 @@ jobs:
     name: security-sast-semgrep
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -418,7 +418,7 @@ jobs:
   test-inventory:
     runs-on: ubuntu-latest
     needs: setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -883,7 +883,7 @@ jobs:
           reporter: java-junit
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-test == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement_test == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1216,7 +1216,7 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1269,7 +1269,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -1298,7 +1298,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-modinput }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1399,7 +1399,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted-inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1575,7 +1575,7 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted-inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -1938,7 +1938,7 @@ jobs:
     name: Validate PR title
     needs: 
     - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip_workflow != 'Yes' && github.event_name == 'pull_request' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v4.5.0
