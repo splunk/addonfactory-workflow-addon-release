@@ -116,19 +116,19 @@ jobs:
           # PRESERVE_INFRA for escu test-type is not supported yet.
           DELAY_DESTROY_escu="No"
           echo "=======DEBUG======"
-          echo $DELAY_DESTROY_knowledge
-          echo $DELAY_DESTROY_ui
-          echo $DELAY_DESTROY_modinput_functional
-          echo $DELAY_DESTROY_scripted_inputs
-          echo $DELAY_DESTROY_escu
-          echo $DELAY_DESTROY_requirement_test
+          echo "$DELAY_DESTROY_knowledge"
+          echo "$DELAY_DESTROY_ui"
+          echo "$DELAY_DESTROY_modinput_functional"
+          echo "$DELAY_DESTROY_scripted_inputs"
+          echo "$DELAY_DESTROY_escu"
+          echo "$DELAY_DESTROY_requirement_test"
           echo "============"
-          echo $EXECUTE_knowledge
-          echo $EXECUTE_ui
-          echo $EXECUTE_modinput_functional
-          echo $EXECUTE_scripted_inputs
-          echo $EXECUTE_escu
-          echo $EXECUTE_requirement_test
+          echo "$EXECUTE_knowledge"
+          echo "$EXECUTE_ui"
+          echo "$EXECUTE_modinput_functional"
+          echo "$EXECUTE_scripted_inputs"
+          echo "$EXECUTE_escu"
+          echo "$EXECUTE_requirement_test"
           echo "============"
           {
             echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
