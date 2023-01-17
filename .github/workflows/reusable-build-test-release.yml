@@ -77,7 +77,7 @@ jobs:
             if [[ $tests =~ "escu" ]]; then
               echo "preserve_infra for escu test-type is not supported yet"
             fi
-            for test-type in $TESTSET; do
+            for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
                     eval SKIP_WORKFLOW="No"
                 fi
