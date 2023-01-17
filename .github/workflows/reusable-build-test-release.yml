@@ -49,13 +49,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip-workflow: ${{ steps.skip-workflow.outputs.skip-workflow }}
-      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
+      delay-destroy-knowledge: ${{ steps.delay-destroy-setup.outputs.delay-destroy-knowledge }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
       delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
       delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
       delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
-      execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
+      execute-knowledge: ${{ steps.delay-destroy-setup.outputs.execute-knowledge }}
       execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
       execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
@@ -77,15 +77,15 @@ jobs:
             if [[ $tests =~ "escu" ]]; then
               echo "preserve_infra for escu test-type is not supported yet"
             fi
-            for i in $TESTSET; do
-                if [[ $tests =~ $i ]]; then
+            for test_type in $TESTSET; do
+                if [[ $tests =~ $test_type ]]; then
                     eval SKIP_WORKFLOW="No"
                 fi
             done
           fi
           echo "skip-workflow=$SKIP_WORKFLOW" >> "$GITHUB_OUTPUT"
           if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
-            echo "No description is provided with preserve infra label"
+            echo "Invalid description is provided with preserve infra label"
           fi 
       - name: setup for delay destroy
         id: delay-destroy-setup
@@ -105,39 +105,29 @@ jobs:
             if [[ $tests =~ "escu" ]]; then
               echo "preserve_infra for escu test-type is not supported yet"
             fi
-            for i in $TESTSET; do
-                if [[ $tests =~ $i ]]; then
+            for test_type in $TESTSET; do
+                if [[ $tests =~ $test_type ]]; then
                     eval DELAY_DESTROY_"$i"="Yes"
+                    echo "delay-destroy-$test_type=Yes" >> "$GITHUB_OUTPUT"
                 else
                     eval EXECUTE_"$i"="No" 
+                    echo "EXECUTE_$test_type=No" >> "$GITHUB_OUTPUT"
                 fi
             done
           fi
           # PRESERVE_INFRA for escu test-type is not supported yet.
           DELAY_DESTROY_escu="No"
           echo "=======DEBUG======"
-          echo $DELAY_DESTROY_knowledge
-          echo $DELAY_DESTROY_ui
-          echo $DELAY_DESTROY_modinput_functional
-          echo $DELAY_DESTROY_scripted_inputs
-          echo $DELAY_DESTROY_escu
-          echo $DELAY_DESTROY_requirement_test
-          echo "============"
-          echo $EXECUTE_knowledge
-          echo $EXECUTE_ui
-          echo $EXECUTE_modinput_functional
-          echo $EXECUTE_scripted_inputs
-          echo $EXECUTE_escu
-          echo $EXECUTE_requirement_test
+          echo $GITHUB_OUTPUT
           echo "============"
           {
-            echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
+            echo "delay-destroy-knowledge=$DELAY_DESTROY_knowledge"
             echo "delay-destroy-ui=$DELAY_DESTROY_ui"
             echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional"
             echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs"
             echo "delay-destroy-escu=$DELAY_DESTROY_escu"
             echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test"
-            echo "execute-ko=$EXECUTE_knowledge"
+            echo "execute-knowledge=$EXECUTE_knowledge"
             echo "execute-ui=$EXECUTE_ui"
             echo "execute-modinput_functional=$EXECUTE_modinput_functional"
             echo "execute-scripted_inputs=$EXECUTE_scripted_inputs"
@@ -721,7 +711,7 @@ jobs:
           echo "::set-output name=s3-bucket::ta-production-artifacts"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-ko == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge == 'Yes' }}
     needs:
       - build
       - test-inventory
@@ -772,7 +762,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-knowledge == 'Yes' }}
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
@@ -789,7 +779,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ko }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-knowledge }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
