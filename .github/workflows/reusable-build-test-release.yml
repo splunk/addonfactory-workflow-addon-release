@@ -175,6 +175,15 @@ jobs:
           RED_FG=`tput setaf 1`
           RESET=`tput sgr0`
           echo "Splunk username is `tput setaf 1`admin`tput sgr0`"
+  splunk-details:
+    runs-on: ubuntu-latest
+    steps:
+      - name: print credentials in bold
+        run: |
+          echo "Splunk username is `tput setaf 1`admin`tput sgr0`"
+          RED_FG=`tput setaf 1`
+          RESET=`tput sgr0`
+          echo "Splunk username is `tput setaf 1`admin`tput sgr0`"
   fossa-scan:
     continue-on-error: true
     needs:
