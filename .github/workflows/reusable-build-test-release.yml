@@ -759,7 +759,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
         id: run-tests
@@ -943,7 +943,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
         id: run-tests
@@ -1110,7 +1110,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
         id: run-tests
@@ -1283,7 +1283,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: create test argument
         id: create-test-arg
@@ -1465,7 +1465,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get os name and version
         id: os-name-version
@@ -1643,7 +1643,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get os name and version
         id: os-name-version
@@ -1819,7 +1819,7 @@ jobs:
         shell: bash 
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo "Splunk username is admin"
+          echo 'Splunk username will be\033[1m admin\033[0m'
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get escu detections
         id: get-escu-detections
