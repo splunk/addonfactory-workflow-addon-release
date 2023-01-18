@@ -760,7 +760,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
         id: run-tests
         env:
@@ -944,7 +944,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
         id: run-tests
         env:
@@ -1111,7 +1111,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
         id: run-tests
         env:
@@ -1284,7 +1284,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: create test argument
         id: create-test-arg
         shell: bash
@@ -1466,7 +1466,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1644,7 +1644,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1820,7 +1820,7 @@ jobs:
         run: |
           echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo "Splunk username is admin"
-          echo "For Splunk password please visit https://us-west-2.console.aws.amazon.com/secretsmanager/secret?name=SPLUNK_DEPLOYMENT_SPLUNK_PASSWORD&region=us-west-2"
+          echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get escu detections
         id: get-escu-detections
         run: |
