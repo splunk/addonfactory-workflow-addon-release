@@ -758,7 +758,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
@@ -942,7 +942,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-requirement_test == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
@@ -1109,7 +1109,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: run-tests
@@ -1282,7 +1282,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: create test argument
@@ -1464,7 +1464,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get os name and version
@@ -1642,7 +1642,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get os name and version
@@ -1818,7 +1818,7 @@ jobs:
         if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
         shell: bash 
         run: |
-          echo "Splunk will be accessible at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo "Splunk web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is\033[1m admin\033[0m"
           echo "For Splunk password please visit https://goo.by/SPLUNK-DEPLOYMENT-PASSWORD"
       - name: get escu detections
