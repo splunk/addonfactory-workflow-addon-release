@@ -855,6 +855,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1029,6 +1030,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
@@ -1221,6 +1223,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         run: |
@@ -1411,6 +1414,7 @@ jobs:
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1595,6 +1599,7 @@ jobs:
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1782,6 +1787,7 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
