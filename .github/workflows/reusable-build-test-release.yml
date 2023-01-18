@@ -938,6 +938,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -1112,6 +1113,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -1299,6 +1301,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -1479,6 +1482,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -1658,6 +1662,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -1847,6 +1852,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/escu-result.xml
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         with:
