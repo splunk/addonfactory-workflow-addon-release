@@ -186,6 +186,9 @@ jobs:
           # RED_FG=`tput setaf 1`
           # RESET=`tput sgr0`
           # echo "Splunk username is `tput setaf 1`admin`tput sgr0`"
+          RED='\033[0;31m'
+          NC='\033[0m' # No Color
+          printf "I ${RED}love${NC} Stack Overflow\n"
   fossa-scan:
     continue-on-error: true
     needs:
