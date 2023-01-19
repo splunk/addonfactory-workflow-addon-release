@@ -60,15 +60,14 @@ jobs:
           RED='\033[0;31m'
           NC='\033[0m' # No Color
           printf "I ${RED}love${NC} Stack Overflow\n"
-          exit 1
   check-skip:
     runs-on: ubuntu-latest
     steps:
       - name: Stage that can fail or pass
         id: Stage
-        if: always()
         run: |
           echo "This stage will fail or pass"
+          exit 1
       - name: Run this stage if earlier stage fails
         # if: always() && ${{steps.test_report.outputs.conclusion != 'success'}}
         run: |
