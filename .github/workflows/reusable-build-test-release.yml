@@ -66,6 +66,7 @@ jobs:
     steps:
       - name: Stage that can fail or pass
         id: Stage
+        continue-on-error: true
         run: |
           echo "This stage will fail or pass"
           exit 1
