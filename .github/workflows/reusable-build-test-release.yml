@@ -1316,7 +1316,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
