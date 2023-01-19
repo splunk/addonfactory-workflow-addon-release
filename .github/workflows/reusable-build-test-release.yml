@@ -75,3 +75,5 @@ jobs:
         if: always() && ${{steps.test_report.conclusion != 'success'}}
         run: |
           echo "Inside the second stage"
+          echo "Print conclusion of earlier stage"
+          echo "${{ steps.test_report.outputs.conclusion }}"
