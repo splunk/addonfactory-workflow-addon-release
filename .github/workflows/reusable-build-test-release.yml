@@ -70,7 +70,7 @@ jobs:
           echo "This stage will fail or pass"
           exit 1
       - name: Run this stage if earlier stage fails
-        if: ${{ failure() && steps.stage.conclusion == 'failure' }}
-        # if: always() && ${{steps.test_report.outputs.conclusion != 'success'}}
+        # if: ${{ failure() && steps.stage.conclusion == 'failure' }}
+        if: always() && ${{steps.test_report.conclusion != 'success'}}
         run: |
           echo "Inside the second stage"
