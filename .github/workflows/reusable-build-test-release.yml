@@ -45,11 +45,98 @@ on:
         required: false
 
 jobs:
+  setup-workflow:
+    runs-on: ubuntu-latest
+    outputs:
+      skip_workflow: ${{ steps.skip-workflow.outputs.skip_workflow }}
+      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
+      delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
+      delay-destroy-modinput: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput }}
+      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
+      delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
+      delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
+      execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
+      execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
+      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
+      execute-modinput: ${{ steps.delay-destroy-setup.outputs.execute-modinput }}
+      execute-scripted-inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted-inputs }}
+      execute-requirement-test: ${{ steps.delay-destroy-setup.outputs.execute-requirement-test }}
+    steps:
+      - name: skip workflow if description is empty for labeled pr 
+        id: skip-workflow
+        run: |
+          set +e
+          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          SKIP_WORKFLOW="No"
+          for i in $TESTSET; do
+              DELAY_DESTROY_$i="No"
+              EXECUTE_$i="Yes"
+              echo "DELAY_DESTROY_$i=Yes" >> $GITHUB_OUTPUT
+              echo "EXECUTE_$i=No" >> $GITHUB_OUTPUT
+          done
+          if [[ '${{ github.event.label.name }}' == 'preserve_infra' && '${{ github.event.action }}' == 'labeled' ]]; then
+            echo "${{ github.event.pull_request.body }}" >> body.txt
+            SKIP_WORKFLOW="Yes" 
+            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            if [[ $tests =~ "escu" ]]; then
+              echo "preserve_infra for escu test-type is not supported yet"
+            fi
+            for i in $TESTSET; do
+                if [[ $tests =~ "$i" ]]; then
+                    SKIP_WORKFLOW="No"
+                    DELAY_DESTROY_$i="Yes"
+                    echo "DELAY_DESTROY_$i=Yes" >> $GITHUB_OUTPUT
+                else
+                    EXECUTE_$i="No" 
+                    echo "EXECUTE_$i=No" >> $GITHUB_OUTPUT
+                fi
+            done
+          fi
+          echo "skip_workflow=$SKIP_WORKFLOW" >> $GITHUB_OUTPUT
+          if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
+            echo "No description is provided with preserve infra label"
+          fi 
+      - name: setup for delay destroy
+        id: delay-destroy-setup
+        shell: bash
+        run: |
+          DELAY_DESTROY_escu="No"
+          echo "delay-destroy-ko=steps.skip-workflow.outputs.DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
+          echo "delay-destroy-ui=steps.skip-workflow.outputs.DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
+          echo "delay-destroy-modinput=steps.skip-workflow.outputs.DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
+          echo "delay-destroy-scripted_inputs=steps.skip-workflow.outputs.DELAY_DESTROY_scripted_inputs" >> $GITHUB_OUTPUT
+          echo "delay-destroy-escu=steps.skip-workflow.outputs.DELAY_DESTROY_escu" >> $GITHUB_OUTPUT
+          echo "delay-destroy-requirement_test=steps.skip-workflow.outputs.DELAY_DESTROY_requirement_test" >> $GITHUB_OUTPUT
+          echo "execute-ko=steps.skip-workflow.outputs.EXECUTE_knowledge" >> $GITHUB_OUTPUT
+          echo "execute-ui=steps.skip-workflow.outputs.EXECUTE_ui" >> $GITHUB_OUTPUT
+          echo "execute-modinput=steps.skip-workflow.outputs.EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
+          echo "execute-scripted-inputs=steps.skip-workflow.outputs.EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
+          echo "execute-escu=steps.skip-workflow.outputs.EXECUTE_escu" >> $GITHUB_OUTPUT
+          echo "execute-requirement-test=steps.skip-workflow.outputs.EXECUTE_requirement_test" >> $GITHUB_OUTPUT
+  Check-variables:
+    runs-on: ubuntu-latest
+    needs: setup-workflow
+    steps:
+      - name: print details of variables
+        run: |
+          echo "needs.setup-workflow.outputs.delay-destroy-ko"
+          echo "needs.setup-workflow.outputs.delay-destroy-modinput"
+          echo "needs.setup-workflow.outputs.delay-destroy-ui"
+          echo "needs.setup-workflow.outputs.delay-destroy-requirement_test"
+          echo "needs.setup-workflow.outputs.delay-destroy-scripted_inputs"
+          echo "needs.setup-workflow.outputs.delay-destroy-escu"
+          echo "needs.setup-workflow.outputs.execute-ko"
+          echo "needs.setup-workflow.outputs.execute-ui"
+          echo "needs.setup-workflow.outputs.execute-modinput"
+          echo "needs.setup-workflow.outputs.execute-scripted-inputs"
+          echo "needs.setup-workflow.outputs.execute-escu"
+          echo "needs.setup-workflow.outputs.execute-requirement-test"
+          execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
+    
   splunk-details:
     runs-on: ubuntu-latest
     steps:
       - name: print credentials in bold
-        continue-on-error: true
         run: |
           BOLD="\033[1m"
           NORMAL="\033[0m"
@@ -61,6 +148,7 @@ jobs:
           RED='\033[0;31m'
           NC='\033[0m' # No Color
           printf "I ${RED}love${NC} Stack Overflow\n"
+
   check-skip:
     runs-on: ubuntu-latest
     steps:
