@@ -49,6 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: print credentials in bold
+        continue-on-error: true
         run: |
           BOLD="\033[1m"
           NORMAL="\033[0m"
