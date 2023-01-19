@@ -65,15 +65,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Stage that can fail or pass
-        id: Stage
+        id: stage
         continue-on-error: true
         run: |
           echo "This stage will fail or pass"
           exit 1
-      - name: Run this stage if earlier stage fails
+      - name: Run this stage if first stage fails
         # if: ${{ failure() && steps.stage.conclusion == 'failure' }}
-        if: always() && ${{ steps.test_report.conclusion != 'success' }}
+        if: always() && ${{ steps.stage.conclusion != 'success' }}
         run: |
           echo "Inside the second stage"
           echo "Print conclusion of earlier stage"
           echo "${{ steps.test_report.outputs.conclusion }}"
+      - name: Another stage that fails
+        id: second-stage
+        run: |
+          echo "This is second stage that will fail"
+          exit 1
+      - name: Run if second stage fails
+        if: ${{ failure() && steps.second-stage.conclusion == 'failure' }}
+        run: |
+          echo "Run stage if second failure stage fails"
+          echo "Status of earlier stage is"
+          echo "${{ steps.steps.second-stage.conclusion }}"
