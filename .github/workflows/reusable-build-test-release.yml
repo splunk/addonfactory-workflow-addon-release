@@ -101,18 +101,18 @@ jobs:
         shell: bash
         run: |
           DELAY_DESTROY_escu="No"
-          echo "delay-destroy-ko=steps.skip-workflow.outputs.DELAY_DESTROY_knowledge" >> $GITHUB_OUTPUT
-          echo "delay-destroy-ui=steps.skip-workflow.outputs.DELAY_DESTROY_ui" >> $GITHUB_OUTPUT
-          echo "delay-destroy-modinput=steps.skip-workflow.outputs.DELAY_DESTROY_modinput_functional" >> $GITHUB_OUTPUT
-          echo "delay-destroy-scripted_inputs=steps.skip-workflow.outputs.DELAY_DESTROY_scripted_inputs" >> $GITHUB_OUTPUT
-          echo "delay-destroy-escu=steps.skip-workflow.outputs.DELAY_DESTROY_escu" >> $GITHUB_OUTPUT
-          echo "delay-destroy-requirement_test=steps.skip-workflow.outputs.DELAY_DESTROY_requirement_test" >> $GITHUB_OUTPUT
-          echo "execute-ko=steps.skip-workflow.outputs.EXECUTE_knowledge" >> $GITHUB_OUTPUT
-          echo "execute-ui=steps.skip-workflow.outputs.EXECUTE_ui" >> $GITHUB_OUTPUT
-          echo "execute-modinput=steps.skip-workflow.outputs.EXECUTE_modinput_functional" >> $GITHUB_OUTPUT
-          echo "execute-scripted-inputs=steps.skip-workflow.outputs.EXECUTE_scripted_inputs" >> $GITHUB_OUTPUT
-          echo "execute-escu=steps.skip-workflow.outputs.EXECUTE_escu" >> $GITHUB_OUTPUT
-          echo "execute-requirement-test=steps.skip-workflow.outputs.EXECUTE_requirement_test" >> $GITHUB_OUTPUT
+          echo "delay-destroy-ko=${{ steps.skip-workflow.outputs.DELAY_DESTROY_knowledge }}" >> $GITHUB_OUTPUT
+          echo "delay-destroy-ui=${{ steps.skip-workflow.outputs.DELAY_DESTROY_ui }}" >> $GITHUB_OUTPUT
+          echo "delay-destroy-modinput=${{ steps.skip-workflow.outputs.DELAY_DESTROY_modinput_functional }}" >> $GITHUB_OUTPUT
+          echo "delay-destroy-scripted_inputs=${{ steps.skip-workflow.outputs.DELAY_DESTROY_scripted_inputs }}" >> $GITHUB_OUTPUT
+          echo "delay-destroy-escu=${{ steps.skip-workflow.outputs.DELAY_DESTROY_escu }}" >> $GITHUB_OUTPUT
+          echo "delay-destroy-requirement_test=${{ steps.skip-workflow.outputs.DELAY_DESTROY_requirement_test }}" >> $GITHUB_OUTPUT
+          echo "execute-ko=${{ steps.skip-workflow.outputs.EXECUTE_knowledge }}" >> $GITHUB_OUTPUT
+          echo "execute-ui=${{ steps.skip-workflow.outputs.EXECUTE_ui }}" >> $GITHUB_OUTPUT
+          echo "execute-modinput=${{ steps.skip-workflow.outputs.EXECUTE_modinput_functional }}" >> $GITHUB_OUTPUT
+          echo "execute-scripted-inputs=${{ steps.skip-workflow.outputs.EXECUTE_scripted_inputs }}" >> $GITHUB_OUTPUT
+          echo "execute-escu=${{ steps.skip-workflow.outputs.EXECUTE_escu }}" >> $GITHUB_OUTPUT
+          echo "execute-requirement-test=${{ steps.skip-workflow.outputs.EXECUTE_requirement_test }}" >> $GITHUB_OUTPUT
   Check-variables:
     runs-on: ubuntu-latest
     needs: setup-workflow
