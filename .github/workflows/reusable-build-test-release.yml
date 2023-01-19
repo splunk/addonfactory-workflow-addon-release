@@ -119,19 +119,18 @@ jobs:
     steps:
       - name: print details of variables
         run: |
-          echo "needs.setup-workflow.outputs.delay-destroy-ko"
-          echo "needs.setup-workflow.outputs.delay-destroy-modinput"
-          echo "needs.setup-workflow.outputs.delay-destroy-ui"
-          echo "needs.setup-workflow.outputs.delay-destroy-requirement_test"
-          echo "needs.setup-workflow.outputs.delay-destroy-scripted_inputs"
-          echo "needs.setup-workflow.outputs.delay-destroy-escu"
-          echo "needs.setup-workflow.outputs.execute-ko"
-          echo "needs.setup-workflow.outputs.execute-ui"
-          echo "needs.setup-workflow.outputs.execute-modinput"
-          echo "needs.setup-workflow.outputs.execute-scripted-inputs"
-          echo "needs.setup-workflow.outputs.execute-escu"
-          echo "needs.setup-workflow.outputs.execute-requirement-test"
-          execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
+          echo "${{ needs.setup-workflow.outputs.delay-destroy-ko }}"
+          echo "${{ needs.setup-workflow.outputs.delay-destroy-modinput }}"
+          echo "${{ needs.setup-workflow.outputs.delay-destroy-ui }}"
+          echo "${{ needs.setup-workflow.outputs.delay-destroy-requirement_test }}"
+          echo "${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}"
+          echo "${{ needs.setup-workflow.outputs.delay-destroy-escu }}"
+          echo "${{ needs.setup-workflow.outputs.execute-ko }}"
+          echo "${{ needs.setup-workflow.outputs.execute-ui }}"
+          echo "${{ needs.setup-workflow.outputs.execute-modinput }}"
+          echo "${{ needs.setup-workflow.outputs.execute-scripted-inputs }}"
+          echo "${{ needs.setup-workflow.outputs.execute-escu }}"
+          echo "${{ needs.setup-workflow.outputs.execute-requirement-test }}"
     
   splunk-details:
     runs-on: ubuntu-latest
