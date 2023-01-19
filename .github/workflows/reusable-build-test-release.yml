@@ -77,7 +77,7 @@ jobs:
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
             for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
-                    eval SKIP_WORKFLOW="No"
+                    SKIP_WORKFLOW="No"
                 fi
             done
           fi
@@ -93,9 +93,9 @@ jobs:
         run: |
           set +e
           TESTSET="${{ steps.skip-workflow.outputs.testset }}"
-          for i in $TESTSET; do
-              eval DELAY_DESTROY_"$i"="No"
-              eval EXECUTE_"$i"="Yes"
+          for test_type in $TESTSET; do
+              eval DELAY_DESTROY_"$test_type"="No"
+              eval EXECUTE_"$test_type"="Yes"
           done
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "$PR_BODY" >> body.txt
@@ -2110,5 +2110,3 @@ jobs:
           git_token: ${{secrets.GH_TOKEN}}
           skynet-token: ${{ secrets.SKYNET_TOKEN }}
           skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
-
-    
