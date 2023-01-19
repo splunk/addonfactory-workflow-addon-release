@@ -157,9 +157,6 @@ jobs:
         run: |
           echo "This stage will fail or pass"
           exit 1
-      - name: Other stage
-        run: |
-          echo "Here I am"
       - name: Run this stage if first stage fails
         # if: ${{ failure() && steps.stage.conclusion == 'failure' }}
         if: always() && ${{ steps.stage.conclusion == 'failure' }}
@@ -172,6 +169,9 @@ jobs:
         run: |
           echo "This is second stage that will fail"
           exit 1
+      - name: Other stage
+        run: |
+          echo "Here I am"
       - name: Run if second stage fails
         if: ${{ failure() && steps.second-stage.conclusion == 'failure' }}
         run: |
