@@ -2120,6 +2120,12 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
+      - name: check if Fossa returned any issues
+        run: |
+          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
+          fossa test --debug
+        env:
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - uses: actions/setup-node@v3
         with:
           node-version: '14'
