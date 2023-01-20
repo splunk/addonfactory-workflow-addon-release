@@ -45,8 +45,93 @@ on:
         required: false
 
 jobs:
+  setup-workflow:
+    runs-on: ubuntu-latest
+    outputs:
+      skip-workflow: ${{ steps.skip-workflow.outputs.skip-workflow }}
+      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
+      delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
+      delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
+      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
+      delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
+      delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
+      execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
+      execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
+      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
+      execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
+      execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
+      execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
+    steps:
+      - name: skip workflow if description is empty for labeled pr
+        id: skip-workflow
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set +e
+          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
+          SKIP_WORKFLOW="No"
+          if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
+            echo "$PR_BODY" >> body.txt
+            SKIP_WORKFLOW="Yes" 
+            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            for test_type in $TESTSET; do
+                if [[ $tests =~ $test_type ]]; then
+                    SKIP_WORKFLOW="No"
+                fi
+            done
+          fi
+          echo "skip-workflow=$SKIP_WORKFLOW" >> "$GITHUB_OUTPUT"
+          if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
+            echo "No description is provided with preserve infra label"
+          fi 
+      - name: setup for delay destroy
+        id: delay-destroy-setup
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set +e
+          TESTSET="${{ steps.skip-workflow.outputs.testset }}"
+          for test_type in $TESTSET; do
+              eval DELAY_DESTROY_"$test_type"="No"
+              eval EXECUTE_"$test_type"="Yes"
+          done
+          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
+            echo "$PR_BODY" >> body.txt
+            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
+            if [[ $tests =~ "escu" ]]; then
+              echo "preserve_infra for escu test-type is not supported yet"
+            fi
+            for test_type in $TESTSET; do
+                if [[ $tests =~ $test_type ]]; then
+                    eval DELAY_DESTROY_"$test_type"="Yes"
+                else
+                    eval EXECUTE_"$test_type"="No" 
+                fi
+            done
+          fi
+          # PRESERVE_INFRA for escu test-type is not supported yet.
+          DELAY_DESTROY_escu="No"
+          {
+            echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
+            echo "delay-destroy-ui=$DELAY_DESTROY_ui"
+            echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional"
+            echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs"
+            echo "delay-destroy-escu=$DELAY_DESTROY_escu"
+            echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test"
+            echo "execute-ko=$EXECUTE_knowledge"
+            echo "execute-ui=$EXECUTE_ui"
+            echo "execute-modinput_functional=$EXECUTE_modinput_functional"
+            echo "execute-scripted_inputs=$EXECUTE_scripted_inputs"
+            echo "execute-escu=$EXECUTE_escu"
+            echo "execute-requirement_test=$EXECUTE_requirement_test"
+          } >> "$GITHUB_OUTPUT"
   meta:
     runs-on: ubuntu-latest
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
       sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_tags: ${{ steps.docker_action_meta.outputs.tags }}
@@ -102,6 +187,9 @@ jobs:
   fossa-scan:
     continue-on-error: true
     runs-on: ubuntu-latest
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: run fossa anlyze and create report
@@ -125,6 +213,9 @@ jobs:
   compliance-copyrights:
     name: compliance-copyrights
     runs-on: ubuntu-latest
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -133,6 +224,9 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -143,6 +237,9 @@ jobs:
   review_secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -165,7 +262,9 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
-    if: github.actor != 'dependabot[bot]'
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -322,6 +421,8 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
+    needs: setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -553,9 +654,11 @@ jobs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
       argo-secure: ${{ steps.test-setup.outputs.argo-secure }}
+      spl-host-suffix: ${{ steps.test-setup.outputs.spl-host-suffix }}
       argo-href: ""
       argo-base-href: ${{ steps.test-setup.outputs.argo-base-href }}
       argo-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-workflow-tmpl-name }}
+      k8s-manifests-branch: ${{ steps.test-setup.outputs.k8s-manifests-branch }}
       argo-namespace: ${{ steps.test-setup.outputs.argo-namespace }}
       addon-name: ${{ steps.test-setup.outputs.addon-name }}
       job-name: ${{ steps.test-setup.outputs.job-name }}
@@ -574,9 +677,11 @@ jobs:
           echo "::set-output name=argo-server::argo.wfe.splgdi.com:443"
           echo "::set-output name=argo-http1::true"
           echo "::set-output name=argo-secure::true"
+          echo "::set-output name=spl-host-suffix::wfe.splgdi.com"
           echo "::set-output name=argo-base-href::\'\'"
           echo "::set-output name=argo-namespace::workflows"
           echo "::set-output name=argo-workflow-tmpl-name::ta-workflow"
+          echo "::set-output name=k8s-manifests-branch::main"
 
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
@@ -601,12 +706,13 @@ jobs:
           echo "::set-output name=s3-bucket::ta-production-artifacts"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-ko == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -649,7 +755,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
-
+      - name: Splunk instance details
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: run-tests
         id: run-tests
         env:
@@ -663,11 +778,12 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ko }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: always()
@@ -778,12 +894,13 @@ jobs:
           reporter: java-junit
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement_test == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -825,6 +942,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Splunk instance details
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-requirement_test == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: run-tests
         id: run-tests
         env:
@@ -838,11 +965,12 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-requirement_test }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -933,12 +1061,13 @@ jobs:
           reporter: java-junit
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -982,6 +1111,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Splunk instance details
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: run-tests
         id: run-tests
         env:
@@ -995,11 +1134,12 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ui }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: always()
@@ -1096,12 +1236,13 @@ jobs:
           reporter: java-junit
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1146,6 +1287,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Splunk instance details
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: create test argument
         id: create-test-arg
         shell: bash
@@ -1171,11 +1322,12 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: always()
@@ -1272,12 +1424,13 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1319,6 +1472,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Splunk instance details
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1343,13 +1506,14 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1440,12 +1604,13 @@ jobs:
           reporter: java-junit
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1487,6 +1652,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Splunk instance details 
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1510,13 +1685,14 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always()
@@ -1607,12 +1783,13 @@ jobs:
           reporter: java-junit
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-escu == 'Yes' }}
     needs:
       - build
       - test-inventory
       - setup
       - meta
+      - setup-workflow
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1653,6 +1830,16 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "::set-output name=job-name::$JOB_NAME"
+      - name: Splunk instance details
+        id: splunk-instance-details
+        if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
+        shell: bash 
+        run: |
+          BOLD="\033[1m"
+          NORMAL="\033[0m"
+          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
+          echo -e "Splunk username is${BOLD} admin${NORMAL}"
+          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: get escu detections
         id: get-escu-detections
         run: |
@@ -1682,11 +1869,12 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-escu }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
@@ -1785,7 +1973,9 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
-    if: github.event_name == 'pull_request'
+    needs: 
+    - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v4.5.0
@@ -1829,9 +2019,9 @@ jobs:
               echo "::set-output name=run-publish::false"
           fi
       - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' }}
+        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled' && github.event.label.name == 'preserve_infra' ) }}
         run: |
-          echo " some test job failed. "
+          echo " Some test job failed or Workflow has triggred on preserve_infra label. "
           exit 1
 
   publish:
@@ -1925,4 +2115,3 @@ jobs:
           git_token: ${{secrets.GH_TOKEN}}
           skynet-token: ${{ secrets.SKYNET_TOKEN }}
           skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
-    
