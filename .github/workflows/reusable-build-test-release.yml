@@ -886,12 +886,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/cim_field_report.json
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-requirement-tests:
     if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement_test == 'Yes' }}
@@ -1053,12 +1065,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
     if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui == 'Yes' }}
@@ -1228,12 +1252,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
     if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' }}
@@ -1416,12 +1452,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
     if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
@@ -1596,12 +1644,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-canary:
     if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
@@ -1775,12 +1835,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-escu-tests:
     if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-escu == 'Yes' }}
@@ -1964,12 +2036,24 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/escu-result.xml
       - name: Test Report
+        id: test_report
         uses: dorny/test-reporter@v1
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
 
   validate-pr-title:
     name: Validate PR title
