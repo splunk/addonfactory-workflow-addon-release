@@ -204,6 +204,11 @@ jobs:
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
+      - name: run fossa test
+        run: |
+          fossa test --debug || true
+        env:
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
   compliance-copyrights:
     name: compliance-copyrights
