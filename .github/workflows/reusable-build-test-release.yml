@@ -156,14 +156,9 @@ jobs:
           node-version: '14'
       - name: Semantic Release
         id: version
-        uses: cycjimmy/semantic-release-action@v3.0.0
+        uses: splunk/semantic-release-action@v1.1.1
         with:
-          semantic_version: 17
-          extra_plugins: |
-            @semantic-release/exec
-            @semantic-release/git
-            semantic-release-helm
-            @google/semantic-release-replace-plugin
+          semantic_version: 20
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -333,12 +328,9 @@ jobs:
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
-        uses: cycjimmy/semantic-release-action@v3.0.0
+        uses: splunk/semantic-release-action@v1.1.1
         with:
-          semantic_version: 17
-          extra_plugins: |
-            @semantic-release/exec
-            @semantic-release/git
+          semantic_version: 20
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -2125,15 +2117,9 @@ jobs:
           node-version: '14'
       - name: Semantic Release
         id: semantic
-        uses: cycjimmy/semantic-release-action@v3.0.0
+        uses: splunk/semantic-release-action@v1.1.1
         with:
-          semantic_version: 17
-          extra_plugins: |
-            @semantic-release/exec
-            @semantic-release/git
-            @semantic-release/commit-analyzer
-            @semantic-release/release-notes-generator
-            @semantic-release/github
+          semantic_version: 20
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: Download package-deployment
