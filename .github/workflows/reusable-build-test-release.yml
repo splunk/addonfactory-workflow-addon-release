@@ -670,15 +670,6 @@ jobs:
         id: test-setup
         shell: bash
         run: |
-          echo "argo-server=argo.wfe.splgdi.com:443" >> $GITHUB_OUTPUT
-          echo "argo-http1=true" >> $GITHUB_OUTPUT
-          echo "argo-secure=true" >> $GITHUB_OUTPUT
-          echo "spl-host-suffix=wfe.splgdi.com" >> $GITHUB_OUTPUT
-          echo "argo-base-href=\'\'" >> $GITHUB_OUTPUT
-          echo "argo-namespace=workflows" >> $GITHUB_OUTPUT
-          echo "argo-workflow-tmpl-name=ta-workflow" >> $GITHUB_OUTPUT
-          echo "k8s-manifests-branch=main" >> $GITHUB_OUTPUT
-
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
@@ -704,6 +695,8 @@ jobs:
           echo "job-name=wf-$JOB_NAME"
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
+          echo "spl-host-suffix=wfe.splgdi.com"
+          echo "k8s-manifests-branch=main"
           } >> "$GITHUB_OUTPUT"
 
   run-knowledge-tests:
