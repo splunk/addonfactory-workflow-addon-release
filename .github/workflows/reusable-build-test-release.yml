@@ -185,7 +185,6 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v1.8
 
   fossa-scan:
-    continue-on-error: true
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
@@ -204,9 +203,18 @@ jobs:
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
+
+  fossa-test:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    needs:
+      - fossa-scan
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
+    steps:
+      - uses: actions/checkout@v3
       - name: run fossa test
         run: |
-          fossa test --debug || true
+          fossa test --debug
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -2120,12 +2128,6 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - name: check if Fossa returned any issues
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa test --debug
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - uses: actions/setup-node@v3
         with:
           node-version: '14'
