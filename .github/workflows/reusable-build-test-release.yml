@@ -328,9 +328,8 @@ jobs:
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@v1.1.1
+        uses: splunk/semantic-release-action@test/remove-package-json
         with:
-          semantic_version: 20
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -354,10 +353,6 @@ jobs:
       - name: Update Notices
         run: |
           cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
-      - name: Debug
-        run: |
-          ls -la
-          cat package.json || true
       - name: Build Package
         id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v1
