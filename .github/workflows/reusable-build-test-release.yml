@@ -727,7 +727,7 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
@@ -926,7 +926,7 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
@@ -1107,7 +1107,7 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}-${{ matrix.browser }}}
           JOB_NAME=${JOB_NAME//[_.:]/-}
@@ -1295,7 +1295,7 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
@@ -1492,7 +1492,8 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+         
+         $(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
@@ -1686,7 +1687,7 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
@@ -1878,7 +1879,7 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
