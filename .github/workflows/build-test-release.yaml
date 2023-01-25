@@ -32,7 +32,7 @@ jobs:
           python-version: "3.7"
       - name: Install actionlint
         run: |
-          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.8/scripts/download-actionlint.bash)
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.22/scripts/download-actionlint.bash)
       - uses: pre-commit/action@v3.0.0
 
   publish:
@@ -46,15 +46,9 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '14'
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v2.7.0
-        with:
-          semantic_version: 17
-          extra_plugins: |
-            @semantic-release/git
+        uses: splunk/semantic-release-action@v1.2
+
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
 
