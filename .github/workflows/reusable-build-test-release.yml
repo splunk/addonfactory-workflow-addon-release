@@ -321,7 +321,7 @@ jobs:
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@v1.2
+        uses: splunk/semantic-release-action@fix/no-lock-file
         with:
           dry_run: true
         env:
