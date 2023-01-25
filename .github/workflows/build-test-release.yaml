@@ -46,13 +46,9 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '14'
       - name: Semantic Release
-        uses: splunk/semantic-release-action@v1.1.1
-        with:
-          semantic_version: 20
+        uses: splunk/semantic-release-action@v1.2
+
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
 

@@ -151,14 +151,10 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
       - name: Semantic Release
         id: version
-        uses: splunk/semantic-release-action@v1.1.1
+        uses: splunk/semantic-release-action@v1.2
         with:
-          semantic_version: 20
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -285,9 +281,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.7
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
@@ -328,7 +321,7 @@ jobs:
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@fix/no-lock-file
+        uses: splunk/semantic-release-action@v1.2
         with:
           dry_run: true
         env:
@@ -2111,14 +2104,9 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
       - name: Semantic Release
         id: semantic
-        uses: splunk/semantic-release-action@v1.1.1
-        with:
-          semantic_version: 20
+        uses: splunk/semantic-release-action@v1.2
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: Download package-deployment
