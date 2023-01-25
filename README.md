@@ -650,7 +650,7 @@ publish
 
 - It downloads the artifacts which are shown under assets in Releases Page
 
-**Action used:** https://github.com/cycjimmy/semantic-release-action
+**Action used:** https://github.com/splunk/semantic-release-action
 
 **Pass/fail behaviour:** 
 
