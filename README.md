@@ -17,6 +17,7 @@ on:
       - "**"
 
 jobs:
+
   call-workflow:
     uses: splunk/addonfactory-workflow-addon-release/.github/workflows/reusable-build-test-release.yml@v1.2.0
     secrets:
