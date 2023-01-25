@@ -727,12 +727,12 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
+          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
@@ -1112,7 +1112,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}-${{ matrix.browser }}}
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
@@ -1300,7 +1300,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional == 'Yes' }}
@@ -1492,13 +1492,12 @@ jobs:
         id: create-job-name
         shell: bash
         run: |
-         
-         $(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          RANDOM_STRING="$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)"
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
@@ -1692,7 +1691,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details 
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
@@ -1884,7 +1883,7 @@ jobs:
           JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> $GITHUB_OUTPUT
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
