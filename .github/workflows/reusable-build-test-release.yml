@@ -153,7 +153,7 @@ jobs:
           persist-credentials: false
       - name: Semantic Release
         id: version
-        uses: splunk/semantic-release-action@ci/update-workflow
+        uses: splunk/semantic-release-action@test/git-workaround
         with:
           dry_run: true
         env:
