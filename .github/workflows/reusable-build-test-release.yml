@@ -133,7 +133,6 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
-      sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
@@ -152,7 +151,6 @@ jobs:
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
       - name: matrix
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.8
@@ -585,10 +583,6 @@ jobs:
             echo "  complete"
           done < /tmp/tags
           popd
-      - name: Output artifact locator
-        id: artifactid
-        run: |
-          echo "result= ${{ needs.meta.outputs.sc4s }}" >> "$GITHUB_OUTPUT"
 
   setup:
     needs:
