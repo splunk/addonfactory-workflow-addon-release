@@ -109,15 +109,17 @@ fossa-scan
 
 **Description:**
 
-- This action scans a project for third party components and reports the results. This action checks license compliance and vulnerabilities. This file uses `.fossa.yml` configuration file
+- This action scans a project for third party components and creates report the with the results. This file job uses `.fossa.yml` configuration file
+
+- Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated per job and printed in logs
 
 **Pass/fail behaviour:**
 
-- This stage fails if FOSSA finds any license or security issues. Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated per job and printed in logs. License issues should be checked by legal team, vulnerabilities should be solved by TA-dev or TA-qa team with assist of prodsec team if needed (some issues with critical status for example).
+- This stage fails if FOSSA cannot create report - for example some internal FOSSA error
 
 **Troubleshooting steps for failures if any:** 
 
-- The error log is present in the stage as well user should be able to reproduce that in local environment with FOSSA CLI tool https://github.com/fossas/fossa-cli
+- The error log is present in the stage as well user should be able to run FOSSA in local environment with FOSSA CLI tool https://github.com/fossas/fossa-cli
 
 
 **Artifacts:**
@@ -125,6 +127,26 @@ fossa-scan
 ```
 THIRDPARTY
 ```
+
+fossa-test
+=======================
+
+**Description:**
+
+- This action checks report created in fossa-scan job. This action checks license compliance and vulnerabilities. This job uses `.fossa.yml` configuration file
+
+**Pass/fail behaviour:**
+
+- This stage fails if FOSSA finds any license or security issues. Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated in fossa-scan job. License issues should be checked by legal team, vulnerabilities should be solved by TA-dev or TA-qa team with assist of prodsec team if needed (some issues with critical status for example).
+
+**Troubleshooting steps for failures if any:** 
+
+- The error log is present in the stage as well user should be able to reproduce that in local environment with FOSSA CLI tool https://github.com/fossas/fossa-cli
+
+**Artifacts:**
+
+- No additional Artifacts.
+
 
 compliance-copyrights
 =====================
