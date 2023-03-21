@@ -129,6 +129,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
   meta:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
@@ -276,6 +278,8 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs:
       - fossa-scan
     outputs:
@@ -334,7 +338,7 @@ jobs:
         with:
           dry_run: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Determine the version to build
         id: BuildVersion
         uses: splunk/addonfactory-get-splunk-package-version-action@v1
@@ -562,6 +566,9 @@ jobs:
 
   artifact-registry:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     needs:
       - security-virustotal
       - meta
@@ -2174,6 +2181,8 @@ jobs:
     if: always()
     needs: [ publish ]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Send logs to Skynet
         uses: splunk/collect-ta-logs@main

@@ -15,6 +15,9 @@ jobs:
   compliance-copyrights:
     name: Compliance Copyright Headers
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
