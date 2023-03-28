@@ -153,7 +153,7 @@ jobs:
           persist-credentials: false
       - name: Semantic Release
         id: version
-        uses: splunk/semantic-release-action@v1.2
+        uses: splunk/semantic-release-action@v1.3
         with:
           dry_run: true
         env:
@@ -330,7 +330,7 @@ jobs:
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@v1.2
+        uses: splunk/semantic-release-action@v1.3
         with:
           dry_run: true
         env:
@@ -2115,7 +2115,7 @@ jobs:
           persist-credentials: false
       - name: Semantic Release
         id: semantic
-        uses: splunk/semantic-release-action@v1.2
+        uses: splunk/semantic-release-action@v1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: Download package-deployment
