@@ -47,7 +47,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - name: Semantic Release
-        uses: splunk/semantic-release-action@v1.3
+        uses: splunk/semantic-release-action@fix/conditional-gpg
 
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
