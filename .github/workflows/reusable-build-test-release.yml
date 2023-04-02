@@ -43,7 +43,6 @@ on:
       SKYNET_TOKEN:
         description: API token for Skynet
         required: false
-permissions: read-all
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -129,8 +128,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
   meta:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
@@ -276,8 +273,6 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     needs:
       - fossa-scan
     outputs:
@@ -562,9 +557,6 @@ jobs:
 
   artifact-registry:
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
     needs:
       - security-virustotal
       - meta
@@ -2177,8 +2169,6 @@ jobs:
     if: always()
     needs: [ publish ]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Send logs to Skynet
         uses: splunk/collect-ta-logs@main
