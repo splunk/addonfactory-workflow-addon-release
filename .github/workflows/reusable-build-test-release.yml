@@ -14,7 +14,7 @@ on:
         description: Github admin token
         required: true
       GH_TOKEN:
-        description: Github token
+        description: Deprecated
         required: true
       SEMGREP_PUBLISH_TOKEN:
         description: Semgrep token
@@ -43,7 +43,7 @@ on:
       SKYNET_TOKEN:
         description: API token for Skynet
         required: false
-
+permissions: read-all
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -158,8 +158,6 @@ jobs:
         uses: splunk/semantic-release-action@v1.3
         with:
           dry_run: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Docker meta
         id: docker_action_meta
         uses: docker/metadata-action@v4.1.1
@@ -337,8 +335,6 @@ jobs:
         uses: splunk/semantic-release-action@v1.3
         with:
           dry_run: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       - name: Determine the version to build
         id: BuildVersion
         uses: splunk/addonfactory-get-splunk-package-version-action@v1
@@ -598,7 +594,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: github.token
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v4.1.1
@@ -2187,6 +2183,6 @@ jobs:
       - name: Send logs to Skynet
         uses: splunk/collect-ta-logs@main
         with:
-          git_token: ${{secrets.GH_TOKEN}}
+          git_token: github.token
           skynet-token: ${{ secrets.SKYNET_TOKEN }}
           skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
