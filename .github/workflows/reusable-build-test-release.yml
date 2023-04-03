@@ -13,9 +13,6 @@ on:
       GH_TOKEN_ADMIN:
         description: Github admin token
         required: true
-      GH_TOKEN:
-        description: Github token
-        required: true
       SEMGREP_PUBLISH_TOKEN:
         description: Semgrep token
         required: true
@@ -43,7 +40,21 @@ on:
       SKYNET_TOKEN:
         description: API token for Skynet
         required: false
-
+      SA_GH_USER_NAME:
+        description: GPG signature username
+        required: true
+      SA_GH_USER_EMAIL:
+        description:  GPG signature user email
+        required: true
+      SA_GPG_PRIVATE_KEY:
+        description: GPG signature private key
+        required: true
+      SA_GPG_PASSPHRASE:
+        description: GPG signature passphrase
+        required: true
+permissions:
+  contents: read
+  packages: read
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -145,6 +156,9 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
+    permissions:
+      contents: write
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -156,8 +170,12 @@ jobs:
         uses: splunk/semantic-release-action@v1.3
         with:
           dry_run: true
+          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
+          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
+          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Docker meta
         id: docker_action_meta
         uses: docker/metadata-action@v4.1.1
@@ -280,6 +298,9 @@ jobs:
       - fossa-scan
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
+    permissions:
+      contents: write
+      packages: read
     steps:
       - uses: actions/checkout@v3
         with:
@@ -333,8 +354,12 @@ jobs:
         uses: splunk/semantic-release-action@v1.3
         with:
           dry_run: true
+          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
+          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
+          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Determine the version to build
         id: BuildVersion
         uses: splunk/addonfactory-get-splunk-package-version-action@v1
@@ -443,6 +468,13 @@ jobs:
       matrix:
         python-version:
           - "3.7"
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
       - name: Setup python
@@ -500,6 +532,13 @@ jobs:
     needs:
       - build
       - test-inventory
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
       - name: Install Python 3
@@ -567,6 +606,9 @@ jobs:
       - meta
     outputs:
       artifact: ${{ steps.artifactid.outputs.result }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -591,7 +633,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
+          password: ${{ github.token }}
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v4.1.1
@@ -717,6 +759,13 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -916,6 +965,13 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       TEST_TYPE: "requirement_test"
       TEST_ARGS: ""
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -1097,6 +1153,13 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -1285,6 +1348,13 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -1482,6 +1552,13 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -1676,6 +1753,13 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -1868,6 +1952,13 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "escu"
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -2054,13 +2145,18 @@ jobs:
     - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
+      statuses: write
     steps:
       - uses: amannn/action-semantic-pull-request@v5.0.2
         with:
           wip: true
           validateSingleCommit: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   pre-publish:
     if: always()
@@ -2107,6 +2203,11 @@ jobs:
       - pre-publish
       - run-escu-tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+      pull-requests: read
+      statuses: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -2118,6 +2219,11 @@ jobs:
         uses: splunk/semantic-release-action@v1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+        with:
+          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
+          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
+          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v3
@@ -2164,7 +2270,7 @@ jobs:
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: svenstaro/upload-release-action@v2
         with:
-          repo_token: ${{ secrets.GH_TOKEN_ADMIN }}
+          repo_token: ${{ github.token }}
           file: ${{ steps.download-package-splunkbase.outputs.download-path }}/*
           overwrite: true
           file_glob: true
@@ -2178,6 +2284,6 @@ jobs:
       - name: Send logs to Skynet
         uses: splunk/collect-ta-logs@main
         with:
-          git_token: ${{secrets.GH_TOKEN}}
+          git_token: ${{ github.token }}
           skynet-token: ${{ secrets.SKYNET_TOKEN }}
           skynet-url: "https://http-inputs-services-ingest.splunkcloud.com/services/collector/event"        
