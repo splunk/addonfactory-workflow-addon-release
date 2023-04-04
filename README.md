@@ -15,20 +15,32 @@ on:
   pull_request:
     branches: 
       - "**"
-
+# explicitly configure permissions, in case your GITHUB_TOKEN workflow permissions are set to read-only in repository settings
+permissions:
+  actions: read
+  checks: write
+  contents: write
+  deployments: read
+  packages: write
+  pull-requests: read
+  statuses: write
 jobs:
   call-workflow:
     uses: splunk/addonfactory-workflow-addon-release/.github/workflows/reusable-build-test-release.yml@v1.2.0
     secrets:
       GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+      SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_KEY }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       OTHER_TA_REQUIRED_CONFIGS: ${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+      SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
+      SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
+      SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+      SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
 ```
 
 ***
