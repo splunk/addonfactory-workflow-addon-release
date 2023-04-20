@@ -366,12 +366,12 @@ jobs:
         with:
           SemVer: ${{ steps.semantic.outputs.new_release_version }}
           PrNumber: ${{ github.event.number }}
-      - name: Download THRIDPARTY
+      - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
-      - name: Download THRIDPARTY (Optional for PR and schedule)
+      - name: Download THIRDPARTY (Optional for PR and schedule)
         if: github.event_name == 'pull_request' || github.event_name == 'schedule'
         continue-on-error: true
         uses: actions/download-artifact@v3
