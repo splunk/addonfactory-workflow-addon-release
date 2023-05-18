@@ -95,7 +95,7 @@ jobs:
           elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'run_all_tests') }}" || "${{ github.base_ref == 'main' }} || "${{ github.ref_name == 'main' }} ]]; then
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
-              if [[ "${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}" ]]; then
+              if ${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}; then
                 DELAY_DESTROY["$test_type"]="true"
               fi
             done
@@ -114,12 +114,14 @@ jobs:
             done
           fi
       
-          {
-            for test_type in "${TESTSET[@]}"; do
-              echo "delay-destroy-$test_type=${DELAY_DESTROY["$test_type"]}"
-              echo "execute-$test_type=${EXECUTE["$test_type"]}"
-            done
-          } >> "$GITHUB_OUTPUT"
+          echo "Tests to to execute based on labels:"
+          for test_type in "${TESTSET[@]}"; do
+            echo "delay-destroy-$test_type=${DELAY_DESTROY["$test_type"]}" >> "$GITHUB_OUTPUT"
+            echo "delay-destroy-$test_type=${DELAY_DESTROY["$test_type"]}"
+            echo "execute-$test_type=${EXECUTE["$test_type"]}" >> "$GITHUB_OUTPUT"
+            echo "execute-$test_type=${EXECUTE["$test_type"]}"
+          done
+
           
   meta:
     runs-on: ubuntu-latest
