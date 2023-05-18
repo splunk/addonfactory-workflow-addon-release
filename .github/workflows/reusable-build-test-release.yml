@@ -59,12 +59,7 @@ jobs:
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      delay-destroy-knowledge: ${{ steps.configure-tests.outputs.delay-destroy-knowledge }}
-      delay-destroy-ui: ${{ steps.configure-tests.outputs.delay-destroy-ui }}
-      delay-destroy-modinput: ${{ steps.configure-tests.outputs.delay-destroy-modinput }}
-      delay-destroy-escu: ${{ steps.configure-tests.outputs.delay-destroy-escu }}
-      delay-destroy-scripted_inputs: ${{ steps.configure-tests.outputs.delay-destroy-scripted_inputs }}
-      delay-destroy-requirement: ${{ steps.configure-tests.outputs.delay-destroy-requirement_test }}
+      delay-destroy: ${{ steps.configure-tests.outputs.delay-destroy }}
       execute-knowledge: ${{ steps.configure-tests.outputs.execute-knowledge }}
       execute-ui: ${{ steps.configure-tests.outputs.execute-ui }}
       execute-escu: ${{ steps.configure-tests.outputs.execute-escu }}
@@ -77,48 +72,42 @@ jobs:
         shell: bash
         run: |
           set +e
-          declare -A DELAY_DESTROY
           declare -A EXECUTE
-      
+          delay_destroy="No"
           TESTSET=("knowledge" "ui" "modinput" "scripted_inputs" "escu" "requirement")
 
           for test_type in "${TESTSET[@]}"; do
-            DELAY_DESTROY["$test_type"]="false"
             EXECUTE["$test_type"]="false"
           done
       
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "push" ]]; then
             for test_type in "${TESTSET[@]}"; do
-              DELAY_DESTROY["$test_type"]="false"
               EXECUTE["$test_type"]="true"
             done
           elif ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }} || ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'main' }}; then
+            if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}"; then
+              delay_destroy="Yes"
+            fi
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
-              if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}"; then
-                DELAY_DESTROY["$test_type"]="true"
-              fi
             done
           else
+            if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}" ; then
+                delay_destroy="Yes"
+            fi
+            labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
             for test_type in "${TESTSET[@]}"; do
-              labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-              if [[ "$labels" =~ "$test_type" ]] ; then
+              if [[ "$labels" =~ "$test_type" ]]; then
                 EXECUTE["$test_type"]="true"
-                if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}" ; then
-                  if "$test_type" == "escu"; then
-                    echo "preserve-infra for escu test-type is not supported yet"
-                  else
-                    DELAY_DESTROY["$test_type"]="true"
-                  fi
-                fi
               fi
             done
           fi
       
+          echo "delay-destroy=$delay_destroy" >> "$GITHUB_OUTPUT"
+          echo "delay-destroy=$delay_destroy"
+          
           echo "Tests to to execute based on labels:"
           for test_type in "${TESTSET[@]}"; do
-            echo "delay-destroy-$test_type=${DELAY_DESTROY["$test_type"]}" >> "$GITHUB_OUTPUT"
-            echo "delay-destroy-$test_type=${DELAY_DESTROY["$test_type"]}"
             echo "execute-$test_type=${EXECUTE["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "execute-$test_type=${EXECUTE["$test_type"]}"
           done
@@ -792,7 +781,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-knowledge }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -998,7 +987,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-requirement }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -1186,7 +1175,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ui }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1360,7 +1349,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'true' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1393,7 +1382,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-modinput }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1564,7 +1553,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'true' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1598,7 +1587,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1765,7 +1754,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details 
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'true' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1798,7 +1787,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs }}
+          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1962,16 +1951,6 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'true' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
       - name: get escu detections
         id: get-escu-detections
         run: |
@@ -2003,7 +1982,7 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-escu }}
+          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
