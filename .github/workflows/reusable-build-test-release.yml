@@ -87,15 +87,15 @@ jobs:
             EXECUTE["$test_type"]="false"
           done
       
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "push" ]]; then
+          if [[ ]]"${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "push" ]]; then
             for test_type in "${TESTSET[@]}"; do
               DELAY_DESTROY["$test_type"]="false"
               EXECUTE["$test_type"]="true"
             done
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'run_all_tests') }}" || "${{ github.base_ref == 'main' }} || "${{ github.ref_name == 'main' }} ]]; then
+          elif ${{ contains(github.event.pull_request.labels.*.name, 'run_all_tests') }} || ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'main' }}; then
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
-              if ${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}; then
+              if "${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}"; then
                 DELAY_DESTROY["$test_type"]="true"
               fi
             done
@@ -103,8 +103,8 @@ jobs:
             for test_type in "${TESTSET[@]}"; do
               if [[ "${{ github.event.pull_request.labels[*].name }}" =~ "${test_type}" ]]; then
                 EXECUTE["$test_type"]="true"
-                if [[ "${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}" ]]; then
-                  if [[ "$test_type" == "escu" ]]; then
+                if "${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}" ; then
+                  if "$test_type" == "escu"; then
                     echo "preserve_infra for escu test-type is not supported yet"
                   else
                     DELAY_DESTROY["$test_type"]="true"
