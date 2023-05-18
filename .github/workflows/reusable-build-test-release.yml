@@ -59,7 +59,6 @@ jobs:
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip-workflow: ${{ steps.skip-workflow.outputs.skip-workflow }}
       delay-destroy-knowledge: ${{ steps.configure-tests.outputs.delay-destroy-knowledge }}
       delay-destroy-ui: ${{ steps.configure-tests.outputs.delay-destroy-ui }}
       delay-destroy-modinput: ${{ steps.configure-tests.outputs.delay-destroy-modinput }}
@@ -73,29 +72,6 @@ jobs:
       execute-scripted_inputs: ${{ steps.configure-tests.outputs.execute-scripted_inputs }}
       execute-requirement: ${{ steps.configure-tests.outputs.execute-requirement_test }}
     steps:
-      - name: skip workflow if description is empty for labeled pr
-        id: skip-workflow
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set +e
-          
-          echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
-          SKIP_WORKFLOW="No"
-          if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            echo "$PR_BODY" >> body.txt
-            SKIP_WORKFLOW="Yes" 
-            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            for test_type in $TESTSET; do
-                if [[ $tests =~ $test_type ]]; then
-                    SKIP_WORKFLOW="No"
-                fi
-            done
-          fi
-          echo "skip-workflow=$SKIP_WORKFLOW" >> "$GITHUB_OUTPUT"
-          if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
-            echo "No description is provided with preserve infra label"
-          fi 
       - name: Configure Test Execution
         id: configure-tests
         shell: bash
@@ -111,12 +87,12 @@ jobs:
             EXECUTE["$test_type"]="false"
           done
       
-          if [[ "${github.event_name}" == "schedule" || "${github.event_name}" == "push" ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "push" ]]; then
             for test_type in "${TESTSET[@]}"; do
               DELAY_DESTROY["$test_type"]="false"
               EXECUTE["$test_type"]="true"
             done
-          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'run_all_tests') }}" ]]; then
+          elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'run_all_tests') }}" || "${{ github.base_ref == 'main' }} || "${{ github.ref_name == 'main' }} ]]; then
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
               if [[ "${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}" ]]; then
@@ -125,7 +101,7 @@ jobs:
             done
           else
             for test_type in "${TESTSET[@]}"; do
-              if [[ "${github.event.pull_request.labels[*].name}" =~ "${test_type}" ]]; then
+              if [[ "${{ github.event.pull_request.labels[*].name }}" =~ "${test_type}" ]]; then
                 EXECUTE["$test_type"]="true"
                 if [[ "${{ contains(github.event.pull_request.labels.*.name, 'preserve_infra') }}" ]]; then
                   if [[ "$test_type" == "escu" ]]; then
@@ -526,7 +502,7 @@ jobs:
           path: test-results/*
 
   run-requirements-unit-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' }}
+    if: ${{ needs.test-inventory.outputs.requirement == 'true' }}
     runs-on: ubuntu-latest
     needs:
       - build
@@ -2142,7 +2118,7 @@ jobs:
     name: Validate PR title
     needs: 
     - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'true' && github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
