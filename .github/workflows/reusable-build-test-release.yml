@@ -69,32 +69,25 @@ jobs:
     steps:
       - name: Configure Test Execution
         id: configure-tests
-        shell: bash
         run: |
           set +e
           declare -A EXECUTE
-          delay_destroy="No"
           TESTSET=("knowledge" "ui" "modinput" "scripted_inputs" "escu" "requirement")
+          delay_destroy="No"
 
           for test_type in "${TESTSET[@]}"; do
             EXECUTE["$test_type"]="false"
           done
-      
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "push" ]]; then
-            for test_type in "${TESTSET[@]}"; do
-              EXECUTE["$test_type"]="true"
-            done
-          elif ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }} || ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'main' }}; then
-            if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}"; then
-              delay_destroy="Yes"
-            fi
+
+          if ${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}; then
+            delay_destroy="Yes"
+          fi
+
+          if [ "${{ github.event_name }}" == "schedule" ] || ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}; then
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
             done
           else
-            if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}" ; then
-                delay_destroy="Yes"
-            fi
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
             for test_type in "${TESTSET[@]}"; do
               if [[ "$labels" =~ "$test_type" ]]; then
@@ -104,15 +97,14 @@ jobs:
           fi
       
           echo "delay-destroy=$delay_destroy" >> "$GITHUB_OUTPUT"
-          echo "delay-destroy=$delay_destroy"
+          echo "delay-destroy: $delay_destroy"
           
-          echo "Tests to to execute based on labels:"
+          echo "Tests to execute based on labels:"
           for test_type in "${TESTSET[@]}"; do
             echo "execute-$test_type=${EXECUTE["$test_type"]}" >> "$GITHUB_OUTPUT"
-            echo "execute-$test_type=${EXECUTE["$test_type"]}"
+            echo "execute-$test_type: ${EXECUTE["$test_type"]}"
           done
 
-          
   meta:
     runs-on: ubuntu-latest
     needs:
