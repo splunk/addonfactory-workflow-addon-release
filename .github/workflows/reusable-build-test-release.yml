@@ -101,9 +101,8 @@ jobs:
             done
           else
             for test_type in "${TESTSET[@]}"; do
-              echo "${{ toJSON(github.event.pull_request.labels) }}"
-              done
-              if [[ "${{ github.event.pull_request.labels[*].name[*]}}" =~ "$test_type" ]] ; then
+              labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
+              if [[ "$labels" =~ "$test_type" ]] ; then
                 EXECUTE["$test_type"]="true"
                 if "${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}" ; then
                   if "$test_type" == "escu"; then
