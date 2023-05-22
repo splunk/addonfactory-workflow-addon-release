@@ -83,12 +83,18 @@ jobs:
             delay_destroy="Yes"
           fi
 
-          if [ "${{ github.event_name }}" == "schedule" ] || ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}; then
+          if [ "${{ github.event_name }}" == "schedule" ] || [ [ "${{ github.event_name }}" != "workflow_dispatch" ] && ${{ github.base_ref == 'main' }} ] || [ [ "${{ github.event_name }}" != "workflow_dispatch" ] && ${{ github.ref_name == 'main' }} ] || ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}; then
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
             done
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo '${{ toJSON(inputs) }}'
+            for test_type in "${TESTSET[@]}"; do
+              manual_input=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq --arg var "$test_type" '.[$var]')
+              if $manual_input; then
+                EXECUTE["$test_type"]="true"
+              fi
+            done
           elif [ "${{ github.event_name }}" == "pull_request" ]; then
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
             for test_type in "${TESTSET[@]}"; do
