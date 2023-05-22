@@ -87,13 +87,15 @@ jobs:
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
             done
-          else
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
             for test_type in "${TESTSET[@]}"; do
               if [[ "$labels" =~ "$test_type" ]]; then
                 EXECUTE["$test_type"]="true"
               fi
             done
+          else
+            echo "No tests were selected for execution!"
           fi
       
           echo "delay-destroy=$delay_destroy" >> "$GITHUB_OUTPUT"
