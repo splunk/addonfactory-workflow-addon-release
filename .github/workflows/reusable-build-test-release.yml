@@ -87,6 +87,8 @@ jobs:
             for test_type in "${TESTSET[@]}"; do
               EXECUTE["$test_type"]="true"
             done
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo '${{ toJSON(inputs) }}'
           elif [ "${{ github.event_name }}" == "pull_request" ]; then
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
             for test_type in "${TESTSET[@]}"; do
