@@ -55,6 +55,9 @@ on:
 permissions:
   contents: read
   packages: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -98,7 +101,7 @@ jobs:
               fi
               ;;
             "workflow_dispatch")
-              if ${{ inputs.preserve-infra }};then
+              if ${{ inputs.preserve-infra }}; then
                 delay_destroy="Yes"
               fi
               for test_type in "${TESTSET[@]}"; do
