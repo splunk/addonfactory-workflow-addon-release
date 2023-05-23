@@ -101,8 +101,14 @@ jobs:
               fi
               ;;
             "workflow_dispatch")
-              if ${{ inputs.preserve-infra }}; then
-                delay_destroy="Yes"
+              #hack for not providing empty value to conditional statement 
+              if [ -z ${{ inputs.preserve-infra }} ];then
+                echo "No input provided"
+              else
+                tmp=${{ inputs.preserve-infra }}
+                if "$tmp"; then
+                  delay_destroy="Yes"
+                fi
               fi
               for test_type in "${TESTSET[@]}"; do
                 input_test=$(echo '${{ toJSON(inputs) }}' | jq --arg var "$test_type" '.[$var]')
