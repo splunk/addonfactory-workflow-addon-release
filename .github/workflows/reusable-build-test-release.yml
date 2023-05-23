@@ -118,7 +118,7 @@ jobs:
               done
               ;;
             "push")
-              if ${{ github.ref_name == 'main' }}; then
+              if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }}; then
                 for test_type in "${TESTSET[@]}"; do
                   EXECUTE["$test_type"]="true"
                 done
