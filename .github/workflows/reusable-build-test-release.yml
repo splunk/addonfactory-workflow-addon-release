@@ -79,32 +79,51 @@ jobs:
             EXECUTE["$test_type"]="false"
           done
 
-          if ${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }} || ${{ inputs.preserve-infra }} ; then
-            delay_destroy="Yes"
-          fi
-
-
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            for test_type in "${TESTSET[@]}"; do
-              manual_input=$(echo '${{ toJSON(inputs) }}' | jq --arg var "$test_type" '.[$var]')
-              if $manual_input; then
-                EXECUTE["$test_type"]="true"
+          case "${{ github.event_name }}" in
+            "pull_request")
+              if ${{ contains(github.event.pull_request.labels.*.name, 'preserve-infra') }}; then
+                delay_destroy="Yes"
               fi
-            done
-          elif [ "${{ github.event_name }}" == "schedule" ] || ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}; then
-            for test_type in "${TESTSET[@]}"; do
-              EXECUTE["$test_type"]="true"
-            done
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            for test_type in "${TESTSET[@]}"; do
-              if [[ "$labels" =~ "$test_type" ]]; then
-                EXECUTE["$test_type"]="true"
+              if ${{ github.base_ref == 'main' }}; then
+                for test_type in "${TESTSET[@]}"; do
+                  EXECUTE["$test_type"]="true"
+                done
+              else
+                labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
+                for test_type in "${TESTSET[@]}"; do
+                  if [[ "$labels" =~ "$test_type" ]]; then
+                    EXECUTE["$test_type"]="true"
+                  fi
+                done
               fi
-            done
-          else
-            echo "No tests were selected for execution!"
-          fi
+              ;;
+            "workflow_dispatch")
+              if ${{ inputs.preserve-infra }};then
+                delay_destroy="Yes"
+              fi
+              for test_type in "${TESTSET[@]}"; do
+                input_test=$(echo '${{ toJSON(inputs) }}' | jq --arg var "$test_type" '.[$var]')
+                if $input_test; then
+                  EXECUTE["$test_type"]="true"
+                fi
+              done
+              ;;
+            "push")
+              if ${{ github.ref_name == 'main' }}; then
+                for test_type in "${TESTSET[@]}"; do
+                  EXECUTE["$test_type"]="true"
+                done
+              fi
+              ;;
+            "schedule")
+              for test_type in "${TESTSET[@]}"; do
+                EXECUTE["$test_type"]="true"
+              done
+              ;;
+            *)
+              echo "No tests were selected for execution!"
+              ;;
+          esac
       
           echo "delay-destroy=$delay_destroy" >> "$GITHUB_OUTPUT"
           echo "delay-destroy: $delay_destroy"
