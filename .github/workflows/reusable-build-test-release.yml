@@ -55,9 +55,6 @@ on:
 permissions:
   contents: read
   packages: read
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -99,23 +96,6 @@ jobs:
                   fi
                 done
               fi
-              ;;
-            "workflow_dispatch")
-              #hack for not providing empty value to conditional statement 
-              if [ -z ${{ inputs.preserve-infra }} ];then
-                echo "No input provided"
-              else
-                tmp=${{ inputs.preserve-infra }}
-                if "$tmp"; then
-                  delay_destroy="Yes"
-                fi
-              fi
-              for test_type in "${TESTSET[@]}"; do
-                input_test=$(echo '${{ toJSON(inputs) }}' | jq --arg var "$test_type" '.[$var]')
-                if $input_test; then
-                  EXECUTE["$test_type"]="true"
-                fi
-              done
               ;;
             "push")
               if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }}; then
@@ -790,7 +770,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-knowledge == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'Yes' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -996,7 +976,7 @@ jobs:
           echo "::set-output name=job-name::$JOB_NAME"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-requirement == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'Yes' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1184,7 +1164,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'Yes' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1379,7 +1359,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'Yes' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1583,7 +1563,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'Yes' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
@@ -1784,7 +1764,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: Splunk instance details 
         id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.delay-destroy == 'Yes' }}
         shell: bash 
         run: |
           BOLD="\033[1m"
