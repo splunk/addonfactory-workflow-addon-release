@@ -161,7 +161,7 @@ jobs:
             else
               labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
               for test_type in "${TESTSET[@]}"; do
-                if [[ "$labels" =~ "$test_type" ]]; then
+                if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
                 fi
               done
