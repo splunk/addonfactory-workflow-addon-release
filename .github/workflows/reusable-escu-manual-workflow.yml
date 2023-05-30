@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.8
+        uses: splunk/addonfactory-test-matrix-action@v1.9
 
   test-inventory:
     runs-on: ubuntu-latest
