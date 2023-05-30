@@ -70,10 +70,10 @@ setup-workflow
     - add to PR label `preserve_infra`
     - add to PR description add `preserve: {comma separated list of test type}`
     - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test`
-    - if you want to trigger tests again, reapply `preserve_infra` label
+    - to trigger tests again, reapply `preserve_infra` label
   - To trigger specified test type
     - add to PR one or multiple labels
-    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test`
+    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test all_tests`
     - adding labels will result retriggering job
 
 meta stage

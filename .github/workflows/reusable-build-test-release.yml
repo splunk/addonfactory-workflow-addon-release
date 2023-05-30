@@ -143,7 +143,8 @@ jobs:
             echo "execute-escu=$EXECUTE_escu"
             echo "execute-requirement_test=$EXECUTE_requirement_test"
           } >> "$GITHUB_OUTPUT"
-      - id: configure-tests-on-labels
+      - name: configure tests based on labels
+        id: configure-tests-on-labels
         run: |
           set +e
           declare -A EXECUTE_LABELED
@@ -154,7 +155,7 @@ jobs:
 
           case "${{ github.event_name }}" in
           "pull_request")
-            if ${{ github.base_ref == 'main' }}; then
+            if ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'all_tests') }}; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
