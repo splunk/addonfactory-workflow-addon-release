@@ -1180,7 +1180,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ui) }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ui == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1374,7 +1374,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput) }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1581,7 +1581,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1782,7 +1782,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs) }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1982,7 +1982,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-labeled-escu) }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-labeled-escu == 'true') }}
     needs:
       - build
       - test-inventory
