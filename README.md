@@ -65,8 +65,16 @@ setup-workflow
 =======================
 
 **Description:**
-- Job is scanning pull_request labels or manual_dispatch inputs and, depending on the outcomes, configuring the execution of tests and maintaining the infrastructure.
-
+- Job that is scanning pull_request and based on PR body or included labels defining tests to be executed or infrastructures to be preserved. 
+  - To preserve infrastructure:
+    - add to PR label `preserve_infra`
+    - add to PR description add `preserve: {comma separated list of test type}`
+    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test`
+    - if you want to trigger tests again, reapply `preserve_infra` label
+  - To trigger specified test type
+    - add to PR one or multiple labels
+    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test`
+    - adding labels will result retriggering job
 
 meta stage
 =======================
