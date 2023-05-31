@@ -36,9 +36,6 @@ on:
       FOSSA_API_KEY:
         description: API token for FOSSA app
         required: true
-      SKYNET_TOKEN:
-        description: API token for Skynet
-        required: false
       SA_GH_USER_NAME:
         description: GPG signature username
         required: true
