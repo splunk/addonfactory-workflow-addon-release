@@ -27,9 +27,6 @@ on:
       VT_API_KEY:
         description: Virustotal api key
         required: true
-      CODECOV_TOKEN:
-        description: Codecov token
-        required: true
       OTHER_TA_REQUIRED_CONFIGS:
         description: other required configs
         required: true
