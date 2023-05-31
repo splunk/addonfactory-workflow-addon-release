@@ -27,9 +27,6 @@ on:
       VT_API_KEY:
         description: Virustotal api key
         required: true
-      CODECOV_TOKEN:
-        description: Codecov token
-        required: true
       OTHER_TA_REQUIRED_CONFIGS:
         description: other required configs
         required: true
@@ -552,22 +549,6 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name: Run Check if codecov enabled
-        id: checkcodecov
-        run: if [ -n "$CODECOV_TOKEN" ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: Upload coverage to Codecov
-        if: ${{ steps.checkcodecov.outputs.ENABLED == 'true' }}
-        uses: codecov/codecov-action@v3.1.0
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          directory: ./coverage/reports/
-          env_vars: OS,PYTHON
-          fail_ci_if_error: true
-          path_to_write_report: ./coverage/codecov_report.txt
-          verbose: true
       - uses: actions/upload-artifact@v3 # upload test results
         if: success() || failure() # run this step even if previous step failed
         with:
