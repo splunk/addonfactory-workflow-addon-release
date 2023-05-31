@@ -105,8 +105,8 @@ jobs:
           set +e
           TESTSET="${{ steps.skip-workflow.outputs.testset }}"
           for test_type in $TESTSET; do
-              eval DELAY_DESTROY_"$test_type"="No"
-              eval EXECUTE_"$test_type"="Yes"
+              eval DELAY_DESTROY_$test_type="No"
+              eval EXECUTE_$test_type="Yes"
           done
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "$PR_BODY" >> body.txt
@@ -116,9 +116,9 @@ jobs:
             fi
             for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
-                    eval DELAY_DESTROY_"$test_type"="Yes"
+                    eval DELAY_DESTROY_$test_type="Yes"
                 else
-                    eval EXECUTE_"$test_type"="No" 
+                    eval EXECUTE_$test_type="No" 
                 fi
             done
           fi
