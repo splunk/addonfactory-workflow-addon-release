@@ -72,6 +72,12 @@ jobs:
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
       execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
       execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
+      execute-labeled-knowledge: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-knowledge }}
+      execute-labeled-ui: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-ui }}
+      execute-labeled-escu: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-escu }}
+      execute-labeled-modinput: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-modinput_functional }}
+      execute-labeled-scripted_inputs: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-scripted_inputs }}
+      execute-labeled-requirement: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-requirement_test }}
     steps:
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
@@ -106,7 +112,7 @@ jobs:
           TESTSET="${{ steps.skip-workflow.outputs.testset }}"
           for test_type in $TESTSET; do
               eval DELAY_DESTROY_"$test_type"="No"
-              eval EXECUTE_"$test_type"="Yes"
+              eval EXECUTE_"$test_type"="No"
           done
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "$PR_BODY" >> body.txt
@@ -116,9 +122,8 @@ jobs:
             fi
             for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
+                    eval EXECUTE_"$test_type"="Yes"
                     eval DELAY_DESTROY_"$test_type"="Yes"
-                else
-                    eval EXECUTE_"$test_type"="No" 
                 fi
             done
           fi
@@ -138,6 +143,53 @@ jobs:
             echo "execute-escu=$EXECUTE_escu"
             echo "execute-requirement_test=$EXECUTE_requirement_test"
           } >> "$GITHUB_OUTPUT"
+      - name: configure tests based on labels
+        id: configure-tests-on-labels
+        run: |
+          set +e
+          declare -A EXECUTE_LABELED
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_escu" "execute_requirement_test")
+          for test_type in "${TESTSET[@]}"; do
+            EXECUTE_LABELED["$test_type"]="false"
+          done
+
+          case "${{ github.event_name }}" in
+          "pull_request")
+            if ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
+              for test_type in "${TESTSET[@]}"; do
+                EXECUTE_LABELED["$test_type"]="true"
+              done
+            else
+              labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
+              for test_type in "${TESTSET[@]}"; do
+                if [[ "$labels" =~ $test_type ]]; then
+                  EXECUTE_LABELED["$test_type"]="true"
+                fi
+              done
+            fi
+            ;;
+          "push")
+            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }}; then
+              for test_type in "${TESTSET[@]}"; do
+                EXECUTE_LABELED["$test_type"]="true"
+              done
+            fi
+            ;;
+          "schedule")
+            for test_type in "${TESTSET[@]}"; do
+              EXECUTE_LABELED["$test_type"]="true"
+            done
+            ;;
+          *)
+            echo "No tests were labeled for execution!"
+            ;;
+          esac
+          
+          echo "Tests to execute based on labels:"
+          for test_type in "${TESTSET[@]}"; do
+            echo "execute-labeled-$test_type=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
+            echo "execute-labeled-$test_type: ${EXECUTE_LABELED["$test_type"]}"
+          done
   meta:
     runs-on: ubuntu-latest
     needs:
@@ -735,7 +787,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-ko == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true') }}
     needs:
       - build
       - test-inventory
@@ -942,7 +994,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement_test == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && (needs.setup-workflow.outputs.execute-requirement_test == 'Yes' || needs.setup-workflow.outputs.execute-labeled-requirement == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1128,7 +1180,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ui == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1322,7 +1374,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1529,7 +1581,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1730,7 +1782,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1930,7 +1982,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-escu == 'Yes' }}
+    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-labeled-escu == 'true') }}
     needs:
       - build
       - test-inventory

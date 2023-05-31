@@ -61,8 +61,27 @@ General troubleshooting
 - Validate If the failure is caused by a code change in the action which modified behaviour in the latest release causing the stage to fail.
 
 
+setup-workflow
+=======================
+
+**Description:**
+- Job that is scanning pull_request and based on PR body or included labels defining tests to be executed or infrastructures to be preserved. 
+  - To preserve infrastructure:
+    - add to PR label `preserve_infra`
+    - add to PR description add `preserve: {comma separated list of test type}`
+    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test`
+    - to trigger tests again, reapply `preserve_infra` label
+  - To trigger specified test type
+    - add to PR one or multiple labels
+    - available choices: `execute_knowledge execute_ui execute_modinput_functional execute_scripted_inputs execute_escu execute_requirement_test execute_all_tests`
+    - adding labels will result retriggering job
+  - All tests are executed by default when:
+    - PR target branch is 'main'
+    - PUSH event on branches 'main' and 'develop'
+    - SCHEDULE event
+
 meta stage
-==========
+=======================
 
 **Description:** 
 
@@ -75,45 +94,6 @@ meta stage
 -  No Artifacts for this stage.
 
 <img src="images/meta/meta_logs.png" alt="meta_logs" style="width:200px;"/>
-
-
-compliance-sample-scanner
-=========================
-
-**Description:** 
-
-- This action scans Splunk Add-on test data for potentially identifying information which should be anonymized.
-
-**Action used:** https://github.com/splunk/addonfactory-sample-scanner
-
-
-**Pass/fail behaviour:** 
-
-- The action will check `tests/knowledge/*` for potentially identifying data and update the build or pr with annotations identifying violations.
-
-**Troubleshooting steps for failures if any:**
-
-- Tokenise the sensitive data which is shown in the failures using PSA tool's data generator  Data Generator — pytest-splunk-addon  documentation 
-
-- If you get failures in the .samples or .sample file, replace that value with a token, and add that token's replacement, relevant details
-
-**Exception file:**
-
-- `.ge_ignore` in addon root folder All the false positive can be added in this file.
-
-- ref: https://github.com/splunk/splunk-add-on-for-box/blob/4fe6f4ec2ceaf847211a335f6ca3c154cc805fb7/.ge_ignore  
-
-- apart from `.ge_ignore` also `.false-positives.yaml` can be used
-
-- ref: https://github.com/splunk/splunk-add-on-for-microsoft-sysmon/blob/main/.false-positives.yaml
-
-**Artifacts:**
-
-- Annotations, and test report like is also available in stage logs
-
-<img src="images/sample_scanner/annotations.png" alt="annotations" style="width:200px;"/>
-<img src="images/sample_scanner/results.png" alt="results" style="width:200px;"/>
-<img src="images/sample_scanner/report_link.png" alt="report_link" style="width:200px;"/>
 
 
 fossa-scan
@@ -198,7 +178,7 @@ i.e <img src="images/compliance-copyrights/license.png" alt="license" style="wid
 
 
 lint 
-====
+=======================
 
 **Description:** 
 
@@ -263,7 +243,7 @@ security-detect-secrets
 
 
 security-sast-semgrep
-=====================
+=======================
 
 **Description:**
 
@@ -304,7 +284,7 @@ security-sast-semgrep
 - Findings can be observed in the console logs of the stage and also at Semgrep link for which is provided in the end.
 
 test-inventory
-==============
+=======================
 
 **Description**
 
@@ -321,7 +301,7 @@ modinput_functional::true
 ```
 
 Validate PR title
-=================
+=======================
 
 **Description**
 
@@ -350,7 +330,7 @@ feat(ui): Add Button component.
 See https://www.conventionalcommits.org/ for more examples.
 
 build
-=====
+=======================
 
 **Description**
 
@@ -385,7 +365,7 @@ installation-update.json
 - package-raw 
 
 security-virustotal
-===================
+=======================
 
 **Description**
 
@@ -400,7 +380,7 @@ GitHub Action to upload and scan files with VirusTotal which analyze files, doma
 
 
 AppInspect
-==========
+=======================
 
 **Description**
 
