@@ -148,14 +148,14 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("knowledge" "ui" "modinput_functional" "scripted_inputs" "escu" "requirement_test")
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_escu" "execute_requirement_test")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
 
           case "${{ github.event_name }}" in
           "pull_request")
-            if ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'all_tests') }}; then
+            if ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done

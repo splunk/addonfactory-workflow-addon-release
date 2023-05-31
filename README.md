@@ -73,8 +73,12 @@ setup-workflow
     - to trigger tests again, reapply `preserve_infra` label
   - To trigger specified test type
     - add to PR one or multiple labels
-    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test all_tests`
+    - available choices: `execute_knowledge execute_ui execute_modinput_functional execute_scripted_inputs execute_escu execute_requirement_test execute_all_tests`
     - adding labels will result retriggering job
+  - All tests are executed by default when:
+    - PR target branch is 'main'
+    - PUSH event on branches 'main' and 'develop'
+    - SCHEDULE event
 
 meta stage
 =======================
