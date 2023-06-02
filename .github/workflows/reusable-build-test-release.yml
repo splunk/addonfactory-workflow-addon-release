@@ -65,12 +65,12 @@ jobs:
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
       execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
       execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
-      execute-labeled-knowledge: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-knowledge }}
-      execute-labeled-ui: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-ui }}
-      execute-labeled-escu: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-escu }}
-      execute-labeled-modinput: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-modinput_functional }}
-      execute-labeled-scripted_inputs: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-scripted_inputs }}
-      execute-labeled-requirement: ${{ steps.configure-tests-on-labels.outputs.execute-labeled-requirement_test }}
+      execute-labeled-knowledge: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
+      execute-labeled-ui: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
+      execute-labeled-escu: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
+      execute-labeled-modinput: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
+      execute-labeled-scripted_inputs: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
+      execute-labeled-requirement: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
     steps:
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
@@ -180,8 +180,8 @@ jobs:
           
           echo "Tests to execute based on labels:"
           for test_type in "${TESTSET[@]}"; do
-            echo "execute-labeled-$test_type=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
-            echo "execute-labeled-$test_type: ${EXECUTE_LABELED["$test_type"]}"
+            echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
+            echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
   meta:
     runs-on: ubuntu-latest
