@@ -78,6 +78,8 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
+          echo "github actor: "
+          echo ${{ github.actor }}
           TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
           SKIP_WORKFLOW="No"
