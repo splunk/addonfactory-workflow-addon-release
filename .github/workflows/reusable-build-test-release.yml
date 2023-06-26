@@ -760,7 +760,7 @@ jobs:
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
           echo "spl-host-suffix=wfe.splgdi.com"
-          echo "k8s-manifests-branch=main"
+          echo "k8s-manifests-branch=test-jboss"
           } >> "$GITHUB_OUTPUT"
 
   run-knowledge-tests:
