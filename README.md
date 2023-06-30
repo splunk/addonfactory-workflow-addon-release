@@ -182,8 +182,6 @@ lint
 
 **Description:** 
 
-- Workflow <2.0.0 used [super-linter](https://github.com/github/super-linter) to lint the code, which we don't use anymore now
-
 - Uses [pre-commit](https://pre-commit.com) to run linters (Python, Java, JS and others)
 
 **Action used** https://github.com/pre-commit/action
