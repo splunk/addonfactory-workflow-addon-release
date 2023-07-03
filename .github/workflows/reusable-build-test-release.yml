@@ -416,8 +416,8 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - uses: actions/upload-artifact@v3 # upload test results
-        if: success() || failure() # run this step even if previous step failed
+      - uses: actions/upload-artifact@v3
+        if: success() || failure()
         with:
           name: test-results-unit-python_${{ matrix.python-version }}
           path: test-results/*
@@ -426,6 +426,13 @@ jobs:
     name: build
     runs-on: ubuntu-latest
     needs:
+      - setup-workflow
+      - test-inventory
+      - meta
+      - compliance-copyrights
+      - lint
+      - review_secrets
+      - semgrep
       - run-unit-tests
       - fossa-scan
     if: |
@@ -550,11 +557,14 @@ jobs:
         if: always()
 
   run-requirements-unit-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' }}
     runs-on: ubuntu-latest
     needs:
       - build
       - test-inventory
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.requirement_test == 'true' }}
     permissions: 
       actions: read
       deployments: read
@@ -583,6 +593,9 @@ jobs:
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
     needs: build
+    if: |
+      always() &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -701,6 +714,9 @@ jobs:
     needs:
       - build
       - test-inventory
+    if: |
+      always() &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -758,7 +774,10 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   run-knowledge-tests:
-    if: ${{ needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true') }}
     needs:
       - build
       - test-inventory
@@ -965,7 +984,10 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-requirement-tests:
-    if: ${{ needs.test-inventory.outputs.requirement_test == 'true' && (needs.setup-workflow.outputs.execute-requirement_test == 'Yes' || needs.setup-workflow.outputs.execute-labeled-requirement == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.requirement_test == 'true' && (needs.setup-workflow.outputs.execute-requirement_test == 'Yes' || needs.setup-workflow.outputs.execute-labeled-requirement == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1151,7 +1173,10 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
-    if: ${{ needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ui == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ui == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1345,7 +1370,10 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
-    if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1552,7 +1580,10 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1753,7 +1784,10 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-canary:
-    if: ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1953,7 +1987,10 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-escu-tests:
-    if: ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-labeled-escu == 'true') }}
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      ${{ needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-labeled-escu == 'true') }}
     needs:
       - build
       - test-inventory
