@@ -2162,25 +2162,6 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  validate-pr-title:
-    name: Validate PR title
-    needs: 
-    - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-      pull-requests: read
-      statuses: write
-    steps:
-      - uses: amannn/action-semantic-pull-request@v5.2.0
-        with:
-          wip: true
-          validateSingleCommit: true
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
   pre-publish:
     if: always()
     needs:
@@ -2198,7 +2179,6 @@ jobs:
       - run-knowledge-tests
       - run-modinput-tests
       - run-ui-tests
-      - validate-pr-title
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
