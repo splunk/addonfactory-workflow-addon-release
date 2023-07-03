@@ -342,6 +342,9 @@ jobs:
     needs:
       - run-unit-tests
       - fossa-scan
+    if: |
+      always() &&
+      (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped')
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
