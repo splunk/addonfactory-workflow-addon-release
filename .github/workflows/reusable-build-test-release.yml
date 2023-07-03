@@ -643,6 +643,10 @@ jobs:
     needs:
       - security-virustotal
       - meta
+    if: |
+      always() &&
+      needs.security-virustotal.result == 'success' &&
+      needs.meta.result == 'success'
     outputs:
       artifact: ${{ steps.artifactid.outputs.result }}
     permissions:
