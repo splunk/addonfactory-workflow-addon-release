@@ -766,7 +766,7 @@ jobs:
           {
           echo "argo-server=argo.wfe.splgdi.com:443"
           echo "argo-http1=true"
-          echo "argo-secure=true"ƒ
+          echo "argo-secure=true"
           echo "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
