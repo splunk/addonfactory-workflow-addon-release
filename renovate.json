@@ -2,6 +2,11 @@
     "extends": [
       "config:base",
       "group:all",
+      ":semanticCommitTypeAll(chore)",
+      "schedule:earlyMondays",
       ":disableDependencyDashboard"
+    ],
+    "ignoreDeps": [
+      "edplato/trufflehog-actions-scan"
     ]
 }

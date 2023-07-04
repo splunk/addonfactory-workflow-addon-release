@@ -182,8 +182,6 @@ lint
 
 **Description:** 
 
-- Workflow <2.0.0 used [super-linter](https://github.com/github/super-linter) to lint the code, which we don't use anymore now
-
 - Uses [pre-commit](https://pre-commit.com) to run linters (Python, Java, JS and others)
 
 **Action used** https://github.com/pre-commit/action
@@ -300,35 +298,6 @@ unit::true
 modinput_functional::true
 ```
 
-Validate PR title
-=======================
-
-**Description**
-
-- A Github Action that ensures that your PR title matches the Conventional Commits spec.
-
-**Action used:** https://github.com/amannn/action-semantic-pull-request 
-
-**Pass/fail behaviour:** 
-
-- The PR title should follow the conventional commit standards 
-
-- Examples for valid PR titles:
-
-```
-fix: Correct typo.
-
-feat: Add support for Node 12.
-
-refactor!: Drop support for Node 6.
-
-feat(ui): Add Button component.
-```
-
-**Note** since PR titles only have a single line, you have to use the ! syntax for breaking changes.
-
-See https://www.conventionalcommits.org/ for more examples.
-
 build
 =======================
 
@@ -362,7 +331,6 @@ installation-actions.json
 installation-update.json
 ```
 - package-splunkbase includes Splunkbase equivalent package code
-- package-raw 
 
 security-virustotal
 =======================
