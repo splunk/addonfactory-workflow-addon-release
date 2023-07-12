@@ -396,8 +396,55 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v3
-      - name: Setup python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Setup addon
+        run: |
+          if [ -f "poetry.lock" ]
+           then
+             mkdir -p package/lib || true
+             pip install poetry==1.2.2 poetry-plugin-export==1.2.0
+             poetry export --without-hashes -o package/lib/requirements.txt
+             poetry export --without-hashes --dev -o requirements_dev.txt
+           fi
+          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          pip install -r requirements_dev.txt
+      - name: Create directories
+        run: |
+          mkdir -p /opt/splunk/var/log/splunk
+          chmod -R 777 /opt/splunk/var/log/splunk
+      - name: Copy pytest ini
+        run: cp tests/unit/pytest-ci.ini pytest.ini
+      - name: Run Pytest with coverage
+        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: test-results-unit-python_${{ matrix.python-version }}
+          path: test-results/*
+
+  run-unit-tests-311:
+    name: test-unit-python3-${{ matrix.python-version }}
+    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
+    runs-on: ubuntu-latest
+    needs:
+      - test-inventory
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Setup addon
