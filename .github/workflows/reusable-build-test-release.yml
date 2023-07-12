@@ -1080,7 +1080,7 @@ jobs:
           NORMAL="\033[0m"
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
+          echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
         env:
@@ -1272,7 +1272,7 @@ jobs:
           NORMAL="\033[0m"
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
+          echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
         env:
@@ -1471,7 +1471,7 @@ jobs:
           NORMAL="\033[0m"
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
+          echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: create test argument
         id: create-test-arg
         shell: bash
@@ -1679,7 +1679,7 @@ jobs:
           NORMAL="\033[0m"
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
+          echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -1884,7 +1884,7 @@ jobs:
           NORMAL="\033[0m"
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
+          echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -2087,7 +2087,7 @@ jobs:
           NORMAL="\033[0m"
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
+          echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: get escu detections
         id: get-escu-detections
         run: |
