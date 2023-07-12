@@ -473,7 +473,6 @@ jobs:
           path: test-results/*
 
   build:
-    name: build
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
@@ -605,6 +604,85 @@ jobs:
           name: package-deployment
           path: build/package/deployment**
         if: always()
+
+  build-311:
+    runs-on: ubuntu-latest
+    needs:
+      - setup-workflow
+      - test-inventory
+      - meta
+      - compliance-copyrights
+      - lint
+      - review_secrets
+      - semgrep
+      - run-unit-tests-311
+      - fossa-scan
+    if: |
+      always() &&
+      (needs.run-unit-tests-311.result == 'success' || needs.run-unit-tests-311.result == 'skipped')
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Very Important semantic-release won't trigger a tagged
+          # build if this is not set false
+          persist-credentials: false
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: create requirements file for pip
+        run: |
+          if [ -f "poetry.lock" ]
+          then
+            echo " poetry.lock found "
+            sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
+            poetry export --without-hashes -o requirements.txt
+            if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
+            then
+                echo "Prod dependencies were found, creating package/lib folder"
+                mkdir -p package/lib || true
+                mv requirements.txt package/lib
+            else
+                echo "No prod dependencies were found"
+                rm requirements.txt
+            fi
+            poetry export --without-hashes --dev -o requirements_dev.txt
+            cat requirements_dev.txt
+          fi
+      - id: pip-cache
+        run: |
+          echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
+      - name: pip cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-pip-python311-${{ hashFiles('requirements_dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-python311
+      - run: pip install -r requirements_dev.txt
+      - id: semantic
+        if: github.event_name != 'pull_request'
+        uses: splunk/semantic-release-action@v1.3
+        with:
+          dry_run: true
+          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
+          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
+          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - id: BuildVersion
+        uses: splunk/addonfactory-get-splunk-package-version-action@v1
+        with:
+          SemVer: ${{ steps.semantic.outputs.new_release_version }}
+          PrNumber: ${{ github.event.number }}
+      - id: uccgen
+        uses: splunk/addonfactory-ucc-generator-action@v1
+        with:
+          version: ${{ steps.BuildVersion.outputs.VERSION }}
 
   security-virustotal:
     continue-on-error: true
