@@ -56,7 +56,6 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
-      delay-destroy-ucc_modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ucc_modinput_functional }}
       delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
       delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
       delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
@@ -64,14 +63,12 @@ jobs:
       execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
       execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
-      execute-ucc_modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-ucc_modinput_functional }}
       execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
       execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
       execute-labeled-knowledge: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-labeled-ui: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-labeled-escu: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
       execute-labeled-modinput: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
-      execute-labeled-ucc_modinput: ${{ steps.configure-tests-on-labels.outputs.execute-ucc_modinput_functional_labeled }}
       execute-labeled-scripted_inputs: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-labeled-requirement: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
     steps:
@@ -81,7 +78,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
-          TESTSET="knowledge ui modinput_functional ucc_modinput_functional scripted_inputs escu requirement_test"
+          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
           echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
           SKIP_WORKFLOW="No"
           if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
@@ -129,14 +126,12 @@ jobs:
             echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
             echo "delay-destroy-ui=$DELAY_DESTROY_ui"
             echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional"
-            echo "delay-destroy-ucc_modinput_functional=$DELAY_DESTROY_ucc_modinput_functional"
             echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs"
             echo "delay-destroy-escu=$DELAY_DESTROY_escu"
             echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test"
             echo "execute-ko=$EXECUTE_knowledge"
             echo "execute-ui=$EXECUTE_ui"
             echo "execute-modinput_functional=$EXECUTE_modinput_functional"
-            echo "execute-ucc_modinput_functional=$EXECUTE_ucc_modinput_functional"
             echo "execute-scripted_inputs=$EXECUTE_scripted_inputs"
             echo "execute-escu=$EXECUTE_escu"
             echo "execute-requirement_test=$EXECUTE_requirement_test"
@@ -146,7 +141,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_escu" "execute_requirement_test")
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_escu" "execute_requirement_test")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -440,12 +435,11 @@ jobs:
         uses: splunk/addonfactory-packaging-toolkit-action@v1
         with:
           source: ${{ steps.uccgen.outputs.OUTPUT }}
-      - name: artifact-splunk-unpacked
+      - name: artifact-openapi
         uses: actions/upload-artifact@v3
         with:
-          name: package-raw
-          path: ${{ steps.uccgen.outputs.OUTPUT }}**
-        if: always()
+          name: artifact-openapi
+          path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v3
         with:
@@ -461,7 +455,7 @@ jobs:
         run: |
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
-          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
+          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-staging-artifacts/ta-apps/
       - name: artifact-splunk-parts
         uses: actions/upload-artifact@v3
         with:
@@ -496,17 +490,25 @@ jobs:
       knowledge: ${{ steps.testset.outputs.knowledge }}
       ui: ${{ steps.testset.outputs.ui }}
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
-      ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
       escu: ${{ steps.testset.outputs.escu }}
+      old_modinput_functional: ${{ steps.modinput-version.outputs.old_modinput_tests }}
     steps:
       - uses: actions/checkout@v3
       - id: testset
-        name: testsets
+        name: Check available test types
         run: |
           find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
-
+      - id: modinput-version
+        name: Check modinput tests version
+        run: |
+          OLD_MODINPUT_TESTS_CHECK_DIR="tests/modinput_functional/centaurs"
+          old_modinput_tests="false"
+          if [ -d "$OLD_MODINPUT_TESTS_CHECK_DIR" ]; then
+            old_modinput_tests="true"
+          fi
+          echo "old_modinput_tests=$old_modinput_tests" >> "$GITHUB_OUTPUT"
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
@@ -584,7 +586,7 @@ jobs:
         uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.4
         with:
           input-files: tests/requirement_test/logs
-      - name: Archive production artifacts
+      - name: Archive staging artifacts
         if: always()
         uses: actions/upload-artifact@v3
         with:
@@ -714,8 +716,6 @@ jobs:
       - build
       - test-inventory
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
@@ -732,14 +732,18 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
+    env:
+      BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+          token: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: setup for test
         id: test-setup
         shell: bash
         run: |
+          sudo apt-get install -y crudini
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
@@ -751,16 +755,16 @@ jobs:
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           LABELS="addon-name=${ADDON_NAME}"
-          ADDON_UPLOAD_PATH="s3://ta-production-artifacts/ta-apps/${{ needs.build.outputs.buildname }}"
+          ADDON_UPLOAD_PATH="s3://ta-staging-artifacts/ta-apps/${{ needs.build.outputs.buildname }}"
           {
-          echo "argo-server=argo.wfe.splgdi.com:443"
+          echo "argo-server=argo.staging.wfe.splgdi.com:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
           echo "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
           echo "directory-path=/tmp"
-          echo "s3-bucket=ta-production-artifacts"
+          echo "s3-bucket=ta-staging-artifacts"
           echo "addon-name=\"$ADDON_NAME\""
           echo "job-name=wf-$JOB_NAME"
           echo "labels=$LABELS"
@@ -768,6 +772,38 @@ jobs:
           echo "spl-host-suffix=wfe.splgdi.com"
           echo "k8s-manifests-branch=main"
           } >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v3
+        if: ${{ needs.test-inventory.outputs.old_modinput_functional == 'false' }}
+        id: download-openapi
+        with:
+          name: artifact-openapi
+          path: ${{ github.workspace }}
+      - name: Setup python
+        if: steps.download-openapi.conclusion != 'skipped'
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+      - name: modinput-test-prerequisites
+        if: steps.download-openapi.conclusion != 'skipped'
+        shell: bash
+        env:
+          PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+        run: |
+          sudo pip3 install poetry==1.2.2 
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          poetry install --only modinput
+          poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+      - name: upload-swagger-artifacts-to-s3
+        if: steps.download-openapi.conclusion != 'skipped'
+        id: swaggerupload
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          swagger_name=swagger_$(basename "$BUILD_NAME" .spl)
+          aws s3 sync "${{ github.workspace }}/tmp/restapi_client/" "s3://ta-staging-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
     if: ${{ needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true') }}
@@ -814,7 +850,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -859,7 +895,7 @@ jobs:
         id: update-argo-token
         if: always()
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1020,7 +1056,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1208,7 +1244,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1253,7 +1289,7 @@ jobs:
         id: update-argo-token
         if: always()
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1355,7 +1391,7 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
-
+      
   run-modinput-tests:
     if: ${{ needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput == 'true') }}
     needs:
@@ -1403,7 +1439,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1455,219 +1491,12 @@ jobs:
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
-          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
-        id: update-argo-token
-        if: always()
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: always()
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Retrying workflow
-        id: retry-wf
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
-        run: |
-          set -o xtrace
-          set +e
-          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
-          then
-            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "workflow-name=$WORKFLOW_NAME" >> "$GITHUB_OUTPUT"
-            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
-          else
-            echo "No retry required"
-            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
-            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
-          fi
-      - name: check if workflow completed
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
-        shell: bash
-        run: |
-          set +e
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          echo "Status of workflow:" "$ARGO_STATUS"
-          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
-          do
-              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
-              argo wait "${WORKFLOW_NAME}" -n workflows || true
-              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          done
-      - name: pull artifacts from s3 bucket
-        if: always()
-        run: |
-          echo "pulling artifacts"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
-      - name: pull logs from s3 bucket
-        if: always()
-        run: |
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          echo "pulling logs"
-          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/argo-logs
-      - name: Test Report
-        id: test_report
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: pull diag from s3 bucket
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        run: |
-          echo "pulling diag"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v3
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/diag*
-
-  run-ucc_modinput-tests:
-    if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-ucc_modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ucc_modinput == 'true') }}
-    needs:
-      - build
-      - test-inventory
-      - setup
-      - meta
-      - setup-workflow
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
-        modinput-type: [ "modinput_functional" ]
-        vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        marker: ${{ fromJson(inputs.marker) }}
-    container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
-    env:
-      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
-      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
-      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
-      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
-      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
-      SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-      TEST_TYPE: "ucc_modinput_functional"
-      TEST_ARGS: ""
-    permissions: 
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: Read secrets from AWS Secrets Manager into environment variables
-        id: get-argo-token
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: create job name
-        id: create-job-name
-        shell: bash
-        run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
-          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME//[_.]/-}
-          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-ucc_modinput_functional == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "For Splunk password please visit https://goo.by/splunk-password"
-      - name: create test argument
-        id: create-test-arg
-        shell: bash
-        run: |
-          export comparing_variable="[]"
-          if [ "${{ inputs.marker }}" == "$comparing_variable" ]
-          then
-            TEST_ARG_M=""
-          else
-            TEST_ARG_M="-m"
-          fi
-          echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
-      - name: run-tests
-        id: run-tests
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
-        with:
-          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-          test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
-          job-name: ${{ steps.create-job-name.outputs.job-name }}
-          labels: ${{ needs.setup.outputs.labels }}
-          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
-          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional }}
-          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
-          addon-name: ${{ needs.setup.outputs.addon-name }}
-          vendor-version: ${{ matrix.vendor-version.image }}
-          sc4s-version: "No"
           k8s-manifests-branch: feat/ucc-modinput-tests
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: always()
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1814,7 +1643,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -2015,7 +1844,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -2214,7 +2043,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
