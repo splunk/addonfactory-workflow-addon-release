@@ -369,7 +369,7 @@ jobs:
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
       escu: ${{ steps.testset.outputs.escu }}
-      old_modinput_functional: ${{ steps.modinput-version.outputs.old_modinput_tests }}
+      ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
     steps:
       - uses: actions/checkout@v3
       - id: testset
@@ -379,12 +379,12 @@ jobs:
       - id: modinput-version
         name: Check modinput tests version
         run: |
-          OLD_MODINPUT_TESTS_CHECK_DIR="tests/modinput_functional/centaurs"
-          old_modinput_tests="false"
-          if [ -d "$OLD_MODINPUT_TESTS_CHECK_DIR" ]; then
-            old_modinput_tests="true"
+          CENTAURS_MODINPUT_TESTS_CHECK_DIR="tests/modinput_functional/centaurs"
+          ucc_modinput_tests="true"
+          if [ -d "$CENTAURS_MODINPUT_TESTS_CHECK_DIR" ]; then
+            ucc_modinput_tests="false"
           fi
-          echo "old_modinput_tests=$old_modinput_tests" >> "$GITHUB_OUTPUT"
+          echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
         
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -817,7 +817,7 @@ jobs:
           echo "k8s-manifests-branch=main"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
-        if: ${{ needs.test-inventory.outputs.old_modinput_functional == 'false' }}
+        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
         id: download-openapi
         with:
           name: artifact-openapi
@@ -1447,7 +1447,7 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
-      
+
   run-modinput-tests:
     if: |
       always() &&
