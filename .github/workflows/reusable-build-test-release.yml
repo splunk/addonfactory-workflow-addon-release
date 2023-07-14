@@ -790,8 +790,11 @@ jobs:
             *_markdown.txt
 
   appinspect-api:
-    name: appinspect_api_${{ matrix.tags }}
+    name: appinspect api ${{ matrix.tags }}
     needs: build
+    if: |
+      always() &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
