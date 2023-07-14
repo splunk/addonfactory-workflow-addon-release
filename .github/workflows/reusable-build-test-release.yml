@@ -1184,6 +1184,15 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+      - name: print workflow name
+        if: always()
+        run: |
+          echo "workflow name: ${{ steps.run-tests.outputs.workflow-name }}"
+      - name: Check workflow cancel
+        id: cancel-workflow
+        if: cancelled()
+        run: |
+          argo stop -v -n workflows --argo-base-href '' ${{ steps.run-tests.outputs.workflow-name }} 
 
   run-requirement-tests:
     if: |
