@@ -976,7 +976,6 @@ jobs:
 
   run-knowledge-tests:
     if: |
-      always() &&
       needs.build.result == 'success' &&
       needs.test-inventory.outputs.knowledge == 'true' &&
       (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true')
