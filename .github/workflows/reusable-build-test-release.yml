@@ -783,6 +783,36 @@ jobs:
           path: |
             *_markdown.txt
 
+  appinspect-api:
+    name: appinspect_api_${{ matrix.tags }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tags:
+          - "cloud"
+          - "self-service"
+          - ""
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: package-splunkbase
+          path: build/package
+      - name: Validate
+        uses: splunk/appinspect-api-action@v3.0
+        with:
+          username: ${{ secrets.SPL_COM_USER }}
+          password: ${{ secrets.SPL_COM_PASSWORD }}
+          app_path: build/package/
+          included_tags: ${{ matrix.tags }}
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: appinspect-api-html-report-${{ matrix.tags }}
+          path: AppInspect_response.html
+
   artifact-registry:
     runs-on: ubuntu-latest
     needs:
