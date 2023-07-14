@@ -45,6 +45,12 @@ on:
       SA_GPG_PASSPHRASE:
         description: GPG signature passphrase
         required: true
+      SPL_COM_USER:
+        description: username to splunk.com
+        required: true
+      SPL_COM_PASSWORD:
+        description: password to splunk.com
+        required: true
 permissions:
   contents: read
   packages: read
