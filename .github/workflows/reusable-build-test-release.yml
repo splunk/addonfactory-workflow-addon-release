@@ -1065,13 +1065,22 @@ jobs:
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
-        if: always()
+        if: always() && !cancelled()
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: print workflow name
+        if: always()
+        run: |
+          echo "workflow name: ${{ steps.run-tests.outputs.workflow-name }}"
+      - name: Check workflow cancel
+        id: cancel-workflow
+        if: cancelled()
+        run: |
+          argo stop -v -n workflows --argo-base-href '' ${{ steps.run-tests.outputs.workflow-name }} 
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: always() && !cancelled()
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
@@ -1085,7 +1094,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
+        if: always() && !cancelled()
         run: |
           set -o xtrace
           set +e
@@ -1103,7 +1112,7 @@ jobs:
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         shell: bash
-        if: always()
+        if: always() && !cancelled()
         run: |
           set +e
           # shellcheck disable=SC2157
@@ -1121,13 +1130,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: always() && !cancelled()
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: always() && !cancelled()
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1139,13 +1148,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: always() && !cancelled()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: always() && !cancelled()
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
@@ -1167,7 +1176,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: always() && !cancelled()
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1183,15 +1192,7 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
-      - name: print workflow name
-        if: always()
-        run: |
-          echo "workflow name: ${{ steps.run-tests.outputs.workflow-name }}"
-      - name: Check workflow cancel
-        id: cancel-workflow
-        if: cancelled()
-        run: |
-          argo stop -v -n workflows --argo-base-href '' ${{ steps.run-tests.outputs.workflow-name }} 
+
 
   run-requirement-tests:
     if: |
