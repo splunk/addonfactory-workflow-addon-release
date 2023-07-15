@@ -1046,23 +1046,8 @@ jobs:
           echo "Splunk password is available in LastPass shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
-        with:
-          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-          test-type: ${{ env.TEST_TYPE }}
-          test-args: ""
-          job-name: ${{ steps.create-job-name.outputs.job-name }}
-          labels: ${{ needs.setup.outputs.labels }}
-          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
-          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-ko }}
-          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
-          addon-name: ${{ needs.setup.outputs.addon-name }}
-          sc4s-version: ${{ matrix.sc4s.version }}
-          sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
-          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+        run: |
+          argo submit -v -o json --from wftmpl/ta-workflow -n workflows -l workflows.argoproj.io/workflow-template=ta-workflow --argo-base-href '' -p ci-repository-url=https://github.com/splunk/splunk-add-on-for-google-workspace.git -p ci-commit-sha=ci/job-cancel -p delay-destroy=No -p addon-url=s3://ta-staging-artifacts/ta-apps/Splunk_TA_Google_Workspace-0.477.5549584494.spl -p job-name=wf-oogle-workspace-7d6e830-knowledge-5549584494-eqmf -p splunk-version=9.0.5 -p test-type=knowledge -p k8s-manifests-branch=main -p pytest-args= -p 'addon-name="GOOGLE_WORKSPACE"' -p vendor-version=default -p sc4s-version=2.49.5 -p install-java=No -p sc4s-docker-registry=ghcr.io/splunk/splunk-connect-for-syslog/container2 -p os-name=ubuntu -p os-version=latest -l=addon-name=GOOGLE_WORKSPACE,test-type=knowledge,splunk-version=9.0.5
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: always() && !cancelled()
