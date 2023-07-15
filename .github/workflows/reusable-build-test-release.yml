@@ -1075,6 +1075,8 @@ jobs:
           echo "workflow name: ${{ steps.run-tests.outputs.workflow-name }}"
       - name: Check workflow cancel
         id: cancel-workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         if: cancelled()
         uses: splunk/wfe-test-runner-action@feat/cancel-workflow
         with:
