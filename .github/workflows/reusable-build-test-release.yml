@@ -1078,9 +1078,8 @@ jobs:
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         if: cancelled()
-        uses: splunk/wfe-test-runner-action@feat/cancel-workflow
-        with:
-          workflow-to-cancel: ${{ steps.run-tests.outputs.workflow-name }}
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/cancel-workflow -n workflows -l workflows.argoproj.io/workflow-template=cancel-workflow --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: always() && !cancelled()
