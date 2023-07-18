@@ -809,7 +809,7 @@ jobs:
         with:
           name: package-splunkbase
           path: build/package
-      - name: Validate
+      - name: AppInspect API
         uses: splunk/appinspect-api-action@v3.0
         with:
           username: ${{ secrets.SPL_COM_USER }}
