@@ -369,13 +369,23 @@ jobs:
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
       escu: ${{ steps.testset.outputs.escu }}
+      ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
     steps:
       - uses: actions/checkout@v3
       - id: testset
-        name: testsets
+        name: Check available test types
         run: |
           find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
-
+      - id: modinput-version
+        name: Check modinput tests version
+        run: |
+          CENTAURS_MODINPUT_TESTS_CHECK_DIR="tests/modinput_functional/centaurs"
+          ucc_modinput_tests="true"
+          if [ -d "$CENTAURS_MODINPUT_TESTS_CHECK_DIR" ]; then
+            ucc_modinput_tests="false"
+          fi
+          echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
+        
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
@@ -582,6 +592,11 @@ jobs:
         with:
           source: ${{ steps.uccgen.outputs.OUTPUT }}
         if: always()
+      - name: artifact-openapi
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifact-openapi
+          path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v3
         with:
@@ -870,8 +885,6 @@ jobs:
       always() &&
       needs.build.result == 'success'
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
@@ -888,14 +901,18 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
+    env:
+      BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+          token: ${{ secrets.GH_TOKEN_ADMIN }}
       - name: setup for test
         id: test-setup
         shell: bash
         run: |
+          sudo apt-get install -y crudini
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
@@ -924,6 +941,38 @@ jobs:
           echo "spl-host-suffix=wfe.splgdi.com"
           echo "k8s-manifests-branch=main"
           } >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v3
+        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
+        id: download-openapi
+        with:
+          name: artifact-openapi
+          path: ${{ github.workspace }}
+      - name: Setup python
+        if: steps.download-openapi.conclusion != 'skipped'
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.7
+      - name: modinput-test-prerequisites
+        if: steps.download-openapi.conclusion != 'skipped'
+        shell: bash
+        env:
+          PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+        run: |
+          sudo pip3 install poetry==1.2.2 
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          poetry install --only modinput
+          poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+      - name: upload-swagger-artifacts-to-s3
+        if: steps.download-openapi.conclusion != 'skipped'
+        id: swaggerupload
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          swagger_name=swagger_$(basename "$BUILD_NAME" .spl)
+          aws s3 sync "${{ github.workspace }}/tmp/restapi_client/" "s3://ta-production-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
     if: |
