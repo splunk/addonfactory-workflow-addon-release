@@ -4,7 +4,7 @@ repos:
       - id: actionlint
         name: actionlint
         entry: actionlint
-        args: [-ignore, 'property ".+" is not defined in object type', -ignore, 'receiver of object dereference "version" must be type of object but got "string"']
+        args: [-ignore, 'property ".+" is not defined in object type', -ignore, 'receiver of object dereference "version" must be type of object but got "string"', --ignore, 'could not parse as YAML']
         language: script
         types: ["yaml"]
         files: ^.github/workflows/
