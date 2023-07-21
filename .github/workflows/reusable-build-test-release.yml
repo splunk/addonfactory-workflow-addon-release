@@ -880,6 +880,7 @@ jobs:
       argo-href: ""
       argo-base-href: ${{ steps.test-setup.outputs.argo-base-href }}
       argo-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-workflow-tmpl-name }}
+      argo-cancel-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-cancel-workflow-tmpl-name }}
       k8s-manifests-branch: ${{ steps.test-setup.outputs.k8s-manifests-branch }}
       argo-namespace: ${{ steps.test-setup.outputs.argo-namespace }}
       addon-name: ${{ steps.test-setup.outputs.addon-name }}
@@ -919,6 +920,7 @@ jobs:
           echo "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
+          echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
           echo "directory-path=/tmp"
           echo "s3-bucket=ta-staging-artifacts"
           echo "addon-name=\"$ADDON_NAME\""
@@ -962,10 +964,7 @@ jobs:
           aws s3 sync "${{ github.workspace }}/tmp/restapi_client/" "s3://ta-production-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
-    if: |
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.knowledge == 'true' &&
-      (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1050,23 +1049,18 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-staging-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: print workflow name
-        if: ${{ !cancelled() }}
-        run: |
-          echo "workflow name: ${{ steps.run-tests.outputs.workflow-name }}"
-      - name: Check workflow cancel
-        id: cancel-workflow
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
-        run: |
-          cancel_response=`argo submit -v -o json --from wftmpl/cancel-workflow -n workflows -l workflows.argoproj.io/workflow-template=cancel-workflow --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ !cancelled() }}
@@ -1268,6 +1262,12 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ !cancelled() }}
@@ -1456,6 +1456,12 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`    
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1663,6 +1669,12 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1870,6 +1882,12 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`  
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ !cancelled() }}
@@ -2070,6 +2088,12 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`  
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ !cancelled() }}
@@ -2273,6 +2297,12 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Check workflow cancel
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=`argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }}`  
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
