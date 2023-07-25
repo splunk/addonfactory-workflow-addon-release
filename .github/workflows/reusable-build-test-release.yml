@@ -48,6 +48,9 @@ on:
 permissions:
   contents: read
   packages: read
+concurrency: 
+  group: ${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -65,12 +68,12 @@ jobs:
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
       execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
       execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
-      execute-labeled-knowledge: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
-      execute-labeled-ui: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
-      execute-labeled-escu: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
-      execute-labeled-modinput: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
-      execute-labeled-scripted_inputs: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
-      execute-labeled-requirement: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
+      execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
+      execute-escu-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
+      execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
+      execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
+      execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
     steps:
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
@@ -494,9 +497,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: |
-      always() &&
-      (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped')
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -597,12 +598,13 @@ jobs:
         with:
           name: artifact-openapi
           path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
+        if: ${{ !cancelled() }}
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v3
         with:
           name: package-splunkbase
           path: ${{ steps.slim.outputs.OUTPUT }}
-        if: always()
+        if: ${{ !cancelled() }}
       - name: upload-build-to-s3
         id: buildupload
         env:
@@ -618,7 +620,7 @@ jobs:
         with:
           name: package-deployment
           path: build/package/deployment**
-        if: always()
+        if: ${{ !cancelled() }}
 
   build-311:
     runs-on: ubuntu-latest
@@ -703,9 +705,7 @@ jobs:
     continue-on-error: true
     name: security-virustotal
     needs: build
-    if: |
-      always() &&
-      needs.build.result == 'success'
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v3
@@ -724,10 +724,7 @@ jobs:
     needs:
       - build
       - test-inventory
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.requirement_test == 'true'
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' }}
     permissions: 
       actions: read
       deployments: read
@@ -746,7 +743,7 @@ jobs:
         with:
           input-files: tests/requirement_test/logs
       - name: Archive production artifacts
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v3
         with:
           name: test-results
@@ -756,9 +753,7 @@ jobs:
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
     needs: build
-    if: |
-      always() &&
-      needs.build.result == 'success'
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -785,7 +780,7 @@ jobs:
           included_tags: ${{ matrix.tags }}
           result_file: appinspect_result_${{ matrix.tags }}.json
       - name: upload-appinspect-report
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v3
         with:
           name: appinspect_${{ matrix.tags }}_checks.json
@@ -803,10 +798,7 @@ jobs:
     needs:
       - security-virustotal
       - meta
-    if: |
-      always() &&
-      needs.security-virustotal.result == 'success' &&
-      needs.meta.result == 'success'
+    if: ${{ !cancelled() && needs.security-virustotal.result == 'success' && needs.meta.result == 'success' }}
     outputs:
       artifact: ${{ steps.artifactid.outputs.result }}
     permissions:
@@ -881,9 +873,7 @@ jobs:
     needs:
       - build
       - test-inventory
-    if: |
-      always() &&
-      needs.build.result == 'success'
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
@@ -893,6 +883,7 @@ jobs:
       argo-href: ""
       argo-base-href: ${{ steps.test-setup.outputs.argo-base-href }}
       argo-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-workflow-tmpl-name }}
+      argo-cancel-workflow-tmpl-name: ${{ steps.test-setup.outputs.argo-cancel-workflow-tmpl-name }}
       k8s-manifests-branch: ${{ steps.test-setup.outputs.k8s-manifests-branch }}
       argo-namespace: ${{ steps.test-setup.outputs.argo-namespace }}
       addon-name: ${{ steps.test-setup.outputs.addon-name }}
@@ -932,6 +923,7 @@ jobs:
           echo "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
+          echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
           echo "directory-path=/tmp"
           echo "s3-bucket=ta-production-artifacts"
           echo "addon-name=\"$ADDON_NAME\""
@@ -975,11 +967,7 @@ jobs:
           aws s3 sync "${{ github.workspace }}/tmp/restapi_client/" "s3://ta-production-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.knowledge == 'true' &&
-      (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-labeled-knowledge == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-knowledge-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1064,15 +1052,29 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
@@ -1086,7 +1088,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -o xtrace
           set +e
@@ -1104,7 +1106,7 @@ jobs:
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         shell: bash
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set +e
           # shellcheck disable=SC2157
@@ -1122,13 +1124,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1140,13 +1142,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
@@ -1168,7 +1170,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1185,12 +1187,9 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+
   run-requirement-tests:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.requirement_test == 'true' &&
-      (needs.setup-workflow.outputs.execute-requirement_test == 'Yes' || needs.setup-workflow.outputs.execute-labeled-requirement == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && (needs.setup-workflow.outputs.execute-requirement_test == 'Yes' || needs.setup-workflow.outputs.execute-requirement-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1274,9 +1273,23 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1290,7 +1303,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -o xtrace
           set +e
@@ -1308,7 +1321,7 @@ jobs:
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         shell: bash
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set +e
           # shellcheck disable=SC2157
@@ -1326,13 +1339,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1344,13 +1357,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests logs
           path: |
@@ -1358,7 +1371,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1376,11 +1389,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.ui == 'true' &&
-      (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-labeled-ui == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-ui-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1466,15 +1475,29 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
@@ -1488,7 +1511,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -o xtrace
           set +e
@@ -1505,7 +1528,7 @@ jobs:
       - name: check if workflow completed
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           set +e
@@ -1524,13 +1547,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1542,13 +1565,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests logs
           path: |
@@ -1556,7 +1579,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1574,11 +1597,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.modinput_functional == 'true' &&
-      (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-labeled-modinput == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-modinput-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1677,15 +1696,29 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
@@ -1699,7 +1732,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -o xtrace
           set +e
@@ -1716,7 +1749,7 @@ jobs:
       - name: check if workflow completed
         env:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           set +e
@@ -1735,13 +1768,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1753,13 +1786,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs
           path: |
@@ -1767,7 +1800,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1785,11 +1818,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.scripted_inputs == 'true' &&
-      ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -1888,9 +1917,23 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1904,7 +1947,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -o xtrace
           set +e
@@ -1921,7 +1964,7 @@ jobs:
       - name: check if workflow completed
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           set +e
@@ -1940,13 +1983,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1958,13 +2001,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
           path: |
@@ -1972,7 +2015,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1990,11 +2033,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-canary:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.scripted_inputs == 'true' &&
-      ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-labeled-scripted_inputs == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -2092,9 +2131,23 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Check if pod was deleted
         id: is-pod-deleted
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -2108,7 +2161,7 @@ jobs:
         shell: bash
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           set -o xtrace
           set +e
@@ -2125,7 +2178,7 @@ jobs:
       - name: check if workflow completed
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: always()
+        if: ${{ !cancelled() }}
         shell: bash
         run: |
           set +e
@@ -2144,13 +2197,13 @@ jobs:
               ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
           done
       - name: pull artifacts from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -2162,13 +2215,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v3
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
           path: |
@@ -2176,7 +2229,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -2194,11 +2247,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-escu-tests:
-    if: |
-      always() &&
-      needs.build.result == 'success' &&
-      needs.test-inventory.outputs.escu == 'true' &&
-      ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-labeled-escu == 'true')
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-escu-labeled == 'true') }}
     needs:
       - build
       - test-inventory
@@ -2299,6 +2348,20 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled()
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
       - name: Check if pod was deleted
         id: is-pod-deleted
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
@@ -2408,7 +2471,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   pre-publish:
-    if: always()
+    if: ${{ !cancelled() }}
     needs:
       - meta
       - compliance-copyrights
@@ -2447,7 +2510,7 @@ jobs:
           exit 1
 
   publish:
-    if: always() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' }}
     needs:
       - pre-publish
       - run-escu-tests
