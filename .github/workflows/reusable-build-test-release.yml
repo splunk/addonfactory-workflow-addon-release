@@ -1075,6 +1075,8 @@ jobs:
       - name: Check if connection failed, try to reconnectt
         id: retry-connection
         if: ${{ !cancelled() }}
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         run: |
           argo logs --follow ${{ steps.run-tests.outputs.workflow-name }} -n ${{ needs.setup.outputs.argo-namespace }}
       - name: Check if pod was deleted
