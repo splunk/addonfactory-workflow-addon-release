@@ -1037,7 +1037,7 @@ jobs:
         id: run-tests
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@ci/retry_argo_connection
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
