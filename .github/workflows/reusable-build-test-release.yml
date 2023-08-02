@@ -793,8 +793,9 @@ jobs:
     name: appinspect api ${{ matrix.tags }}
     needs: build
     if: |
-      always() &&
-      needs.build.result == 'success'
+      !cancelled() &&
+      needs.build.result == 'success' &&
+      ( github.base_ref == 'main' || github.ref_name == 'main' )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
