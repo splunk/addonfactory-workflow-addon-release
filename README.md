@@ -41,6 +41,8 @@ jobs:
       SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
       SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
       SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
+      SPL_COM_USER: ${{ secrets.SPL_COM_USER }}
+      SPL_COM_PASSWORD: ${{ secrets.SPL_COM_PASSWORD }}
 ```
 
 ***
@@ -402,6 +404,53 @@ appinspect_manual_checks.json
 appinspect_self-service_checks.json
 appinspect_splunk_appinspect_checks.json
 ```
+
+
+AppInspect API
+=======================
+
+**Description**
+
+- Splunk AppInspect performs validation checks on your Splunk app package against a set of standardized criteria to evaluate the app structure, features, security, and adherence to Splunk Cloud Platform requirements. Unlike previous job that uses AppInspect CLI, this one uses AppInspect API
+
+- [https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/](https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/useappinspectapi/)
+
+- Respective Appinspect tags used in stage:
+
+- https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/#Validate-an-app-using-tags
+
+```
+"cloud"
+"self-service"
+"" (no tags)
+```
+**Action used:** https://github.com/splunk/appinspect-api-action
+
+**Pass/fail behaviour:**
+
+- Splunk AppInspect API generates HTML report that details the successes, warnings, and failures flagged by the checks.
+
+- By using the results of the report, user can fix any issues in your app before you submit it for cloud vetting or for publication to Splunkbase.
+
+**Exception file:** 
+
+- `.appinspect_api.expect.yaml` We can use this file to add false positives with appropriate comments.
+
+- ref: https://github.com/splunk/splunk-add-on-for-cisco-meraki/blob/main/.app-vetting.yaml - Connect to preview  
+
+**Troubleshooting steps for failures if any:**
+
+- User can refer to this for failures https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/#Common-issues-reported-by-Splunk-AppInspect
+
+
+**Artifacts:**
+
+```
+appinspect-api-html-report
+appinspect-api-html-report-cloud
+appinspect-api-html-report-self-service
+```
+
 
 # setup
 
