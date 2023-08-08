@@ -604,7 +604,7 @@ jobs:
         with:
           name: artifact-openapi
           path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true' }}
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v3
         with:
