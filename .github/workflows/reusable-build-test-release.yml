@@ -974,7 +974,7 @@ jobs:
           echo "k8s-manifests-branch=main"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
-        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
+        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
         id: download-openapi
         with:
           name: artifact-openapi
@@ -1004,7 +1004,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           swagger_name=swagger_$(basename "$BUILD_NAME" .spl)
-          aws s3 sync "${{ github.workspace }}/tmp/restapi_client/" "s3://ta-production-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
+          aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://ta-production-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-knowledge-labeled == 'true') }}
