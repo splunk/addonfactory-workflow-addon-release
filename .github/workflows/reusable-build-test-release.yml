@@ -171,7 +171,7 @@ jobs:
             fi
             ;;
           "push")
-            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} || ${{ github.ref }} == 'refs/tags/v'* ; then
+            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} || ${{ github.ref_type }} == 'tag' ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
