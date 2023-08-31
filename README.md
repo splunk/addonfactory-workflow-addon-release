@@ -81,6 +81,7 @@ setup-workflow
     - PR target branch is 'main'
     - PUSH event on branches 'main' and 'develop'
     - SCHEDULE event
+    - PUSH event on tag (on release)
 
 meta stage
 =======================
