@@ -79,8 +79,9 @@ setup-workflow
     - adding labels will result retriggering job
   - All tests are executed by default when:
     - PR target branch is 'main'
-    - PUSH event on branches 'main' and 'develop'
+    - PUSH event on branches 'main', 'develop' and on tags (on release)
     - SCHEDULE event
+
 
 meta stage
 =======================
