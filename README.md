@@ -34,7 +34,6 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       OTHER_TA_REQUIRED_CONFIGS: ${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
