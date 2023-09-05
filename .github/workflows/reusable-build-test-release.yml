@@ -525,6 +525,7 @@ jobs:
           then
             echo " poetry.lock found "
             sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
+            poetry lock --check
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
