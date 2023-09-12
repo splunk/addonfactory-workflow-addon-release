@@ -639,11 +639,11 @@ jobs:
       - lint
       - review_secrets
       - semgrep
-      - run-unit-tests-311
+      - run-unit-tests-3_9
       - fossa-scan
     if: |
       always() &&
-      (needs.run-unit-tests-311.result == 'success' || needs.run-unit-tests-311.result == 'skipped')
+      (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped')
     permissions:
       contents: write
       packages: read
