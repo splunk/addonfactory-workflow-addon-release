@@ -963,7 +963,7 @@ jobs:
           echo "argo-secure=true"
           echo "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
-          echo "argo-workflow-tmpl-name=ta-workflow-temp"
+          echo "argo-workflow-tmpl-name=ta-workflow"
           echo "directory-path=/tmp"
           echo "s3-bucket=ta-staging-artifacts"
           echo "addon-name=\"$ADDON_NAME\""
