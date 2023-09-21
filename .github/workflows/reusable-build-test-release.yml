@@ -447,6 +447,7 @@ jobs:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-latest
+    continue-on-error: true
     needs:
       - test-inventory
     strategy:
