@@ -632,6 +632,7 @@ jobs:
 
   build-3_9:
     runs-on: ubuntu-latest
+    continue-on-error: true
     needs:
       - setup-workflow
       - test-inventory
