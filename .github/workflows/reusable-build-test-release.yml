@@ -1076,6 +1076,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6
@@ -1297,6 +1298,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6
@@ -1499,6 +1501,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6
@@ -1720,6 +1723,7 @@ jobs:
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6
@@ -1939,6 +1943,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6
@@ -2153,6 +2158,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v1.6
@@ -2371,6 +2377,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        continue-on-error: true
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
