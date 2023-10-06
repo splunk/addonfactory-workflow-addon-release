@@ -2531,6 +2531,7 @@ jobs:
       - test-inventory
       - run-unit-tests
       - appinspect
+      - appinspect-api
       - setup
       - run-knowledge-tests
       - run-modinput-tests
