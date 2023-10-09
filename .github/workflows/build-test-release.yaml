@@ -1,3 +1,4 @@
+name: "build-test-release"
 on:
   workflow_dispatch:
   push:
