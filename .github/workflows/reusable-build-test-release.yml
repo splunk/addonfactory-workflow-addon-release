@@ -265,8 +265,8 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.10
-
+        uses: splunk/addonfactory-test-matrix-action@feat/add-unreleased-splunk
+        
   fossa-scan:
     runs-on: ubuntu-latest
     needs:
