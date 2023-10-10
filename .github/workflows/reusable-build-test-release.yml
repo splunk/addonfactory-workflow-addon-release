@@ -1175,6 +1175,8 @@ jobs:
       - name: pull logs from s3 bucket
         if: ${{ !cancelled() }}
         run: |
+          echo "matrix.splunk.version"
+          echo ${{ matrix.splunk.version }}
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
             WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
@@ -1213,7 +1215,15 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
