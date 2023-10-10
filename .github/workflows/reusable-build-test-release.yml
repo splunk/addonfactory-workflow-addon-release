@@ -1221,6 +1221,7 @@ jobs:
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
       - name: Test Report Python 3.9
+        continue-on-error: true
         id: test_report_python_3_9
         uses: dorny/test-reporter@v1
         if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased') }}
