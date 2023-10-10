@@ -265,8 +265,8 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@feat/add-unreleased-splunk
-        
+        uses: splunk/addonfactory-test-matrix-action@v1.11
+
   fossa-scan:
     runs-on: ubuntu-latest
     needs:
@@ -1175,8 +1175,6 @@ jobs:
       - name: pull logs from s3 bucket
         if: ${{ !cancelled() }}
         run: |
-          echo "matrix.splunk.version"
-          echo ${{ matrix.splunk.version }}
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
             WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
