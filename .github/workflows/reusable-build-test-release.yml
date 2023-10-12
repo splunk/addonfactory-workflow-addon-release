@@ -265,7 +265,7 @@ jobs:
             type=ref,event=pr
       - name: matrix
         id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.10
+        uses: splunk/addonfactory-test-matrix-action@v1.11
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -1213,7 +1213,16 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        continue-on-error: true
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1415,7 +1424,16 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        continue-on-error: true
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1624,7 +1642,16 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        id: test_report_python_3_9
+        continue-on-error: true
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1846,7 +1873,15 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -2062,7 +2097,15 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -2277,7 +2320,15 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -2502,7 +2553,15 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9')}}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Test Report Python 3.9
+        id: test_report_python_3_9
+        uses: dorny/test-reporter@v1
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9')}}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
