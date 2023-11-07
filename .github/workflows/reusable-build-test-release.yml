@@ -1099,7 +1099,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+        if: cancelled() || failure()
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
