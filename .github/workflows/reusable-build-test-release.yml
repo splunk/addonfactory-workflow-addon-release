@@ -1077,6 +1077,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 5
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
