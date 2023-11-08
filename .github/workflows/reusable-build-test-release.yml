@@ -230,6 +230,7 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
+      python39_Splunk: ${{steps.python39_splunk.outputs.splunk}}
     permissions:
       contents: write
       packages: read
@@ -266,6 +267,9 @@ jobs:
       - name: matrix
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.10
+      - name: python39_Splunk
+        id: python39_splunk
+        run: echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> $GITHUB_OUTPUT
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -1025,7 +1029,8 @@ jobs:
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
         python39: [false]
         include:
-            - splunk: ${{ fromJson(format('[{version{0} unreleased-python3_9-a076ce4c50aa, build{0} a076ce4c50aa, islatest{0} false, isoldest{0} false}]', ':')) }}
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_Splunk) }}
+            - sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
               python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -1103,7 +1108,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled() || ${{ steps.run-tests.outcome }} != 'success'
+        if: cancelled()
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
