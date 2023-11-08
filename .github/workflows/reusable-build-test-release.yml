@@ -271,8 +271,8 @@ jobs:
       - name: python39_Splunk
         id: python39_splunk
         run: |
-          echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> $GITHUB_OUTPUT
-          echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> $GITHUB_OUTPUT
+          echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
+          echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -1060,7 +1060,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1125,7 +1125,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
@@ -1301,7 +1301,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT  
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1360,7 +1360,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
@@ -1523,7 +1523,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT  
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1588,7 +1588,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
@@ -1752,7 +1752,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1829,7 +1829,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
@@ -1990,7 +1990,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -2064,7 +2064,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
@@ -2219,7 +2219,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -2292,7 +2292,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
@@ -2455,7 +2455,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -2532,7 +2532,7 @@ jobs:
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
           remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
         timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
