@@ -711,7 +711,7 @@ jobs:
           SemVer: ${{ steps.semantic.outputs.new_release_version }}
           PrNumber: ${{ github.event.number }}
       - id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v1
+        uses: splunk/addonfactory-ucc-generator-action@v2
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
 
@@ -1033,7 +1033,7 @@ jobs:
         python39: [false]
         include:
             - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}[0]
+              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
               python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
@@ -1057,6 +1057,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1090,6 +1094,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1108,10 +1113,35 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
+        id: update-argo-token
+        if: ${{ !cancelled() }}
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$(( 360-((current_time-start_time)/60 ))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+        if: cancelled() || ${{ steps.is-pod-deleted.outcome }} != 'success'
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -1121,23 +1151,6 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi
-      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
-        id: update-argo-token
-        if: ${{ !cancelled() }}
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1253,11 +1266,17 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
+        python39: [false]
+        include:
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
+              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
+              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1279,6 +1298,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT  
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1312,6 +1335,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1330,22 +1354,16 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-      - name: Cancel workflow
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+      - name: calculate timeout
+        id: calculate-timeout
         run: |
-          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
-          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
-          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
-          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
-          else
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
-            exit 1
-          fi
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$((360-((current_time-start_time)/60))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
       - name: Check if pod was deleted
         id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
         if: ${{ !cancelled() }}
         shell: bash
         env:
@@ -1355,6 +1373,20 @@ jobs:
           if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
             echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: cancelled() || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi  
       - name: Retrying workflow
         id: retry-wf
         shell: bash
@@ -1428,16 +1460,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
-        with:
-          name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1463,12 +1486,18 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         browser: [ "chrome","firefox" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
+        python39: [false]
+        include:
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
+              browser: "chrome"
+              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1491,6 +1520,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT  
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1524,6 +1557,7 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1542,10 +1576,35 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
+        id: update-argo-token
+        if: ${{ !cancelled() }}
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$((360-((current_time-start_time)/60))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted" ; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+        if: cancelled() || ${{ steps.is-pod-deleted.outcome }} != 'success'
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -1555,23 +1614,6 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi
-      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
-        id: update-argo-token
-        if: ${{ !cancelled() }}
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted" ; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1646,16 +1688,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1681,6 +1714,7 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
@@ -1688,6 +1722,11 @@ jobs:
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
+        python39: [false]
+        include:
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
+              modinput-type: [ "modinput_functional" ]
+              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1710,6 +1749,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1755,6 +1798,7 @@ jobs:
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1773,10 +1817,35 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
+        id: update-argo-token
+        if: ${{ !cancelled() }}
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$((360-((current_time-start_time)/60))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+        if: cancelled() || ${{ steps.is-pod-deleted.outcome }} != 'success'
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -1786,23 +1855,6 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi
-      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
-        id: update-argo-token
-        if: ${{ !cancelled() }}
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -1877,16 +1929,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -1912,11 +1955,17 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         os: [ "ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5" ]
+        python39: [false]
+        include:
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
+              os: "ubuntu:22.04"
+              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1938,6 +1987,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1984,6 +2037,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -2004,10 +2058,29 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$((360-((current_time-start_time)/60))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+        if: cancelled() || ${{ steps.is-pod-deleted.outcome }} != 'success'
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -2017,17 +2090,6 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -2102,16 +2164,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
@@ -2163,6 +2216,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -2208,6 +2265,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -2228,10 +2286,29 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$((360-((current_time-start_time)/60))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: cancelled()
+        if: cancelled() || ${{ steps.is-pod-deleted.outcome }} != 'success'
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -2241,17 +2318,6 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Retrying workflow
         id: retry-wf
@@ -2386,6 +2452,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -2436,6 +2506,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
+        timeout-minutes: 340
         continue-on-error: true
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
         env:
@@ -2455,6 +2526,25 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$((360-((current_time-start_time)/60))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> $GITHUB_OUTPUT
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -2468,17 +2558,6 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Retrying workflow
         id: retry-wf
