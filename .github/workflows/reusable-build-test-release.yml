@@ -230,7 +230,8 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      python39_Splunk: ${{steps.python39_splunk.outputs.splunk}}
+      python39_splunk: ${{steps.python39_splunk.outputs.splunk}}
+      python39_sc4s: ${{steps.python39_splunk.outputs.sc4s}}
     permissions:
       contents: write
       packages: read
@@ -269,7 +270,9 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v1.10
       - name: python39_Splunk
         id: python39_splunk
-        run: echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> $GITHUB_OUTPUT
+        run: |
+          echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> $GITHUB_OUTPUT
+          echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> $GITHUB_OUTPUT
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -1029,8 +1032,8 @@ jobs:
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
         python39: [false]
         include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_Splunk) }}
-            - sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
+            - sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
               python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
