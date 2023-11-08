@@ -1017,11 +1017,16 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
+        python39: [false]
+        include:
+            - splunk: [{"version": "unreleased-python3_9-a076ce4c50aa","build": "a076ce4c50aa", "islatest": false, "isoldest": false}]
+              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
@@ -1053,8 +1058,6 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          echo "${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}"
-          echo "${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}"
           ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
@@ -1079,7 +1082,6 @@ jobs:
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
-        timeout-minutes: 5
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1216,16 +1218,7 @@ jobs:
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
-        if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
+        if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
