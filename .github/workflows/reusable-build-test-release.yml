@@ -1025,7 +1025,7 @@ jobs:
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
         python39: [false]
         include:
-            - splunk: [{"version": "unreleased-python3_9-a076ce4c50aa","build": "a076ce4c50aa", "islatest": false, "isoldest": false}]
+            - splunk: ${{ fromJson(format('[{version{0} unreleased-python3_9-a076ce4c50aa, build{0} a076ce4c50aa, islatest{0} false, isoldest{0} false}]', ':')) }}
               python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
