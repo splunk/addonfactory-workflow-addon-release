@@ -1033,7 +1033,7 @@ jobs:
         python39: [false]
         include:
             - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
+              sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}[0]
               python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.3
