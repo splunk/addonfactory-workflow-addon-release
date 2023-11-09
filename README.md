@@ -249,7 +249,7 @@ security-sast-semgrep
 
 - Semgrep CI behaves like other static analysis and linting tools: it runs a set of user-configured rules and returns a non-zero exit code if there are findings, resulting in its job showing a ✅ or ❌.
 
-**Action used:** https://github.com/returntocorp/semgrep-action
+**Action used:** https://github.com/semgrep/semgrep-action
 
 
 **Pass/fail behaviour**
