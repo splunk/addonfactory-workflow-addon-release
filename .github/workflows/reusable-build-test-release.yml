@@ -423,7 +423,7 @@ jobs:
           if [ -f "poetry.lock" ]
            then
              mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+             pip install poetry==1.2.2 poetry-plugin-export==1.2.0
              poetry export --without-hashes -o package/lib/requirements.txt
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
@@ -471,7 +471,7 @@ jobs:
           if [ -f "poetry.lock" ]
            then
              mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+             pip install poetry==1.2.2 poetry-plugin-export==1.2.0
              poetry export --without-hashes -o package/lib/requirements.txt
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
@@ -524,7 +524,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
+            sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
             poetry lock --check
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
@@ -591,7 +591,7 @@ jobs:
           cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v2
+        uses: splunk/addonfactory-ucc-generator-action@v1
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
       - name: Slim Package
@@ -662,7 +662,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
+            sudo pip3 install poetry==1.2.2 poetry-plugin-export==1.2.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -991,7 +991,7 @@ jobs:
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          sudo pip3 install poetry==1.5.1 
+          sudo pip3 install poetry==1.2.2 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
