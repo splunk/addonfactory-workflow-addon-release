@@ -1124,7 +1124,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1141,7 +1141,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }} || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -1359,7 +1359,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1376,7 +1376,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }} || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -1587,7 +1587,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1604,7 +1604,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }} || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -1828,7 +1828,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1845,7 +1845,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }} || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -2063,7 +2063,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -2080,7 +2080,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }} || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -2291,7 +2291,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -2308,7 +2308,7 @@ jobs:
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }} || ${{ steps.is-pod-deleted.outcome }} != 'success'
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
         run: |
           cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
@@ -2531,7 +2531,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 360-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
