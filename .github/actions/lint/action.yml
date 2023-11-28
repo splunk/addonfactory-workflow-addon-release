@@ -1,0 +1,19 @@
+name: Lint
+
+description: 'Run black, flake8 and other linting checks'
+
+runs-on: ubuntu-latest
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.7"
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.0

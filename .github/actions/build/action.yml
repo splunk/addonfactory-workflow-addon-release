@@ -1,0 +1,179 @@
+name: Build
+
+description: >
+  Creates the UCC build for the addon, generates the SPL file using slim
+  and uploads it to the Github registry
+
+inputs:
+  python_version:
+    required: true
+  SA_GH_USER_NAME:
+    required: true
+  SA_GH_USER_EMAIL:
+    required: true
+  SA_GPG_PRIVATE_KEY:
+    required: true
+  SA_GPG_PASSPHRASE:
+    required: true
+  AWS_ACCESS_KEY_ID:
+    required: true
+  AWS_DEFAULT_REGION:
+    required: true
+  AWS_SECRET_ACCESS_KEY:
+    required: true
+  ucc_modinput_functional:
+    required: true
+  modinput_functional:
+    required: true
+
+outputs:
+  buildname:
+    value: ${{ steps.buildupload.outputs.name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        # Very Important: semantic-release won't trigger a tagged
+        # build if this is not set to false
+        persist-credentials: false
+
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.7
+
+    - name: Create requirements file for pip
+      shell: bash
+      run: |
+        if [ -f "poetry.lock" ]
+        then
+          echo " poetry.lock found "
+          sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
+          poetry lock --check
+          poetry export --without-hashes -o requirements.txt
+          if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
+          then
+              echo "Prod dependencies were found, creating package/lib folder"
+              mkdir -p package/lib || true
+              mv requirements.txt package/lib
+          else
+              echo "No prod dependencies were found"
+              rm requirements.txt
+          fi
+          poetry export --without-hashes --dev -o requirements_dev.txt
+          cat requirements_dev.txt
+        fi
+
+    - name: Get pip cache dir
+      id: pip-cache
+      shell: bash
+      run: |
+        echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Run Check there are libraries to scan
+      id: checklibs
+      shell: bash
+      run: if [ -f requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
+
+    - name: Run pip cache
+      if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.pip-cache.outputs.dir }}
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements_dev.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install deps
+      if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
+      shell: bash
+      run: pip install -r requirements_dev.txt
+
+    - name: Semantic Release Get Next
+      id: semantic
+      if: github.event_name != 'pull_request'
+      uses: splunk/semantic-release-action@v1.3
+      with:
+        dry_run: true
+        git_committer_name: ${{ inputs.SA_GH_USER_NAME }}
+        git_committer_email: ${{ inputs.SA_GH_USER_EMAIL }}
+        gpg_private_key: ${{ inputs.SA_GPG_PRIVATE_KEY }}
+        passphrase: ${{ inputs.SA_GPG_PASSPHRASE }}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Determine the version to build
+      id: BuildVersion
+      uses: splunk/addonfactory-get-splunk-package-version-action@v1
+      with:
+        SemVer: ${{ steps.semantic.outputs.new_release_version }}
+        PrNumber: ${{ github.event.number }}
+
+    - name: Download THIRDPARTY
+      if: ${{ inputs.python_version }} == '3.7' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+      uses: actions/download-artifact@v3
+      with:
+        name: THIRDPARTY
+
+    - name: Download THIRDPARTY (Optional for PR and schedule)
+      if: ${{ inputs.python_version }} == '3.7' && github.event_name == 'pull_request' || github.event_name == 'schedule'
+      continue-on-error: true
+      uses: actions/download-artifact@v3
+      with:
+        name: THIRDPARTY
+
+    - name: Update Notices
+      if: ${{ inputs.python_version }} == '3.7'
+      shell: bash
+      run: |
+        cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
+
+    - name: Build Package
+      id: uccgen
+      uses: splunk/addonfactory-ucc-generator-action@v2
+      with:
+        version: ${{ steps.BuildVersion.outputs.VERSION }}
+
+    - name: Slim Package
+      if: always() && ${{ inputs.python_version }} == '3.7'
+      id: slim
+      uses: splunk/addonfactory-packaging-toolkit-action@v1
+      with:
+        source: ${{ steps.uccgen.outputs.OUTPUT }}
+
+    - name: Artifact OpenAPI
+      if: ${{ inputs.python_version }} == '3.7' && ${{ !cancelled() && inputs.ucc_modinput_functional == 'true' && inputs.modinput_functional == 'true' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: artifact-openapi
+        path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
+
+    - name: Artifact Splunkbase
+      if: ${{ !cancelled() }} && ${{ inputs.python_version }} == '3.7'
+      uses: actions/upload-artifact@v3
+      with:
+        name: package-splunkbase
+        path: ${{ steps.slim.outputs.OUTPUT }}
+
+    - name: Upload build to S3
+      if: ${{ inputs.python_version }} == '3.7'
+      id: buildupload
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.AWS_ACCESS_KEY_ID }}
+        AWS_DEFAULT_REGION: ${{ inputs.AWS_DEFAULT_REGION }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
+        basename "${{ steps.slim.outputs.OUTPUT }}"
+        aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
+        
+    - name: Artifact Splunk parts
+      if: ${{ !cancelled() }} && ${{ inputs.python_version }} == '3.7'
+      uses: actions/upload-artifact@v3
+      with:
+        name: package-deployment
+        path: build/package/deployment**

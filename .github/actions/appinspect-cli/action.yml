@@ -1,0 +1,44 @@
+name: AppInspect
+
+description: >
+  Performs validation checks on your Splunk app package against a set of standardized criteria to evaluate
+  the app structure, features, security, and adherence to Splunk Cloud Platform requirements.
+  Uses AppInspect CLI.
+
+inputs:
+  matrix_tags:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: package-splunkbase
+        path: build/package/
+
+    - name: Scan
+      uses: splunk/appinspect-cli-action@v1.9
+      with:
+        app_path: build/package/
+        included_tags: ${{ inputs.matrix_tags }}
+        result_file: appinspect_result_${{ inputs.matrix_tags }}.json
+
+    - name: Upload AppInspect report
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: appinspect_${{ inputs.matrix_tags }}_checks.json
+        path: appinspect_result_${{ inputs.matrix_tags }}.json
+
+    - name: Upload Markdown
+      if: inputs.matrix_tags == 'manual'
+      uses: actions/upload-artifact@v3
+      with:
+        name: check_markdown
+        path: |
+          *_markdown.txt
