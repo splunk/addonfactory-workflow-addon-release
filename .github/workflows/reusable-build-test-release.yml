@@ -195,545 +195,284 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
-    needs: 
-    - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    needs: 
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
     permissions:
       contents: read
       packages: read
       pull-requests: read
       statuses: write
     steps:
-      - uses: amannn/action-semantic-pull-request@v5.2.0
+      - name: Run title validation
+        # uses: ./.github/actions/validate-pr-title
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/validate-pr-title@ci/lightweight-workflow-ADDON-66448
         with:
-          wip: true
-          validateSingleCommit: true
-        env:
           GITHUB_TOKEN: ${{ github.token }}
 
   meta:
+    name: Prepare metadata
     runs-on: ubuntu-latest
-    needs:
+    needs: 
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
-      sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
-      container_tags: ${{ steps.docker_action_meta.outputs.tags }}
-      container_labels: ${{ steps.docker_action_meta.outputs.labels }}
-      container_buildtime: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.created'] }}
-      container_version: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
-      container_revision: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.revision'] }}
-      container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
-      matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
-      matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
-      matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
-      matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
-      matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      python39_splunk: ${{steps.python39_splunk.outputs.splunk}}
-      python39_sc4s: ${{steps.python39_splunk.outputs.sc4s}}
-    permissions:
-      contents: write
-      packages: read
+      sc4s: ${{ steps.meta.outputs.sc4s }}
+      container_tags: ${{ steps.meta.outputs.container_tags }}
+      container_labels: ${{ steps.meta.outputs.container_labels }}
+      container_buildtime: ${{ steps.meta.outputs.container_buildtime }}
+      container_version: ${{ steps.meta.outputs.container_version }}
+      container_revision: ${{ steps.meta.outputs.container_revision }}
+      container_base: ${{ steps.meta.outputs.container_base }}
+      matrix_supportedSplunk: ${{ steps.meta.outputs.matrix_supportedSplunk }}
+      matrix_latestSplunk: ${{ steps.meta.outputs.matrix_latestSplunk }}
+      matrix_supportedSC4S: ${{ steps.meta.outputs.matrix_supportedSC4S }}
+      matrix_supportedModinputFunctionalVendors: ${{ steps.meta.outputs.matrix_supportedModinputFunctionalVendors }}
+      matrix_supportedUIVendors: ${{ steps.meta.outputs.matrix_supportedUIVendors }}
+      python39_splunk: ${{ steps.meta.outputs.python39_splunk }}
+      python39_sc4s: ${{ steps.meta.outputs.python39_sc4s }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Run meta preparation
+        id: meta
+        # uses: ./.github/actions/meta
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/meta@ci/lightweight-workflow-ADDON-66448
         with:
-          submodules: false
-          persist-credentials: false
-      - name: Semantic Release
-        id: version
-        uses: splunk/semantic-release-action@v1.3
-        with:
-          dry_run: true
-          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
-          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
-          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Docker meta
-        id: docker_action_meta
-        uses: docker/metadata-action@v4.6.0
-        with:
-          images: ghcr.io/${{ github.repository }}/container
-          tags: |
-            type=sha,format=long
-            type=sha
-            type=semver,pattern={{version}},value=${{ steps.version.outputs.new_release_version }}
-            type=semver,pattern={{major}},value=${{ steps.version.outputs.new_release_version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.new_release_version }}
-            type=ref,event=branch
-            type=ref,event=pr
-      - name: matrix
-        id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v1.10
-      - name: python39_Splunk
-        id: python39_splunk
-        run: |
-          echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
-          echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
+          SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
+          SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
+          SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
 
   fossa-scan:
+    name: FOSSA scan
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
-      - name: run fossa anlyze and create report
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug
-          fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
-      - name: upload THIRDPARTY file
-        uses: actions/upload-artifact@v3
+      - name: Run FOSSA scan
+        # uses: ./.github/actions/fossa-scan
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-scan@ci/lightweight-workflow-ADDON-66448
         with:
-          name: THIRDPARTY
-          path: /tmp/THIRDPARTY
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
   fossa-test:
     continue-on-error: true
+    name: FOSSA test
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
-      - name: run fossa test
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa test --debug
-        env:
+      - name: Run FOSSA test
+        # uses: ./.github/actions/fossa-test
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-test@ci/lightweight-workflow-ADDON-66448
+        with:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
   compliance-copyrights:
-    name: compliance-copyrights
+    name: Compliance copyrights
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v1.1
+      - name: Run compliance copyrights
+        # uses: ./.github/actions/compliance-copyrights
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/compliance-copyrights@ci/lightweight-workflow-ADDON-66448
 
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.7"
-      - uses: pre-commit/action@v3.0.0
+      - name: Run linting checks
+        # uses: ./.github/actions/lint
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/lint@ci/lightweight-workflow-ADDON-66448
 
-  review_secrets:
-    name: security-detect-secrets
+  review-secrets:
+    name: Review secrets
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Checkout
-        if: github.event_name != 'pull_request'
-        uses: actions/checkout@v3
-        with:
-          submodules: false
-          fetch-depth: "0"
-      - name: Checkout for PR
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@v3
-        with:
-          submodules: false
-          fetch-depth: "0"
-          ref: ${{ github.head_ref }}
-      - name: Trufflehog Actions Scan
-        uses: edplato/trufflehog-actions-scan@v0.9l-beta
-        with:
-          scanArguments: "--max_dept 5 -x .github/workflows/exclude-patterns.txt --allow .github/workflows/trufflehog-false-positive.json"
+      - name: Run secrets review
+        # uses: ./.github/actions/review-secrets
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/review-secrets@ci/lightweight-workflow-ADDON-66448
 
   semgrep:
+    name: Semgrep security check
     runs-on: ubuntu-latest
-    name: security-sast-semgrep
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Semgrep
-        id: semgrep
-        uses: semgrep/semgrep-action@v1
+      - name: Run semgrep
+        # uses: ./.github/actions/semgrep
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/semgrep@ci/lightweight-workflow-ADDON-66448
         with:
-          publishToken: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+          SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
   test-inventory:
-    runs-on: ubuntu-latest
-    needs: setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
-    # Map a step output to a job output
-    outputs:
-      unit: ${{ steps.testset.outputs.unit }}
-      knowledge: ${{ steps.testset.outputs.knowledge }}
-      ui: ${{ steps.testset.outputs.ui }}
-      modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
-      requirement_test: ${{ steps.testset.outputs.requirement_test }}
-      scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
-      escu: ${{ steps.testset.outputs.escu }}
-      ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
-    steps:
-      - uses: actions/checkout@v3
-      - id: testset
-        name: Check available test types
-        run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
-      - id: modinput-version
-        name: Check modinput tests version
-        run: |
-          CENTAURS_MODINPUT_TESTS_CHECK_DIR="tests/modinput_functional/centaurs"
-          ucc_modinput_tests="true"
-          if [ -d "$CENTAURS_MODINPUT_TESTS_CHECK_DIR" ]; then
-            ucc_modinput_tests="false"
-          fi
-          echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
-        
-  run-unit-tests:
-    name: test-unit-python3-${{ matrix.python-version }}
-    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
-    runs-on: ubuntu-latest
-    needs:
-      - test-inventory
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.7"
-    permissions: 
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Setup addon
-        run: |
-          if [ -f "poetry.lock" ]
-           then
-             mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-             poetry export --without-hashes -o package/lib/requirements.txt
-             poetry export --without-hashes --dev -o requirements_dev.txt
-           fi
-          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
-          pip install -r requirements_dev.txt
-      - name: Create directories
-        run: |
-          mkdir -p /opt/splunk/var/log/splunk
-          chmod -R 777 /opt/splunk/var/log/splunk
-      - name: Copy pytest ini
-        run: cp tests/unit/pytest-ci.ini pytest.ini
-      - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - uses: actions/upload-artifact@v3
-        if: success() || failure()
-        with:
-          name: test-results-unit-python_${{ matrix.python-version }}
-          path: test-results/*
-
-  run-unit-tests-3_9:
-    name: test-unit-python3-${{ matrix.python-version }}
-    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
-    runs-on: ubuntu-latest
-    needs:
-      - test-inventory
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.9"
-    permissions: 
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Setup addon
-        run: |
-          if [ -f "poetry.lock" ]
-           then
-             mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-             poetry export --without-hashes -o package/lib/requirements.txt
-             poetry export --without-hashes --dev -o requirements_dev.txt
-           fi
-          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
-          pip install -r requirements_dev.txt
-      - name: Create directories
-        run: |
-          mkdir -p /opt/splunk/var/log/splunk
-          chmod -R 777 /opt/splunk/var/log/splunk
-      - name: Copy pytest ini
-        run: cp tests/unit/pytest-ci.ini pytest.ini
-      - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - uses: actions/upload-artifact@v3
-        if: success() || failure()
-        with:
-          name: test-results-unit-python_${{ matrix.python-version }}
-          path: test-results/*
-
-  build:
+    name: Test inventory
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
+    outputs:
+      unit: ${{ steps.test-inventory.outputs.unit }}
+      ucc_modinput_functional: ${{ steps.test-inventory.outputs.ucc_modinput_functional}}
+      modinput_functional: ${{ steps.test-inventory.outputs.modinput_functional}}
+      requirement_test: ${{ steps.test-inventory.outputs.requirement_test }}
+      knowledge: ${{ steps.test-inventory.outputs.knowledge }}
+      ui: ${{ steps.test-inventory.outputs.ui }}
+      scripted_inputs: ${{ steps.test-inventory.outputs.scripted_inputs }}
+      escu: ${{ steps.test-inventory.outputs.escu }}
+    steps:
+      - name: Run test inventory check
+        id: test-inventory
+        # uses: ./.github/actions/test-inventory
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/test-inventory@ci/lightweight-workflow-ADDON-66448
+        
+  # Two separate unit test jobs needed as jobs that depend on unit-test success can't proceed
+  # if any matrix job fails. Currently python 3.9 always fails as it's not supported.
+  # TODO: group these jobs into the matrix once python 3.9 is supported
+
+  run-unit-tests-3_7:
+    name: Unit tests
+    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
+    runs-on: ubuntu-latest
+    needs:
+      - test-inventory
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - name: Run unit tests for python 3.7
+        id: unit-tests-3_7
+        # uses: ./.github/actions/unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@ci/lightweight-workflow-ADDON-66448
+        with:
+          python_version: '3.7'
+
+  run-unit-tests-3_9:
+    name: Unit tests
+    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs:
+      - test-inventory
+    permissions: 
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - name: Run unit tests for python 3.9
+        id: unit-tests-3_9
+        # uses: ./.github/actions/unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@ci/lightweight-workflow-ADDON-66448
+        with:
+          python_version: '3.9'
+
+  build:
+    name: Build python 3.7
+    runs-on: ubuntu-latest
+    needs:
       - test-inventory
       - meta
       - compliance-copyrights
       - lint
-      - review_secrets
+      - review-secrets
       - semgrep
-      - run-unit-tests
-      - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') }}
+      - run-unit-tests-3_7
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     python-version:
+    #       - "3.7"
+    #       - "3.9"
+    if: ${{ !cancelled() && (needs.run-unit-tests-3_7.result == 'success' || needs.run-unit-tests-3_7.result == 'skipped') }}
     outputs:
-      buildname: ${{ steps.buildupload.outputs.name }}
+      buildname: ${{ steps.build.outputs.buildname }}
     permissions:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v3
+      - name: Run build 3.7
+        id: build
+        # uses: ./.github/actions/build
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/build@ci/lightweight-workflow-ADDON-66448
         with:
-          # Very Important semantic-release won't trigger a tagged
-          # build if this is not set false
-          persist-credentials: false
-      - name: Setup python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-      - name: create requirements file for pip
-        run: |
-          if [ -f "poetry.lock" ]
-          then
-            echo " poetry.lock found "
-            sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry lock --check
-            poetry export --without-hashes -o requirements.txt
-            if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
-            then
-                echo "Prod dependencies were found, creating package/lib folder"
-                mkdir -p package/lib || true
-                mv requirements.txt package/lib
-            else
-                echo "No prod dependencies were found"
-                rm requirements.txt
-            fi
-            poetry export --without-hashes --dev -o requirements_dev.txt
-            cat requirements_dev.txt
-          fi
-      - name: Get pip cache dir
-        id: pip-cache
-        run: |
-          echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
-      - name: Run Check there are libraries to scan
-        id: checklibs
-        run: if [ -f requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
-      - name: pip cache
-        if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements_dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install deps
-        if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        run: pip install -r requirements_dev.txt
-      - name: Semantic Release Get Next
-        id: semantic
-        if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@v1.3
-        with:
-          dry_run: true
-          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
-          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
-          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Determine the version to build
-        id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@v1
-        with:
-          SemVer: ${{ steps.semantic.outputs.new_release_version }}
-          PrNumber: ${{ github.event.number }}
-      - name: Download THIRDPARTY
-        if: github.event_name != 'pull_request' && github.event_name != 'schedule'
-        uses: actions/download-artifact@v3
-        with:
-          name: THIRDPARTY
-      - name: Download THIRDPARTY (Optional for PR and schedule)
-        if: github.event_name == 'pull_request' || github.event_name == 'schedule'
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: THIRDPARTY
-      - name: Update Notices
-        run: |
-          cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
-      - name: Build Package
-        id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v2
-        with:
-          version: ${{ steps.BuildVersion.outputs.VERSION }}
-      - name: Slim Package
-        id: slim
-        uses: splunk/addonfactory-packaging-toolkit-action@v1
-        with:
-          source: ${{ steps.uccgen.outputs.OUTPUT }}
-        if: always()
-      - name: artifact-openapi
-        uses: actions/upload-artifact@v3
-        with:
-          name: artifact-openapi
-          path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
-        if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true' }}
-      - name: artifact-splunk-base
-        uses: actions/upload-artifact@v3
-        with:
-          name: package-splunkbase
-          path: ${{ steps.slim.outputs.OUTPUT }}
-        if: ${{ !cancelled() }}
-      - name: upload-build-to-s3
-        id: buildupload
-        env:
+          python_version: "3.7"
+          SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
+          SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
+          SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
-          basename "${{ steps.slim.outputs.OUTPUT }}"
-          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
-      - name: artifact-splunk-parts
-        uses: actions/upload-artifact@v3
-        with:
-          name: package-deployment
-          path: build/package/deployment**
-        if: ${{ !cancelled() }}
+          ucc_modinput_functional: ${{ needs.test-inventory.outputs.ucc_modinput_functional}}
+          modinput_functional: ${{ needs.test-inventory.outputs.modinput_functional}}
 
   build-3_9:
+    name: Build python 3.9
     runs-on: ubuntu-latest
     needs:
-      - setup-workflow
       - test-inventory
       - meta
       - compliance-copyrights
       - lint
-      - review_secrets
+      - review-secrets
       - semgrep
-      - run-unit-tests-3_9
-      - fossa-scan
-    if: |
-      always() &&
-      (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped')
+      - run-unit-tests-3_7
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     python-version:
+    #       - "3.7"
+    #       - "3.9"
+    if: ${{ !cancelled() && (needs.run-unit-tests-3_7.result == 'success' || needs.run-unit-tests-3_7.result == 'skipped') }}
     permissions:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v3
+      - name: Run build 3.9
+        # uses: ./.github/actions/build
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/build@ci/lightweight-workflow-ADDON-66448
         with:
-          # Very Important semantic-release won't trigger a tagged
-          # build if this is not set false
-          persist-credentials: false
-      - name: Setup python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-      - name: create requirements file for pip
-        run: |
-          if [ -f "poetry.lock" ]
-          then
-            echo " poetry.lock found "
-            sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry export --without-hashes -o requirements.txt
-            if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
-            then
-                echo "Prod dependencies were found, creating package/lib folder"
-                mkdir -p package/lib || true
-                mv requirements.txt package/lib
-            else
-                echo "No prod dependencies were found"
-                rm requirements.txt
-            fi
-            poetry export --without-hashes --dev -o requirements_dev.txt
-            cat requirements_dev.txt
-          fi
-      - id: pip-cache
-        run: |
-          echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
-      - name: pip cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: ${{ runner.os }}-pip-python3_9-${{ hashFiles('requirements_dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-python3_9
-      - run: pip install -r requirements_dev.txt
-      - id: semantic
-        if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@v1.3
-        with:
-          dry_run: true
-          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
-          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
-          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@v1
-        with:
-          SemVer: ${{ steps.semantic.outputs.new_release_version }}
-          PrNumber: ${{ github.event.number }}
-      - id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v2
-        with:
-          version: ${{ steps.BuildVersion.outputs.VERSION }}
+          python_version: "3.9"
+          SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
+          SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
+          SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+          SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ucc_modinput_functional: ${{ needs.test-inventory.outputs.ucc_modinput_functional}}
+          modinput_functional: ${{ needs.test-inventory.outputs.modinput_functional}}
 
-  security-virustotal:
-    continue-on-error: true
-    name: security-virustotal
+  virustotal:
+    runs-on: ubuntu-latest
     needs: build
     if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v3
+      - name: Run VirusTotal check
+        # uses: ./.github/actions/virustotal
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/virustotal@ci/lightweight-workflow-ADDON-66448
         with:
-          name: package-splunkbase
-          path: build/package/
-      - name: VirusTotal Scan
-        uses: crazy-max/ghaction-virustotal@v3
-        with:
-          vt_api_key: ${{ secrets.VT_API_KEY }}
-          files: |
-            build/package/*
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
 
   run-requirements-unit-tests:
+    name: Requirements unit tests
     runs-on: ubuntu-latest
     needs:
       - build
@@ -747,28 +486,15 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Python 3
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.7
-      - name: run-tests
-        uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.4
-        with:
-          input-files: tests/requirement_test/logs
-      - name: Archive production artifacts
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: |
-            test_*.txt
+      - name: Run requirements unit tests
+        # uses: ./.github/actions/requirements-unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/requirements-unit-tests@ci/lightweight-workflow-ADDON-66448
 
-  appinspect:
-    name: quality-appinspect-${{ matrix.tags }}
+  appinspect-cli:
+    name: AppInspect CLI ${{ matrix.tags }}
+    runs-on: ubuntu-latest
     needs: build
     if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -782,39 +508,20 @@ jobs:
           - "splunk_appinspect"
           - "manual"
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - name: Run appinspect CLI
+        # uses: ./.github/actions/appinspect-cli
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-cli@ci/lightweight-workflow-ADDON-66448
         with:
-          name: package-splunkbase
-          path: build/package/
-      - name: Scan
-        uses: splunk/appinspect-cli-action@v1.12
-        with:
-          app_path: build/package/
-          included_tags: ${{ matrix.tags }}
-          result_file: appinspect_result_${{ matrix.tags }}.json
-      - name: upload-appinspect-report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: appinspect_${{ matrix.tags }}_checks.json
-          path: appinspect_result_${{ matrix.tags }}.json
-      - name: upload-markdown
-        if: matrix.tags == 'manual'
-        uses: actions/upload-artifact@v3
-        with:
-          name: check_markdown
-          path: |
-            *_markdown.txt
+          matrix_tags: ${{ matrix.tags }}
 
   appinspect-api:
-    name: appinspect api ${{ matrix.tags }}
+    name: AppInspect API ${{ matrix.tags }}
+    runs-on: ubuntu-latest
     needs: build
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
       ( github.base_ref == 'main' || github.ref_name == 'main' )
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -823,99 +530,30 @@ jobs:
           - "self-service"
           - ""
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - name: Run appinspect API
+        # uses: ./.github/actions/appinspect-api
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-api@ci/lightweight-workflow-ADDON-66448
         with:
-          name: package-splunkbase
-          path: build/package
-      - name: AppInspect API
-        uses: splunk/appinspect-api-action@v3.0
-        with:
-          username: ${{ secrets.SPL_COM_USER }}
-          password: ${{ secrets.SPL_COM_PASSWORD }}
-          app_path: build/package/
-          included_tags: ${{ matrix.tags }}
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: appinspect-api-html-report-${{ matrix.tags }}
-          path: AppInspect_response.html
+          matrix_tags: ${{ matrix.tags }}
+          SPL_COM_USER: ${{ secrets.SPL_COM_USER }}
+          SPL_COM_PASSWORD: ${{ secrets.SPL_COM_PASSWORD }}
 
   artifact-registry:
+    name: Artifact registry
     runs-on: ubuntu-latest
     needs:
-      - security-virustotal
+      - virustotal
       - meta
-    if: ${{ !cancelled() && needs.security-virustotal.result == 'success' && needs.meta.result == 'success' }}
-    outputs:
-      artifact: ${{ steps.artifactid.outputs.result }}
+    if: ${{ !cancelled() && needs.virustotal.result == 'success' && needs.meta.result == 'success' }}
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - name: Run artifact registry
+        # uses: ./.github/actions/artifact-registry
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/artifact-registry@ci/lightweight-workflow-ADDON-66448
         with:
-          name: package-splunkbase
-          path: build/package/splunkbase
-      - id: getappid
-        run: |
-          appid=$(jq -r '.info.id.name' package/app.manifest)
-          echo appid="$appid"
-          echo "result=$appid" >> "$GITHUB_OUTPUT"
-      - run: |
-          curl -LO https://github.com/oras-project/oras/releases/download/v0.12.0/oras_0.12.0_linux_amd64.tar.gz
-          mkdir -p oras-install/
-          tar -zxf oras_0.12.0_*.tar.gz -C oras-install/
-          mv oras-install/oras /usr/local/bin/
-          rm -rf oras_0.12.0_*.tar.gz oras-install/
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to GitHub Packages Docker Registry
-        uses: docker/login-action@v2.2.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4.6.0
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern=v{{major}}.{{minor}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern=v{{major}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern=v{{version}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{major}}.{{minor}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{major}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{version}},prefix=${{ steps.getappid.outputs.result }}-
-            type=ref,event=branch,prefix=${{ steps.getappid.outputs.result }}-
-            type=ref,event=pr,prefix=${{ steps.getappid.outputs.result }}-
-            type=sha,prefix=${{ steps.getappid.outputs.result }}-
-            type=sha,format=long,prefix=${{ steps.getappid.outputs.result }}-
-      - name: Upload artifacts
-        run: |
-          tee /tmp/tags &>/dev/null <<EOF
-          ${{ steps.meta.outputs.tags }}
-          EOF
-          pushd build/package/splunkbase/
-          PACKAGE=$(ls ./*)
-          echo "$PACKAGE"
-          mv "$PACKAGE" "${{ steps.getappid.outputs.result }}".spl
-          while IFS= read -r line
-          do
-            echo ">>$line<<"
-            oras push \
-                --manifest-config /dev/null:application/vnd.splunk.ent.package.v1.tar+gzip \
-                "$line" \
-                "${{ steps.getappid.outputs.result }}".spl
-            echo "  complete"
-          done < /tmp/tags
-          popd
-      - name: Output artifact locator
-        id: artifactid
-        run: |
-          echo "result= ${{ needs.meta.outputs.sc4s }}" >> "$GITHUB_OUTPUT"
+          sc4s: ${{ needs.meta.outputs.sc4s }}
 
   setup:
     needs:
@@ -2671,13 +2309,13 @@ jobs:
       - meta
       - compliance-copyrights
       - lint
-      - review_secrets
+      - review-secrets
       - semgrep
       - build
-      - security-virustotal
+      - virustotal
       - test-inventory
-      - run-unit-tests
-      - appinspect
+      - run-unit-tests-3_7
+      - appinspect-cli
       - setup
       - run-knowledge-tests
       - run-modinput-tests
