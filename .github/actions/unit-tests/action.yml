@@ -3,8 +3,6 @@ name: Run unit tests
 inputs:
   python_version:
     required: true
-  GH_USER_ADMIN:
-    required: true
   GH_TOKEN_ADMIN:
     required: true
   
