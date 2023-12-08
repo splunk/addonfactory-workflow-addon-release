@@ -3,6 +3,10 @@ name: Run unit tests
 inputs:
   python_version:
     required: true
+  GH_USER_ADMIN:
+    required: true
+  GH_TOKEN_ADMIN:
+    required: true
   
 runs:
   using: composite
@@ -30,6 +34,7 @@ runs:
             poetry export --without-hashes --dev -o requirements_dev.txt
           fi
         if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+        git config --global url."https://${{ inputs.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
         pip install -r requirements_dev.txt
 
     - name: Create directories

@@ -165,6 +165,8 @@ jobs:
         uses: ./.github/actions/unit-tests
         with:
           python_version: '3.7'
+          GH_USER_ADMIN: ${{ secrets.GH_USER_ADMIN }}
+          GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
 
   run-unit-tests-3_9:
     name: Unit tests 3.9
@@ -186,6 +188,8 @@ jobs:
         uses: ./.github/actions/unit-tests
         with:
           python_version: '3.9'
+          GH_USER_ADMIN: ${{ secrets.GH_USER_ADMIN }}
+          GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
 
   build:
     name: Build python-${{ matrix.python-version }}
