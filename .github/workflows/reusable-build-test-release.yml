@@ -819,8 +819,6 @@ jobs:
       fail-fast: false
       matrix:
         tags:
-          - "cloud"
-          - "self-service"
           - ""
     steps:
       - uses: actions/checkout@v3
