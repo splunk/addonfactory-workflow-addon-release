@@ -45,7 +45,8 @@ permissions:
   packages: read
 
 concurrency:
-  group:  ${{ github.head_ref || github.run_id }}
+  # allows for running this workflow simultaneously with main `resable-build-test-release.yml
+  group:  ${{ github.head_ref || github.run_id }}-lightweight
   cancel-in-progress: true
 
 jobs:
@@ -60,7 +61,7 @@ jobs:
       statuses: write
     steps:
       - name: Run title validation
-        uses: ./.github/actions/validate-pr-title
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/validate-pr-title@main
         with:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -72,7 +73,7 @@ jobs:
     steps:
       - name: Run meta preparation
         id: meta
-        uses: ./.github/actions/meta
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/meta@main
         with:
           SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
           SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
@@ -84,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run FOSSA scan
-        uses: ./.github/actions/fossa-scan
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-scan@main
         with:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -95,7 +96,7 @@ jobs:
       - fossa-scan
     steps:
       - name: Run FOSSA test
-        uses: ./.github/actions/fossa-test
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-test@main
         with:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -104,28 +105,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run compliance copyrights
-        uses: ./.github/actions/compliance-copyrights
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/compliance-copyrights@main
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Run linting checks
-        uses: ./.github/actions/lint
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/lint@main
 
   review-secrets:
     name: Review secrets
     runs-on: ubuntu-latest
     steps:
       - name: Run secrets review
-        uses: ./.github/actions/review-secrets
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/review-secrets@main
 
   semgrep:
     name: Semgrep security check
     runs-on: ubuntu-latest
     steps:
       - name: Run semgrep
-        uses: ./.github/actions/semgrep
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/semgrep@main
         with:
           SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
@@ -140,7 +141,7 @@ jobs:
     steps:
       - name: Run test inventory check
         id: test-inventory
-        uses: ./.github/actions/test-inventory
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/test-inventory@main
 
   # Two separate unit test jobs needed as jobs that depend on unit-test success can't proceed
   # if any matrix job fails. Currently python 3.9 may fail as it's not supported in all TAs.
@@ -162,7 +163,7 @@ jobs:
     steps:
       - name: Run unit tests for python 3.7
         id: unit-tests-3_7
-        uses: ./.github/actions/unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@main
         with:
           python_version: '3.7'
           GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -184,7 +185,7 @@ jobs:
     steps:
       - name: Run unit tests for python 3.9
         id: unit-tests-3_9
-        uses: ./.github/actions/unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@main
         with:
           python_version: '3.9'
           GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -200,6 +201,7 @@ jobs:
       - review-secrets
       - semgrep
       - run-unit-tests-3_7
+      - fossa-scan
     strategy:
       fail-fast: false
       matrix:
@@ -212,7 +214,7 @@ jobs:
       packages: read
     steps:
       - name: Run build
-        uses: ./.github/actions/build
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/build@main
         with:
           python_version: ${{ matrix.python-version }}
           SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
@@ -231,7 +233,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
       - name: Run VirusTotal check
-        uses: ./.github/actions/virustotal
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/virustotal@main
         with:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
 
@@ -251,7 +253,7 @@ jobs:
       checks: write
     steps:
       - name: Run requirements unit tests
-        uses: ./.github/actions/requirements-unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/requirements-unit-tests@main
 
   appinspect-cli:
     name: AppInspect CLI ${{ matrix.tags }}
@@ -272,7 +274,7 @@ jobs:
           - "manual"
     steps:
       - name: Run appinspect CLI
-        uses: ./.github/actions/appinspect-cli
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-cli@main
         with:
           matrix_tags: ${{ matrix.tags }}
 
@@ -288,6 +290,6 @@ jobs:
       packages: write
     steps:
       - name: Run artifact registry
-        uses: ./.github/actions/artifact-registry
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/artifact-registry@main
         with:
           sc4s: ${{ needs.meta.outputs.sc4s }}
