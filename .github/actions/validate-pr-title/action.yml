@@ -1,0 +1,19 @@
+name: Validate PR title
+
+description: Check if PR titles match the Conventional Commits spec (https://www.conventionalcommits.org/en/v1.0.0/)
+
+inputs:
+  GITHUB_TOKEN:
+    required: true
+
+if: github.event_name != 'pull_request'
+
+runs:
+  using: composite
+  steps:
+    - uses: amannn/action-semantic-pull-request@v5.2.0
+      with:
+        wip: true
+        validateSingleCommit: true
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}

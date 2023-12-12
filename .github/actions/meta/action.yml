@@ -1,0 +1,95 @@
+name: Prepare metadata
+
+description: > 
+  Focuses on preparing metadata and information necessary for subsequent steps
+  in the GitHub Actions workflow. It handles versioning (dry run of the release process),
+  Docker image metadata, matrix setup, and Python version information
+
+inputs:
+  SA_GH_USER_NAME:
+    required: true
+  SA_GH_USER_EMAIL:
+    required: true
+  SA_GPG_PRIVATE_KEY:
+    required: true
+  SA_GPG_PASSPHRASE:
+    required: true
+
+outputs:
+  sc4s:
+    # using fromJSON as below gave an error `error reading JToken from JsonReader` - hence using jq
+    # value: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
+    # https://github.com/splunk/splunk-add-on-for-microsoft-cloud-services/actions/runs/7019443167/job/19104471863#step:7:4
+    value: ghcr.io/${{ github.repository }}/container:$(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.version"]')
+  container_tags:
+    value: ${{ steps.docker_action_meta.outputs.tags }}
+  container_labels:
+    value: ${{ steps.docker_action_meta.outputs.labels }}
+  container_buildtime:
+    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.created"]')
+  container_version: 
+    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.version"]')
+  container_revision:
+    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.revision"]')
+  container_base:
+    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.tags[0]')
+  matrix_supportedSplunk:
+    value: ${{ steps.matrix.outputs.supportedSplunk }}
+  matrix_latestSplunk:
+    value: ${{ steps.matrix.outputs.latestSplunk }}
+  matrix_supportedSC4S:
+    value: ${{ steps.matrix.outputs.supportedSC4S }}
+  matrix_supportedModinputFunctionalVendors:
+    value: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
+  matrix_supportedUIVendors:
+    value: ${{ steps.matrix.outputs.supportedUIVendors }}
+  python39_splunk:
+    value: ${{steps.python39_splunk.outputs.splunk}}
+  python39_sc4s:
+    value: ${{steps.python39_splunk.outputs.sc4s}}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: false
+        persist-credentials: false
+
+    - name: Semantic Release
+      id: version
+      uses: splunk/semantic-release-action@v1.3
+      with:
+        dry_run: true
+        git_committer_name: ${{ inputs.SA_GH_USER_NAME }}
+        git_committer_email: ${{ inputs.SA_GH_USER_EMAIL }}
+        gpg_private_key: ${{ inputs.SA_GPG_PRIVATE_KEY }}
+        passphrase: ${{ inputs.SA_GPG_PASSPHRASE }}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Docker meta
+      id: docker_action_meta
+      uses: docker/metadata-action@v4.6.0
+      with:
+        images: ghcr.io/${{ github.repository }}/container
+        tags: |
+          type=sha,format=long
+          type=sha
+          type=semver,pattern={{version}},value=${{ steps.version.outputs.new_release_version }}
+          type=semver,pattern={{major}},value=${{ steps.version.outputs.new_release_version }}
+          type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.new_release_version }}
+          type=ref,event=branch
+          type=ref,event=pr
+
+    - name: matrix
+      id: matrix
+      uses: splunk/addonfactory-test-matrix-action@v1.10
+
+    - name: python39_Splunk
+      id: python39_splunk
+      shell: bash
+      run: |
+        echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
+        echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"

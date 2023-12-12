@@ -1,0 +1,27 @@
+name: Requirements unit test
+
+description: Checks whether project's requirement files meet the specified unit test criteria.
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install Python 3
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.7
+
+    - name: Run tests
+      uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.4
+      with:
+        input-files: tests/requirement_test/logs
+
+    - name: Archive production artifacts
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          test_*.txt

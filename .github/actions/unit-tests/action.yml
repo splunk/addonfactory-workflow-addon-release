@@ -1,0 +1,57 @@
+name: Run unit tests
+
+inputs:
+  python_version:
+    required: true
+  GH_TOKEN_ADMIN:
+    required: true
+  
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: debug input
+      shell: bash
+      run: echo '${{ inputs.python_version }}'
+
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Setup addon
+      shell: bash
+      run: |
+        if [ -f "poetry.lock" ]
+          then
+            mkdir -p package/lib || true
+            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes --dev -o requirements_dev.txt
+          fi
+        if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+        git config --global url."https://${{ inputs.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+        pip install -r requirements_dev.txt
+
+    - name: Create directories
+      shell: bash
+      run: |
+        mkdir -p /opt/splunk/var/log/splunk
+        chmod -R 777 /opt/splunk/var/log/splunk
+
+    - name: Copy pytest ini
+      shell: bash
+      run: cp tests/unit/pytest-ci.ini pytest.ini
+
+    - name: Run Pytest with coverage
+      shell: bash
+      run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      if: success() || failure()
+      with:
+        name: test-results-unit-python_${{ inputs.python_version }}
+        path: test-results/*
