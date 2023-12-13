@@ -43,7 +43,7 @@ runs:
     - name: Setup python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.7
+        python-version: ${{ inputs.python_version }}
 
     - name: Create requirements file for pip
       shell: bash
@@ -94,7 +94,8 @@ runs:
 
     - name: Semantic Release Get Next
       id: semantic
-      if: github.event_name != 'pull_request'
+      # this condition doesn't make sense as BuildVersion needs output from this step anyway
+      # if: github.event_name != 'pull_request'
       uses: splunk/semantic-release-action@v1.3
       with:
         dry_run: true
@@ -131,6 +132,9 @@ runs:
       run: |
         cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
 
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
     - name: Build Package
       id: uccgen
       uses: splunk/addonfactory-ucc-generator-action@v2
@@ -143,6 +147,13 @@ runs:
       uses: splunk/addonfactory-packaging-toolkit-action@v1
       with:
         source: ${{ steps.uccgen.outputs.OUTPUT }}
+
+    - name: debug
+      shell: bash
+      run: |
+        echo "${{ inputs.python_version }}"
+        echo "${{ inputs.ucc_modinput_functional }}"
+        echo "${{ github.event_name }}"
 
     - name: Artifact OpenAPI
       if: ${{ inputs.python_version }} == '3.7' && ${{ !cancelled() && inputs.ucc_modinput_functional == 'true' && inputs.modinput_functional == 'true' }}

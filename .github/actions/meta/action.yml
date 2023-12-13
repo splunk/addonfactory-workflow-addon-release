@@ -16,23 +16,23 @@ inputs:
     required: true
 
 outputs:
-  sc4s:
+  sc4s: 
     # using fromJSON as below gave an error `error reading JToken from JsonReader` - hence using jq
     # value: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
     # https://github.com/splunk/splunk-add-on-for-microsoft-cloud-services/actions/runs/7019443167/job/19104471863#step:7:4
-    value: ghcr.io/${{ github.repository }}/container:$(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.version"]')
+    value: ghcr.io/${{ github.repository }}/container:$(echo '${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.version"]')
   container_tags:
     value: ${{ steps.docker_action_meta.outputs.tags }}
   container_labels:
     value: ${{ steps.docker_action_meta.outputs.labels }}
   container_buildtime:
-    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.created"]')
+    value: $(echo '${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.created"]')
   container_version: 
-    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.version"]')
+    value: $(echo '${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.version"]')
   container_revision:
-    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.labels["org.opencontainers.image.revision"]')
+    value: $(echo '${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.revision"]')
   container_base:
-    value: $(echo "${{ steps.docker_action_meta.outputs.json }}" | jq -r '.tags[0]')
+    value: $(echo '${{ steps.docker_action_meta.outputs.json }}' | jq -r '.tags[0]')
   matrix_supportedSplunk:
     value: ${{ steps.matrix.outputs.supportedSplunk }}
   matrix_latestSplunk:
@@ -54,6 +54,7 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v3
       with:
+        repository: ${{ github.repository }}
         submodules: false
         persist-credentials: false
 
@@ -83,6 +84,18 @@ runs:
           type=ref,event=branch
           type=ref,event=pr
 
+    # - name: Set Docker meta outputs
+    #   id: docker_meta_outputs
+    #   shell: bash
+    #   # echo 'sc4s_version=${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.version"]' >> "$GITHUB_OUTPUT"
+    #   run: |
+    #     outputs_json=${{ steps.docker_action_meta.outputs.json }}
+    #     echo 'sc4s_version=$outputs_json' | jq -r '.labels["org.opencontainers.image.version"]' >> "$GITHUB_OUTPUT"
+    #     echo 'container_buildtime=${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.created"]' >> "$GITHUB_OUTPUT"
+    #     echo 'container_version=${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.version"]' >> "$GITHUB_OUTPUT"
+    #     echo 'container_revision=${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.revision"]' >> "$GITHUB_OUTPUT"
+    #     echo 'container_base=${{ steps.docker_action_meta.outputs.json }}' | jq -r '.tags[0]' >> "$GITHUB_OUTPUT"
+
     - name: matrix
       id: matrix
       uses: splunk/addonfactory-test-matrix-action@v1.10
@@ -93,3 +106,10 @@ runs:
       run: |
         echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
         echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
+
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Debug outputs
+      shell: bash
+      run: echo '${{ steps.docker_action_meta.outputs.json }}' | jq -r '.labels["org.opencontainers.image.version"]'
