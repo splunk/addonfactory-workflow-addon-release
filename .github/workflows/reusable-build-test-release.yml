@@ -502,8 +502,6 @@ jobs:
       matrix:
         tags:
           - "cloud"
-          - "self-service"
-          - ""
     steps:
       - name: Run appinspect API
         uses: ./.github/actions/appinspect-api
