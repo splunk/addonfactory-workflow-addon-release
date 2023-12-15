@@ -24,7 +24,7 @@ runs:
         FOSSA_API_KEY: ${{ inputs.FOSSA_API_KEY }}
 
     - name: Upload THIRDPARTY file
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: THIRDPARTY
         path: /tmp/THIRDPARTY

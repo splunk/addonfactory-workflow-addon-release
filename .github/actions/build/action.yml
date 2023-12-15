@@ -146,14 +146,14 @@ runs:
 
     - name: Artifact OpenAPI
       if: ${{ inputs.python_version }} == '3.7' && ${{ !cancelled() && inputs.ucc_modinput_functional == 'true' && inputs.modinput_functional == 'true' }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: artifact-openapi
         path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
 
     - name: Artifact Splunkbase
       if: ${{ !cancelled() }} && ${{ inputs.python_version }} == '3.7'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: package-splunkbase
         path: ${{ steps.slim.outputs.OUTPUT }}
@@ -173,7 +173,7 @@ runs:
         
     - name: Artifact Splunk parts
       if: ${{ !cancelled() }} && ${{ inputs.python_version }} == '3.7'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: package-deployment
         path: build/package/deployment**
