@@ -114,14 +114,14 @@ runs:
 
     - name: Download THIRDPARTY
       if: ${{ inputs.python_version }} == '3.7' && github.event_name != 'pull_request' && github.event_name != 'schedule'
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: THIRDPARTY
 
     - name: Download THIRDPARTY (Optional for PR and schedule)
       if: ${{ inputs.python_version }} == '3.7' && github.event_name == 'pull_request' || github.event_name == 'schedule'
       continue-on-error: true
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: THIRDPARTY
 
