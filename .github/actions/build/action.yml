@@ -34,7 +34,7 @@ runs:
   using: composite
   steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         # Very Important: semantic-release won't trigger a tagged
         # build if this is not set to false

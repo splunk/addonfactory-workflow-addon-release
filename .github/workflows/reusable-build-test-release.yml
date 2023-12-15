@@ -552,7 +552,7 @@ jobs:
     env:
       BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -663,7 +663,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -904,7 +904,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1126,7 +1126,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1355,7 +1355,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1593,7 +1593,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1822,7 +1822,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -2058,7 +2058,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -2326,7 +2326,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
           persist-credentials: false

@@ -8,14 +8,14 @@ runs:
   steps:
     - name: Checkout repository
       if: github.event_name != 'pull_request'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: false
         fetch-depth: "0"
 
     - name: Checkout repo for PR
       if: github.event_name == 'pull_request'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: false
         fetch-depth: "0"
