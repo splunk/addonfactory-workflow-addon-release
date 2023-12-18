@@ -45,6 +45,12 @@ runs:
       run: |
         echo "python version: ${{ inputs.python_version }}"
 
+    - name: check if logic
+      shell: bash
+      if: ${{ inputs.python_version == '3.9' }}
+      run: | 
+        echo "this should not show on 3.7"
+
     - name: Setup python
       uses: actions/setup-python@v4
       with:
