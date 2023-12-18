@@ -45,12 +45,6 @@ runs:
       run: |
         echo "python version: ${{ inputs.python_version }}"
 
-    - name: check if logic
-      shell: bash
-      if: ${{ inputs.python_version == '3.9' }}
-      run: | 
-        echo "this should not show on 3.7"
-
     - name: Setup python
       uses: actions/setup-python@v4
       with:
@@ -124,20 +118,20 @@ runs:
         PrNumber: ${{ github.event.number }}
 
     - name: Download THIRDPARTY
-      if: ${{ inputs.python_version }} == '3.7' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+      if: ${{ inputs.python_version == '3.7' && github.event_name != 'pull_request' && github.event_name != 'schedule' }}
       uses: actions/download-artifact@v3
       with:
         name: THIRDPARTY
 
     - name: Download THIRDPARTY (Optional for PR and schedule)
-      if: ${{ inputs.python_version }} == '3.7' && github.event_name == 'pull_request' || github.event_name == 'schedule'
+      if: ${{ inputs.python_version == '3.7' && github.event_name == 'pull_request' || github.event_name == 'schedule' }}
       continue-on-error: true
       uses: actions/download-artifact@v3
       with:
         name: THIRDPARTY
 
     - name: Update Notices
-      if: ${{ inputs.python_version }} == '3.7'
+      if: ${{ inputs.python_version == '3.7' }}
       shell: bash
       run: |
         cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
@@ -149,7 +143,7 @@ runs:
         version: ${{ steps.BuildVersion.outputs.VERSION }}
 
     - name: Slim Package
-      if: always() && ${{ inputs.python_version }} == '3.7'
+      if: ${{ always() && inputs.python_version == '3.7' }}
       id: slim
       uses: splunk/addonfactory-packaging-toolkit-action@v1
       with:
@@ -163,14 +157,14 @@ runs:
         path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
 
     - name: Artifact Splunkbase
-      if: ${{ !cancelled() }} && ${{ inputs.python_version }} == '3.7'
+      if: ${{ !cancelled() && inputs.python_version }} == '3.7' }}
       uses: actions/upload-artifact@v3
       with:
         name: package-splunkbase
         path: ${{ steps.slim.outputs.OUTPUT }}
 
     - name: Upload build to S3
-      if: ${{ inputs.python_version }} == '3.7'
+      if: ${{ inputs.python_version == '3.7' }}
       id: buildupload
       shell: bash
       env:
@@ -183,7 +177,7 @@ runs:
         aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
         
     - name: Artifact Splunk parts
-      if: ${{ !cancelled() }} && ${{ inputs.python_version }} == '3.7'
+      if: ${{ !cancelled() && inputs.python_version }} == '3.7' }}
       uses: actions/upload-artifact@v3
       with:
         name: package-deployment
