@@ -150,14 +150,14 @@ runs:
         source: ${{ steps.uccgen.outputs.OUTPUT }}
 
     - name: Artifact OpenAPI
-      if: ${{ inputs.python_version }} == '3.7' && ${{ !cancelled() && inputs.ucc_modinput_functional == 'true' && inputs.modinput_functional == 'true' }}
+      if: ${{ inputs.python_version == '3.7' && !cancelled() && inputs.ucc_modinput_functional == 'true' && inputs.modinput_functional == 'true' }}
       uses: actions/upload-artifact@v3
       with:
         name: artifact-openapi
         path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
 
     - name: Artifact Splunkbase
-      if: ${{ !cancelled() && inputs.python_version }} == '3.7' }}
+      if: ${{ !cancelled() && inputs.python_version == '3.7' }}
       uses: actions/upload-artifact@v3
       with:
         name: package-splunkbase
@@ -175,9 +175,9 @@ runs:
         echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
         basename "${{ steps.slim.outputs.OUTPUT }}"
         aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
-        
+
     - name: Artifact Splunk parts
-      if: ${{ !cancelled() && inputs.python_version }} == '3.7' }}
+      if: ${{ !cancelled() && inputs.python_version == '3.7' }}
       uses: actions/upload-artifact@v3
       with:
         name: package-deployment
