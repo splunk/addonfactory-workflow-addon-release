@@ -40,10 +40,15 @@ runs:
         # build if this is not set to false
         persist-credentials: false
 
+    - name: Check inputs
+      shell: bash
+      run: |
+        echo "python version: $ {{ python_version }} 
+
     - name: Setup python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.7
+        python-version: ${{ inputs.python_version }}
 
     - name: Create requirements file for pip
       shell: bash
