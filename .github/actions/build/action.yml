@@ -40,10 +40,6 @@ runs:
         # build if this is not set to false
         persist-credentials: false
 
-    - name: Check inputs
-      shell: bash
-      run: |
-        echo "python version: ${{ inputs.python_version }}"
 
     - name: Setup python
       uses: actions/setup-python@v4
