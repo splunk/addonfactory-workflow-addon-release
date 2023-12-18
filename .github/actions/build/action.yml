@@ -43,7 +43,7 @@ runs:
     - name: Check inputs
       shell: bash
       run: |
-        echo "python version: $ {{ python_version }} 
+        echo "python version: ${{ inputs.python_version }} 
 
     - name: Setup python
       uses: actions/setup-python@v4
