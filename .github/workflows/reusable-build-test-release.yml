@@ -206,14 +206,14 @@ jobs:
       statuses: write
     steps:
       - name: Run title validation
-        uses: ./.github/actions/validate-pr-title
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/validate-pr-title@fix/build_python_version
         with:
           GITHUB_TOKEN: ${{ github.token }}
 
   meta:
     name: Prepare metadata
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
@@ -234,7 +234,7 @@ jobs:
     steps:
       - name: Run meta preparation
         id: meta
-        uses: ./.github/actions/meta
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/meta@fix/build_python_version
         with:
           SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
           SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
@@ -249,7 +249,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Run FOSSA scan
-        uses: ./.github/actions/fossa-scan
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-scan@fix/build_python_version
         with:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -261,7 +261,7 @@ jobs:
       - fossa-scan
     steps:
       - name: Run FOSSA test
-        uses: ./.github/actions/fossa-test
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-test@fix/build_python_version
         with:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -273,7 +273,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Run compliance copyrights
-        uses: ./.github/actions/compliance-copyrights
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/compliance-copyrights@fix/build_python_version
 
   lint:
     name: Lint
@@ -283,7 +283,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Run linting checks
-        uses: ./.github/actions/lint
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/lint@fix/build_python_version
 
   review-secrets:
     name: Review secrets
@@ -293,7 +293,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Run secrets review
-        uses: ./.github/actions/review-secrets
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/review-secrets@fix/build_python_version
 
   semgrep:
     name: Semgrep security check
@@ -303,7 +303,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Run semgrep
-        uses: ./.github/actions/semgrep
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/semgrep@fix/build_python_version
         with:
           SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
@@ -325,8 +325,8 @@ jobs:
     steps:
       - name: Run test inventory check
         id: test-inventory
-        uses: ./.github/actions/test-inventory
-        
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/test-inventory@fix/build_python_version
+
   # Two separate unit test jobs needed as jobs that depend on unit-test success can't proceed
   # if any matrix job fails. Currently python 3.9 may fail as it's not supported in all TAs.
   # TODO: group these jobs into the matrix once python 3.9 is supported
@@ -337,7 +337,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - test-inventory
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -347,7 +347,7 @@ jobs:
     steps:
       - name: Run unit tests for python 3.7
         id: unit-tests-3_7
-        uses: ./.github/actions/unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@fix/build_python_version
         with:
           python_version: '3.7'
           GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -359,7 +359,7 @@ jobs:
     continue-on-error: true
     needs:
       - test-inventory
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -369,7 +369,7 @@ jobs:
     steps:
       - name: Run unit tests for python 3.9
         id: unit-tests-3_9
-        uses: ./.github/actions/unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@fix/build_python_version
         with:
           python_version: '3.9'
           GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -394,7 +394,7 @@ jobs:
     steps:
       - name: Run build 3.7
         id: build
-        uses: ./.github/actions/build
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/build@fix/build_python_version
         with:
           python_version: "3.7"
           SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
@@ -424,7 +424,7 @@ jobs:
       packages: read
     steps:
       - name: Run build 3.9
-        uses: ./.github/actions/build
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/build@fix/build_python_version
         with:
           python_version: "3.9"
           SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
@@ -444,7 +444,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
       - name: Run VirusTotal check
-        uses: ./.github/actions/virustotal
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/virustotal@fix/build_python_version
         with:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
 
@@ -455,7 +455,7 @@ jobs:
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' }}
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -464,7 +464,7 @@ jobs:
       checks: write
     steps:
       - name: Run requirements unit tests
-        uses: ./.github/actions/requirements-unit-tests
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/requirements-unit-tests@fix/build_python_version
 
   appinspect-cli:
     name: AppInspect CLI ${{ matrix.tags }}
@@ -485,7 +485,7 @@ jobs:
           - "manual"
     steps:
       - name: Run appinspect CLI
-        uses: ./.github/actions/appinspect-cli
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-cli@fix/build_python_version
         with:
           matrix_tags: ${{ matrix.tags }}
 
@@ -504,7 +504,7 @@ jobs:
           - "cloud"
     steps:
       - name: Run appinspect API
-        uses: ./.github/actions/appinspect-api
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-api@fix/build_python_version
         with:
           matrix_tags: ${{ matrix.tags }}
           SPL_COM_USER: ${{ secrets.SPL_COM_USER }}
@@ -522,7 +522,7 @@ jobs:
       packages: write
     steps:
       - name: Run artifact registry
-        uses: ./.github/actions/artifact-registry
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/artifact-registry@fix/build_python_version
         with:
           sc4s: ${{ needs.meta.outputs.sc4s }}
 
