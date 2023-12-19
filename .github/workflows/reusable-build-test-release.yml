@@ -2591,7 +2591,6 @@ jobs:
       - review_secrets
       - semgrep
       - build
-      - security-virustotal
       - test-inventory
       - run-unit-tests
       - appinspect
