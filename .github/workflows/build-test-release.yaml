@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: "3.7"
       - run: |
-          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.24/scripts/download-actionlint.bash)
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.26/scripts/download-actionlint.bash)
       - uses: pre-commit/action@v3.0.0
 
   publish:
