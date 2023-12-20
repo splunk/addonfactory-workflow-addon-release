@@ -1,4 +1,5 @@
 name: build-test-release
+
 on:
   workflow_call:
     inputs:
@@ -51,12 +52,15 @@ on:
       SPL_COM_PASSWORD:
         description: password to splunk.com
         required: true
+
 permissions:
   contents: read
   packages: read
+
 concurrency: 
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
+  
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -193,11 +197,26 @@ jobs:
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
 
+  get-called-ref:
+    name: Get called ref
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.get-ref.outputs.caller-ref }}
+    steps:
+      - id: get-ref
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/_called-wf-ref@fix/lightweight-workflow-ADDON-66448
+        with: 
+          GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
+
   validate-pr-title:
     name: Validate PR title
     runs-on: ubuntu-latest
+    # inputs to `dynamic-uses` step
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     needs: 
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
     permissions:
       contents: read
@@ -205,127 +224,159 @@ jobs:
       pull-requests: read
       statuses: write
     steps:
-      - name: Run title validation
-        uses: ./.github/actions/validate-pr-title
+      - uses: jenseng/dynamic-uses@v1
         with:
-          GITHUB_TOKEN: ${{ github.token }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/validate-pr-title@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   meta:
     name: Prepare metadata
     runs-on: ubuntu-latest
+    # inputs to `dynamic-uses` step
+    env:
+      SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
+      SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
+      SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+      SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
     needs: 
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
-      sc4s: ${{ steps.meta.outputs.sc4s }}
-      container_tags: ${{ steps.meta.outputs.container_tags }}
-      container_labels: ${{ steps.meta.outputs.container_labels }}
-      container_buildtime: ${{ steps.meta.outputs.container_buildtime }}
-      container_version: ${{ steps.meta.outputs.container_version }}
-      container_revision: ${{ steps.meta.outputs.container_revision }}
-      container_base: ${{ steps.meta.outputs.container_base }}
-      matrix_supportedSplunk: ${{ steps.meta.outputs.matrix_supportedSplunk }}
-      matrix_latestSplunk: ${{ steps.meta.outputs.matrix_latestSplunk }}
-      matrix_supportedSC4S: ${{ steps.meta.outputs.matrix_supportedSC4S }}
-      matrix_supportedModinputFunctionalVendors: ${{ steps.meta.outputs.matrix_supportedModinputFunctionalVendors }}
-      matrix_supportedUIVendors: ${{ steps.meta.outputs.matrix_supportedUIVendors }}
-      python39_splunk: ${{ steps.meta.outputs.python39_splunk }}
-      python39_sc4s: ${{ steps.meta.outputs.python39_sc4s }}
+      # outputs from `dynamic-uses` action are passed as a JSON string
+      sc4s: ${{ fromJSON(steps.meta.outputs.outputs).sc4s }}
+      container_tags: ${{ fromJSON(steps.meta.outputs.outputs).container_tags }}
+      container_labels: ${{ fromJSON(steps.meta.outputs.outputs).container_labels }}
+      container_buildtime: ${{ fromJSON(steps.meta.outputs.outputs).container_buildtime }}
+      container_version: ${{ fromJSON(steps.meta.outputs.outputs).container_version }}
+      container_revision: ${{ fromJSON(steps.meta.outputs.outputs).container_revision }}
+      container_base: ${{ fromJSON(steps.meta.outputs.outputs).container_base }}
+      matrix_supportedSplunk: ${{ fromJSON(steps.meta.outputs.outputs).matrix_supportedSplunk }}
+      matrix_latestSplunk: ${{ fromJSON(steps.meta.outputs.outputs).matrix_latestSplunk }}
+      matrix_supportedSC4S: ${{ fromJSON(steps.meta.outputs.outputs).matrix_supportedSC4S }}
+      matrix_supportedModinputFunctionalVendors: ${{ fromJSON(steps.meta.outputs.outputs).matrix_supportedModinputFunctionalVendors }}
+      matrix_supportedUIVendors: ${{ fromJSON(steps.meta.outputs.outputs).matrix_supportedUIVendors }}
+      python39_splunk: ${{ fromJSON(steps.meta.outputs.outputs).python39_splunk }}
+      python39_sc4s: ${{ fromJSON(steps.meta.outputs.outputs).python39_sc4s }}
     steps:
-      - name: Run meta preparation
+      - uses: jenseng/dynamic-uses@v1
         id: meta
-        uses: ./.github/actions/meta
         with:
-          SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
-          SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
-          SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/meta@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   fossa-scan:
     name: FOSSA scan
     runs-on: ubuntu-latest
+    # inputs to `dynamic-uses` step
+    env:
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
     needs:
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Run FOSSA scan
-        uses: ./.github/actions/fossa-scan
+      - uses: jenseng/dynamic-uses@v1
         with:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-scan@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   fossa-test:
     continue-on-error: true
     name: FOSSA test
     runs-on: ubuntu-latest
+    # inputs to `dynamic-uses` step
+    env:
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
     needs:
       - fossa-scan
+      - get-called-ref
     steps:
-      - name: Run FOSSA test
-        uses: ./.github/actions/fossa-test
+      - uses: jenseng/dynamic-uses@v1
         with:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/fossa-test@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   compliance-copyrights:
     name: Compliance copyrights
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Run compliance copyrights
-        uses: ./.github/actions/compliance-copyrights
+      - uses: jenseng/dynamic-uses@v1
+        with:
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/compliance-copyrights@${{ needs.get-called-ref.outputs.ref }}
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Run linting checks
-        uses: ./.github/actions/lint
+      - uses: jenseng/dynamic-uses@v1
+        with:
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/lint@${{ needs.get-called-ref.outputs.ref }}
 
   review-secrets:
     name: Review secrets
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Run secrets review
-        uses: ./.github/actions/review-secrets
+      - uses: jenseng/dynamic-uses@v1
+        with:
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/review-secrets@${{ needs.get-called-ref.outputs.ref }}
 
   semgrep:
     name: Semgrep security check
     runs-on: ubuntu-latest
+    # inputs to `dynamic-uses` step
+    env: 
+      SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
     needs:
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - name: Run semgrep
-        uses: ./.github/actions/semgrep
+      - uses: jenseng/dynamic-uses@v1
         with:
-          SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/semgrep@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with:
+            ${{ toJSON(env) }}
 
   test-inventory:
     name: Test inventory
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
+      - get-called-ref
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
+    # outputs from `dynamic-uses` action are passed as a JSON string
     outputs:
-      unit: ${{ steps.test-inventory.outputs.unit }}
-      ucc_modinput_functional: ${{ steps.test-inventory.outputs.ucc_modinput_functional}}
-      modinput_functional: ${{ steps.test-inventory.outputs.modinput_functional}}
-      requirement_test: ${{ steps.test-inventory.outputs.requirement_test }}
-      knowledge: ${{ steps.test-inventory.outputs.knowledge }}
-      ui: ${{ steps.test-inventory.outputs.ui }}
-      scripted_inputs: ${{ steps.test-inventory.outputs.scripted_inputs }}
-      escu: ${{ steps.test-inventory.outputs.escu }}
+      unit: ${{ fromJSON(steps.test-inventory.outputs.outputs).unit }}
+      ucc_modinput_functional: ${{ fromJSON(steps.test-inventory.outputs.outputs).ucc_modinput_functional }}
+      modinput_functional: ${{ fromJSON(steps.test-inventory.outputs.outputs).modinput_functional }}
+      requirement_test: ${{ fromJSON(steps.test-inventory.outputs.outputs).requirement_test }}
+      knowledge: ${{ fromJSON(steps.test-inventory.outputs.outputs).knowledge }}
+      ui: ${{ fromJSON(steps.test-inventory.outputs.outputs).ui }}
+      scripted_inputs: ${{ fromJSON(steps.test-inventory.outputs.outputs).scripted_inputs }}
+      escu: ${{ fromJSON(steps.test-inventory.outputs.outputs).escu }}
     steps:
-      - name: Run test inventory check
+      - uses: jenseng/dynamic-uses@v1
         id: test-inventory
-        uses: ./.github/actions/test-inventory
+        with:
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/test-inventory@${{ needs.get-called-ref.outputs.ref }}
         
   # Two separate unit test jobs needed as jobs that depend on unit-test success can't proceed
   # if any matrix job fails. Currently python 3.9 may fail as it's not supported in all TAs.
@@ -335,8 +386,13 @@ jobs:
     name: Unit tests python 3.7
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-latest
+    # inputs to `dynamic-uses` step
+    env:
+      python_version: 3.7
+      GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
     needs:
       - test-inventory
+      - get-called-ref
     permissions: 
       actions: read
       deployments: read
@@ -345,20 +401,24 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - name: Run unit tests for python 3.7
-        id: unit-tests-3_7
-        uses: ./.github/actions/unit-tests
+      - uses: jenseng/dynamic-uses@v1
         with:
-          python_version: '3.7'
-          GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   run-unit-tests-3_9:
     name: Unit tests python 3.9
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-latest
     continue-on-error: true
+    # inputs to `dynamic-uses` step
+    env:
+      python_version: 3.7
+      GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
     needs:
       - test-inventory
+      - get-called-ref
     permissions: 
       actions: read
       deployments: read
@@ -367,12 +427,11 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - name: Run unit tests for python 3.9
-        id: unit-tests-3_9
-        uses: ./.github/actions/unit-tests
+      - uses: jenseng/dynamic-uses@v1
         with:
-          python_version: '3.9'
-          GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/unit-tests@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   build:
     name: Build python 3.7
@@ -385,6 +444,8 @@ jobs:
       - review-secrets
       - semgrep
       - run-unit-tests-3_7
+      - fossa-scan
+      - get-called-ref
     if: ${{ !cancelled() && (needs.run-unit-tests-3_7.result == 'success' || needs.run-unit-tests-3_7.result == 'skipped') }}
     outputs:
       buildname: ${{ steps.build.outputs.buildname }}
@@ -392,9 +453,22 @@ jobs:
       contents: write
       packages: read
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          # Very Important: semantic-release won't trigger a tagged
+          # build if this is not set to false
+          persist-credentials: false
+      - name: Checkout repository
+        uses: jenseng/dynamic-uses@v1
+        env:
+          repositories: splunk/addonfactory-workflow-addon-release@${{ needs.get-called-ref.outputs.ref }}
+        with:
+          uses: vweevers/multi-checkout-action@v1
+          with: ${{ toJSON(env) }}
       - name: Run build 3.7
+        uses: ./../splunk/addonfactory-workflow-addon-release/.github/actions/build
         id: build
-        uses: ./.github/actions/build
         with:
           python_version: "3.7"
           SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
@@ -418,35 +492,56 @@ jobs:
       - review-secrets
       - semgrep
       - run-unit-tests-3_7
+      - fossa-scan
+      - get-called-ref
     if: ${{ !cancelled() && (needs.run-unit-tests-3_7.result == 'success' || needs.run-unit-tests-3_7.result == 'skipped') }}
     permissions:
       contents: write
       packages: read
     steps:
-      - name: Run build 3.9
-        uses: ./.github/actions/build
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
-          python_version: "3.9"
-          SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
-          SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
-          SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ucc_modinput_functional: ${{ needs.test-inventory.outputs.ucc_modinput_functional}}
-          modinput_functional: ${{ needs.test-inventory.outputs.modinput_functional}}
+          # Very Important: semantic-release won't trigger a tagged
+          # build if this is not set to false
+          persist-credentials: false
+      - name: Checkout repository
+        uses: jenseng/dynamic-uses@v1
+        env:
+          repositories: splunk/addonfactory-workflow-addon-release@${{ needs.get-called-ref.outputs.ref }}
+        with:
+          uses: vweevers/multi-checkout-action@v1
+          with: ${{ toJSON(env) }}
+      - name: Run build 3.9
+        uses: ./../splunk/addonfactory-workflow-addon-release/.github/actions/build
+        with:
+            python_version: "3.9"
+            SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
+            SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
+            SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
+            SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            ucc_modinput_functional: ${{ needs.test-inventory.outputs.ucc_modinput_functional}}
+            modinput_functional: ${{ needs.test-inventory.outputs.modinput_functional}}
 
   virustotal:
     continue-on-error: true
     runs-on: ubuntu-latest
-    needs: build
+    # inputs to `dynamic-uses` step
+    env:
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
+    needs:
+      - build
+      - get-called-ref
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     steps:
-      - name: Run VirusTotal check
-        uses: ./.github/actions/virustotal
+      - uses: jenseng/dynamic-uses@v1
         with:
-          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/virustotal@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   run-requirements-unit-tests:
     name: Requirements unit tests
@@ -454,6 +549,7 @@ jobs:
     needs:
       - build
       - test-inventory
+      - get-called-ref
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' }}
     permissions: 
       actions: read
@@ -463,13 +559,19 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - name: Run requirements unit tests
-        uses: ./.github/actions/requirements-unit-tests
+      - uses: jenseng/dynamic-uses@v1
+        with:
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/requirements-unit-tests@${{ needs.get-called-ref.outputs.ref }}
 
   appinspect-cli:
     name: AppInspect CLI ${{ matrix.tags }}
     runs-on: ubuntu-latest
-    needs: build
+    # inputs to `dynamic-uses` step
+    env:
+      matrix_tags: ${{ matrix.tags }}
+    needs: 
+      - build
+      - get-called-ref
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     strategy:
       fail-fast: false
@@ -484,15 +586,22 @@ jobs:
           - "splunk_appinspect"
           - "manual"
     steps:
-      - name: Run appinspect CLI
-        uses: ./.github/actions/appinspect-cli
+      - uses: jenseng/dynamic-uses@v1
         with:
-          matrix_tags: ${{ matrix.tags }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-cli@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   appinspect-api:
     name: AppInspect API ${{ matrix.tags }}
     runs-on: ubuntu-latest
-    needs: build
+    env:
+      matrix_tags: ${{ matrix.tags }}
+      SPL_COM_USER: ${{ secrets.SPL_COM_USER }}
+      SPL_COM_PASSWORD: ${{ secrets.SPL_COM_PASSWORD }}
+    needs:
+      - build
+      - get-called-ref
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
@@ -503,12 +612,11 @@ jobs:
         tags:
           - "cloud"
     steps:
-      - name: Run appinspect API
-        uses: ./.github/actions/appinspect-api
+      - uses: jenseng/dynamic-uses@v1
         with:
-          matrix_tags: ${{ matrix.tags }}
-          SPL_COM_USER: ${{ secrets.SPL_COM_USER }}
-          SPL_COM_PASSWORD: ${{ secrets.SPL_COM_PASSWORD }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/appinspect-api@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   artifact-registry:
     name: Artifact registry
@@ -516,15 +624,17 @@ jobs:
     needs:
       - virustotal
       - meta
+      - get-called-ref
     if: ${{ !cancelled() && needs.virustotal.result == 'success' && needs.meta.result == 'success' }}
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Run artifact registry
-        uses: ./.github/actions/artifact-registry
+      - uses: jenseng/dynamic-uses@v1
         with:
-          sc4s: ${{ needs.meta.outputs.sc4s }}
+          uses: splunk/addonfactory-workflow-addon-release/.github/actions/artifact-registry@${{ needs.get-called-ref.outputs.ref }}
+          # inputs need to provided as a valid JSON string
+          with: ${{ toJSON(env) }}
 
   setup:
     needs:
