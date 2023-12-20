@@ -22,5 +22,5 @@ runs:
       id: workflows-ref
       shell: bash
       run: |
-        ref=$(curl -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ inputs.GH_TOKEN_ADMIN }}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/splunk/splunk-add-on-for-microsoft-cloud-services/actions/runs/${{ github.run_id }} | jq -r '.referenced_workflows[0] | .ref')
+        ref=$(curl -L -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ inputs.GH_TOKEN_ADMIN }}" -H "X-GitHub-Api-Version: 2022-11-28" https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }} | jq -r '.referenced_workflows[0] | .ref')
         echo "caller-ref=$ref" >> $GITHUB_OUTPUT
