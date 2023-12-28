@@ -2705,7 +2705,7 @@ jobs:
       - name: exit without publish
         if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled' && github.event.label.name == 'preserve_infra' ) }}
         run: |
-          echo " Some test job failed or Workflow has triggred on preserve_infra label. "
+          echo "Some test job failed or Workflow has triggered on preserve_infra label."
           exit 1
 
   publish:
