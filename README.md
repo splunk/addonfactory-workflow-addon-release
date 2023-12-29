@@ -1,86 +1,34 @@
-# addonfactory-workflow-addon-release
-Repository to store reusable `build-test-release` workflow, which is used to release Splunk add-ons. 
-Worklow is used by add-ons created and managed by [addonfactory repository template](https://github.com/splunk/addonfactory-repository-template)
-Workflow defines jobs which perform security code scanning, execute different types of tests, build add-on package, make github release.
+# Reusable workflow
 
-## Example usage
-```yaml
-name: build-test-release
-on:
-  push:
-    branches:
-      - "main"
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-  pull_request:
-    branches: 
-      - "**"
-# explicitly configure permissions, in case your GITHUB_TOKEN workflow permissions are set to read-only in repository settings
-permissions:
-  actions: read
-  checks: write
-  contents: write
-  deployments: read
-  packages: write
-  pull-requests: read
-  statuses: write
-jobs:
-  call-workflow:
-    uses: splunk/addonfactory-workflow-addon-release/.github/workflows/reusable-build-test-release.yml@v1.2.0
-    secrets:
-      GH_TOKEN_ADMIN: ${{ secrets.GH_TOKEN_ADMIN }}
-      SEMGREP_PUBLISH_TOKEN: ${{ secrets.SEMGREP_KEY }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      VT_API_KEY: ${{ secrets.VT_API_KEY }}
-      OTHER_TA_REQUIRED_CONFIGS: ${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
-      SA_GH_USER_NAME: ${{ secrets.SA_GH_USER_NAME }}
-      SA_GH_USER_EMAIL: ${{ secrets.SA_GH_USER_EMAIL }}
-      SA_GPG_PRIVATE_KEY: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-      SA_GPG_PASSPHRASE: ${{ secrets.SA_GPG_PASSPHRASE }}
-      SPL_COM_USER: ${{ secrets.SPL_COM_USER }}
-      SPL_COM_PASSWORD: ${{ secrets.SPL_COM_PASSWORD }}
-```
+This repository stores reusable `build-test-release` workflow, which is used to build, test and release Splunk add-ons.
 
-***
+Workflow is used by add-ons created and managed by [addonfactory repository template](https://github.com/splunk/addonfactory-repository-template).
 
-# Troubleshooting for different workflow stages in Github Actions
+Workflow defines jobs which perform security code scanning, execute different types of tests, build add-on package and make a GitHub release.
 
-General troubleshooting 
-=======================
+# Troubleshooting for different workflow stages in GitHub Actions
 
-- For each stage there are logs which provides list of failures or link the test report for the stage or more details like error code regarding what caused the stage to fail.
+## General troubleshooting
 
-- If execution of stage takes longer than expected and we can re-trigger a workflow with an empty commit to check is the issue with the stage is consistent.
+* For each stage there are logs which provides list of failures or link the test report for the stage or more details like error code regarding what caused the stage to fail.
+* Check if there is any similar issue reported to GitHub repo for the action by other users.
+* If you are not sure what to do, please use `go/addon/help`.
 
-- If the stage starts failing without any code change we can check the version of action used in the Github actions pipeline and check the behaviour with previous releases.
+## setup-workflow
 
-- Check if there is any similar issue reported to Github repo for the action by other users.
+Job that is scanning PR and based on PR body or included labels defining tests to be executed or infrastructures to be preserved.
 
-- Validate If the failure is caused by a code change in the action which modified behaviour in the latest release causing the stage to fail.
-
-
-setup-workflow
-=======================
-
-**Description:**
-- Job that is scanning pull_request and based on PR body or included labels defining tests to be executed or infrastructures to be preserved. 
-  - To preserve infrastructure:
-    - add to PR label `preserve_infra`
-    - add to PR description add `preserve: {comma separated list of test type}`
-    - available choices: `knowledge ui modinput_functional scripted_inputs escu requirement_test`
-    - to trigger tests again, reapply `preserve_infra` label
-  - To trigger specified test type
-    - add to PR one or multiple labels
-    - available choices: `execute_knowledge execute_ui execute_modinput_functional execute_scripted_inputs execute_escu execute_requirement_test execute_all_tests`
-    - adding labels will result retriggering job
-  - All tests are executed by default when:
-    - PR target branch is 'main'
-    - PUSH event on branches 'main', 'develop' and on tags (on release)
-    - SCHEDULE event
-
+* To preserve infrastructure
+  * add to PR label `preserve_infra`
+  * add to PR description add `preserve: {comma separated list of test type}`, available choices: `knowledge ui modinput_functional scripted_inputs requirement_test`
+  * to trigger tests again, reapply `preserve_infra` label
+* All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
+  * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
+  * push event on branches `main`, `develop` and on `tags` (on release)
+  * schedule event (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/tools/jinja_parameters.yml))
+* To trigger specific test type
+  * add to PR one or multiple labels, available choices can be found [here](https://github.com/splunk/addonfactory-workflow-addon-release/blob/4f3fa4d779b6ec7649f0dc6b973eb4d68e5fcc48/.github/workflows/reusable-build-test-release.yml#L153)
+  * there is no need to add labels when PR's target branch is `main`
 
 meta stage
 =======================

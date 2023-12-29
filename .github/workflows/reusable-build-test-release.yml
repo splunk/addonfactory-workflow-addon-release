@@ -157,12 +157,18 @@ jobs:
 
           case "${{ github.event_name }}" in
           "pull_request")
-            if ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
+            labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
+            if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+              for test_type in "${TESTSET[@]}"; do
+                if [[ "$labels" =~ $test_type ]]; then
+                  EXECUTE_LABELED["$test_type"]="true"
+                fi
+              done
+            elif ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
             else
-              labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
@@ -2699,7 +2705,7 @@ jobs:
       - name: exit without publish
         if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled' && github.event.label.name == 'preserve_infra' ) }}
         run: |
-          echo " Some test job failed or Workflow has triggred on preserve_infra label. "
+          echo "Some test job failed or Workflow has triggered on preserve_infra label."
           exit 1
 
   publish:
