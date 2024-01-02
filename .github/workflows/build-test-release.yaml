@@ -56,24 +56,11 @@ jobs:
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
 
   update-semver:
-    if: ${{ startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push' }}
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: publish
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          echo "$TAG"
-          MINOR="${TAG%.*}"
-          echo "$MINOR"
-
-          MESSAGE="Release ${TAG}"
-          echo "$MESSAGE"
-
-          git config user.name "${GITHUB_ACTOR}"
-          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-
-          git tag -fa "${MINOR}" -m "${MESSAGE}"
-          git push --force origin "${MINOR}"
+      - uses: haya14busa/action-update-semver@v1
