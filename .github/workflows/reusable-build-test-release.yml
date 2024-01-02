@@ -590,13 +590,13 @@ jobs:
           PrNumber: ${{ github.event.number }}
       - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: THIRDPARTY
       - name: Download THIRDPARTY (Optional for PR and schedule)
         if: github.event_name == 'pull_request' || github.event_name == 'schedule'
         continue-on-error: true
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: THIRDPARTY
       - name: Update Notices
@@ -728,7 +728,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: package-splunkbase
           path: build/package/
@@ -789,7 +789,7 @@ jobs:
           - "manual"
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: package-splunkbase
           path: build/package/
@@ -828,7 +828,7 @@ jobs:
           - "cloud"
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: package-splunkbase
           path: build/package
@@ -858,7 +858,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: package-splunkbase
           path: build/package/splunkbase
@@ -985,7 +985,7 @@ jobs:
           echo "spl-host-suffix=wfe.splgdi.com"
           echo "k8s-manifests-branch=main"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
         id: download-openapi
         with:
@@ -2737,14 +2737,14 @@ jobs:
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         id: download-package-deployment
         with:
           name: package-deployment
           path: download/artifacts/
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         id: download-package-splunkbase
         with:
           name: package-splunkbase
@@ -2753,7 +2753,7 @@ jobs:
         id: download-cim-compliance-report
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cim-compliance-report
           path: download/artifacts/deployment
@@ -2761,7 +2761,7 @@ jobs:
         id: download-cim-field-report
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: cim-field-report
           path: download/artifacts/deployment
@@ -2769,7 +2769,7 @@ jobs:
         id: download-escu-xml
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: escu-test-result
           path: download/artifacts/deployment
