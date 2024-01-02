@@ -334,7 +334,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.7"
       - uses: pre-commit/action@v3.0.0
@@ -428,7 +428,7 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Setup addon
@@ -476,7 +476,7 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Setup addon
@@ -529,7 +529,7 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.7
       - name: create requirements file for pip
@@ -667,7 +667,7 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
       - name: create requirements file for pip
@@ -755,7 +755,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Python 3
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.7
       - name: run-tests
@@ -993,7 +993,7 @@ jobs:
           path: ${{ github.workspace }}
       - name: Setup python
         if: steps.download-openapi.conclusion != 'skipped'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.7
       - name: modinput-test-prerequisites
