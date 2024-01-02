@@ -243,7 +243,7 @@ jobs:
       packages: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
           persist-credentials: false
@@ -286,7 +286,7 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: run fossa anlyze and create report
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
@@ -307,7 +307,7 @@ jobs:
       - fossa-scan
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: run fossa test
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
@@ -323,7 +323,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@v1.1
 
@@ -333,7 +333,7 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
@@ -348,13 +348,13 @@ jobs:
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
           fetch-depth: "0"
       - name: Checkout for PR
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
           fetch-depth: "0"
@@ -371,7 +371,7 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Semgrep
         id: semgrep
         uses: semgrep/semgrep-action@v1
@@ -393,7 +393,7 @@ jobs:
       escu: ${{ steps.testset.outputs.escu }}
       ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: testset
         name: Check available test types
         run: |
@@ -427,7 +427,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -475,7 +475,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -523,7 +523,7 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # Very Important semantic-release won't trigger a tagged
           # build if this is not set false
@@ -661,7 +661,7 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # Very Important semantic-release won't trigger a tagged
           # build if this is not set false
@@ -753,7 +753,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Python 3
         uses: actions/setup-python@v4
         with:
@@ -788,7 +788,7 @@ jobs:
           - "splunk_appinspect"
           - "manual"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
@@ -827,7 +827,7 @@ jobs:
         tags:
           - "cloud"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
@@ -857,7 +857,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
@@ -947,7 +947,7 @@ jobs:
     env:
       BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -1058,7 +1058,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1299,7 +1299,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1521,7 +1521,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1750,7 +1750,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -1988,7 +1988,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -2217,7 +2217,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -2453,7 +2453,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: capture start time
@@ -2721,7 +2721,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
           persist-credentials: false
