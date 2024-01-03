@@ -2671,7 +2671,7 @@ jobs:
 
   pre-publish:
     if: ${{ !cancelled() }}
-    # The following line will rename 'pre-bublish' to 'pre-publish-not_main_pr' when PR is created towards main branch
+    # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
     # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
     name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' &&  'pre-publish' ||  'pre-publish-not_main_pr' }}
