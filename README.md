@@ -196,9 +196,9 @@ security-sast-semgrep
 **Description:**
 
 - Semgrep CI behaves like other static analysis and linting tools: it runs a set of user-configured rules and returns a non-zero exit code if there are findings, resulting in its job showing a ✅ or ❌.
-
-**Action used:** https://github.com/returntocorp/semgrep-action
-
+- Semgrep can do two scan types: 
+  - diff-aware scan, performed while workflow triggering event is pull request and scans only changes in files, which keeps the scan fast and reduces finding duplication.
+  - full scan, performed while workflow triggering event is other event (e.g. push) and scans the whole codebase.
 
 **Pass/fail behaviour**
 
