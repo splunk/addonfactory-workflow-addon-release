@@ -6,6 +6,23 @@ Workflow is used by add-ons created and managed by [addonfactory repository temp
 
 Workflow defines jobs which perform security code scanning, execute different types of tests, build add-on package and make a GitHub release.
 
+## Development flow
+
+* All the changes should first go to the `develop` branch (using "squash commit"), `main` branch should contain stable code
+* Official releases are made from `main` branch (when it's time to rollout new template changes):
+  * create a PR from `develop` to `main`
+  * test it
+  * get all the approvals from the team
+  * then merge it using "merge commit" option
+* If bugfix release is needed:
+  * make a change
+  * test it
+  * create a PR to the `main` branch
+  * get all the approvals from the team
+  * merge it using "merge commit" option
+  * backport the change back to the `develop` branch
+  * new version of the workflow is going to be released (v4.17.0 (before) -> v4.17.1 (after)) and it will automatically applied to all the repositories
+
 # Troubleshooting for different workflow stages in GitHub Actions
 
 ## General troubleshooting

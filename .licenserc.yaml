@@ -24,5 +24,3 @@ header:
     - "README.md"
     - "LICENSE"
     - ".*"
-
-  comment: on-failure
