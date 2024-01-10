@@ -983,7 +983,7 @@ jobs:
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
           echo "spl-host-suffix=wfe.splgdi.com"
-          echo "k8s-manifests-branch=main"
+          echo "k8s-manifests-branch=tests-ui"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
         if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
