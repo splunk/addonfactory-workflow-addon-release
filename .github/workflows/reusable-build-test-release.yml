@@ -441,6 +441,7 @@ jobs:
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           pip install -r requirements_dev.txt
       - name: Create directories
         run: |
@@ -489,6 +490,7 @@ jobs:
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           pip install -r requirements_dev.txt
       - name: Create directories
         run: |
@@ -569,7 +571,9 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install deps
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        run: pip install -r requirements_dev.txt
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          pip install -r requirements_dev.txt
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
@@ -699,7 +703,9 @@ jobs:
           key: ${{ runner.os }}-pip-python3_9-${{ hashFiles('requirements_dev.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-python3_9
-      - run: pip install -r requirements_dev.txt
+      - run: |
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          pip install -r requirements_dev.txt
       - id: semantic
         if: github.event_name != 'pull_request'
         uses: splunk/semantic-release-action@v1.3
@@ -983,7 +989,7 @@ jobs:
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
           echo "spl-host-suffix=wfe.splgdi.com"
-          echo "k8s-manifests-branch=main"
+          echo "k8s-manifests-branch=fix/enable-internal-splunk-repos-installation"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
         if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
