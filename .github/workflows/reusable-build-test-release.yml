@@ -290,8 +290,7 @@ jobs:
       - uses: actions/setup-python@v5
       - name: remove dev dependencies
         run: | 
-          sudo apt install crudini
-          pip install poetry==1.5.1
+          pip3 install crudini poetry==1.5.1
           crudini --del pyproject.toml tool.poetry.group.dev.dependencies
           poetry lock --no-update
       - name: run fossa anlyze and create report
