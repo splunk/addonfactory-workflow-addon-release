@@ -290,7 +290,8 @@ jobs:
       - uses: actions/setup-python@v5
       - name: remove dev dependencies
         run: | 
-          pip install iniparse poetry==1.5.1
+          apt install crudini
+          pip install poetry==1.5.1
           crudini --del pyproject.toml tool.poetry.group.dev.dependencies
           poetry lock --no-update
           echo "--- Pyproject content:"
