@@ -828,7 +828,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - meta
-    if: ${{ !cancelled() &&  needs.meta.result == 'success' }}
+      - build
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.meta.result == 'success' }}
     outputs:
       artifact: ${{ steps.artifactid.outputs.result }}
     permissions:
