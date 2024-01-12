@@ -299,20 +299,6 @@ installation-update.json
 ```
 - package-splunkbase includes Splunkbase equivalent package code
 
-security-virustotal
-=======================
-
-**Description**
-
-GitHub Action to upload and scan files with VirusTotal which analyze files, domains, IPs and URLs to detect malware, suspicions and other breaches
-
-**Action used** https://github.com/crazy-max/ghaction-virustotal
-
-**Artifacts:**
-
-- No Artifacts for this stage. Report link is available in the logs
-- <img src="images/virus-total/stage.png" alt="stage" style="width:200px;"/> <img src="images/virus-total/platform.png" alt="platform" style="width:200px;"/> 
-
 
 AppInspect
 =======================
