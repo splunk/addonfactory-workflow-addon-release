@@ -299,7 +299,7 @@ jobs:
               echo "Only dev dependencies found in poetry, skipping FOSSA scans"
           fi
       - name: run fossa anlyze and create report
-        if: ${{ $execute_fossa==true }}
+        if: ${{ env.execute_fossa==true }}
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
@@ -307,7 +307,7 @@ jobs:
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
-        if: ${{ $execute_fossa==true }}
+        if: ${{ env.execute_fossa==true }}
         uses: actions/upload-artifact@v3
         with:
           name: THIRDPARTY
