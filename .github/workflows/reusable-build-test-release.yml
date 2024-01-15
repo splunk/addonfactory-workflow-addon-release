@@ -199,7 +199,7 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
-      - uses: setup-python@v5
+      - uses: action/setup-python@v5
       - name: check dependencies for fossa
         id: check_dependencies_for_fossa
         run: |
