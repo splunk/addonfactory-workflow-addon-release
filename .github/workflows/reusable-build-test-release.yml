@@ -80,6 +80,7 @@ jobs:
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      execute-fossa: ${{ steps.check_dependencies_for_fossa.outputs.execute_fossa }}
     steps:
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
@@ -198,6 +199,18 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
+      - uses: setup-python@v5
+      - name: check dependencies for fossa
+        id: check_dependencies_for_fossa
+        run: |
+          pip install poetry==1.5.1
+          if [[ $(poetry show --only dev) ]]; then
+              echo "execute_fossa=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "execute_fossa=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          
 
   validate-pr-title:
     name: Validate PR title
@@ -284,15 +297,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && needs.needs.setup-workflow.outputs.execute_fossa != 'false' }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v5
-      - name: remove dev dependencies
-        run: | 
-          pip3 install crudini poetry==1.5.1
-          crudini --del pyproject.toml tool.poetry.group.dev.dependencies
-          poetry lock --no-update
       - name: run fossa anlyze and create report
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
