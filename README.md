@@ -213,9 +213,9 @@ security-sast-semgrep
 **Description:**
 
 - Semgrep CI behaves like other static analysis and linting tools: it runs a set of user-configured rules and returns a non-zero exit code if there are findings, resulting in its job showing a ✅ or ❌.
-
-**Action used:** https://github.com/returntocorp/semgrep-action
-
+- Semgrep can do two scan types: 
+  - diff-aware scan, performed while workflow triggering event is pull request and scans only changes in files, which keeps the scan fast and reduces finding duplication.
+  - full scan, performed while workflow triggering event is other event (e.g. push) and scans the whole codebase.
 
 **Pass/fail behaviour**
 
@@ -298,20 +298,6 @@ installation-actions.json
 installation-update.json
 ```
 - package-splunkbase includes Splunkbase equivalent package code
-
-security-virustotal
-=======================
-
-**Description**
-
-GitHub Action to upload and scan files with VirusTotal which analyze files, domains, IPs and URLs to detect malware, suspicions and other breaches
-
-**Action used** https://github.com/crazy-max/ghaction-virustotal
-
-**Artifacts:**
-
-- No Artifacts for this stage. Report link is available in the logs
-- <img src="images/virus-total/stage.png" alt="stage" style="width:200px;"/> <img src="images/virus-total/platform.png" alt="platform" style="width:200px;"/> 
 
 
 AppInspect

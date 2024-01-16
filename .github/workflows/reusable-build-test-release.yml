@@ -24,9 +24,6 @@ on:
       AWS_SECRET_ACCESS_KEY:
         description: AWS secret access key
         required: true
-      VT_API_KEY:
-        description: Virustotal api key
-        required: true
       OTHER_TA_REQUIRED_CONFIGS:
         description: other required configs
         required: true
@@ -369,14 +366,16 @@ jobs:
     name: security-sast-semgrep
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.actor != 'dependabot[bot]' }}
+    container:
+      image: returntocorp/semgrep
+    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
         id: semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          publishToken: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+        run: semgrep ci
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
   test-inventory:
     runs-on: ubuntu-latest
@@ -441,6 +440,7 @@ jobs:
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           pip install -r requirements_dev.txt
       - name: Create directories
         run: |
@@ -489,6 +489,7 @@ jobs:
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           pip install -r requirements_dev.txt
       - name: Create directories
         run: |
@@ -569,7 +570,9 @@ jobs:
             ${{ runner.os }}-pip-
       - name: Install deps
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        run: pip install -r requirements_dev.txt
+        run: |
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          pip install -r requirements_dev.txt
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
@@ -699,7 +702,9 @@ jobs:
           key: ${{ runner.os }}-pip-python3_9-${{ hashFiles('requirements_dev.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-python3_9
-      - run: pip install -r requirements_dev.txt
+      - run: |
+          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          pip install -r requirements_dev.txt
       - id: semantic
         if: github.event_name != 'pull_request'
         uses: splunk/semantic-release-action@v1.3
@@ -720,24 +725,6 @@ jobs:
         uses: splunk/addonfactory-ucc-generator-action@v2
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
-
-  security-virustotal:
-    continue-on-error: true
-    name: security-virustotal
-    needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: package-splunkbase
-          path: build/package/
-      - name: VirusTotal Scan
-        uses: crazy-max/ghaction-virustotal@v4
-        with:
-          vt_api_key: ${{ secrets.VT_API_KEY }}
-          files: |
-            build/package/*
 
   run-requirements-unit-tests:
     runs-on: ubuntu-latest
@@ -848,9 +835,9 @@ jobs:
   artifact-registry:
     runs-on: ubuntu-latest
     needs:
-      - security-virustotal
       - meta
-    if: ${{ !cancelled() && needs.security-virustotal.result == 'success' && needs.meta.result == 'success' }}
+      - build
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.meta.result == 'success' }}
     outputs:
       artifact: ${{ steps.artifactid.outputs.result }}
     permissions:
@@ -2682,7 +2669,6 @@ jobs:
       - review_secrets
       - semgrep
       - build
-      - security-virustotal
       - test-inventory
       - run-unit-tests
       - appinspect
