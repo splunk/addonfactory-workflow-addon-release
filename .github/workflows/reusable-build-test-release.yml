@@ -440,7 +440,8 @@ jobs:
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
-          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           pip install -r requirements_dev.txt
       - name: Create directories
         run: |
@@ -489,7 +490,8 @@ jobs:
              poetry export --without-hashes --dev -o requirements_dev.txt
            fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
-          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           pip install -r requirements_dev.txt
       - name: Create directories
         run: |
@@ -571,7 +573,8 @@ jobs:
       - name: Install deps
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
         run: |
-          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           pip install -r requirements_dev.txt
       - name: Semantic Release Get Next
         id: semantic
@@ -620,7 +623,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: artifact-openapi
-          path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/static/openapi.json
+          path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/appserver/static/openapi.json
         if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true' }}
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v3
@@ -703,7 +706,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-python3_9
       - run: |
-          git config --global url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           pip install -r requirements_dev.txt
       - id: semantic
         if: github.event_name != 'pull_request'
@@ -781,7 +785,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.0
+        uses: splunk/appinspect-cli-action@v2.2
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
