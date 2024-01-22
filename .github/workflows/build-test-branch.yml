@@ -1,0 +1,23 @@
+name: "build-test-branch"
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: write
+  packages: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  run-template-rollout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@v2.12.1
+        with:
+          inputs: |
+            repositories: "test-addonfactory-repo"
+            branchname: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
