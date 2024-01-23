@@ -1,7 +1,5 @@
 name: "build-test-branch"
 on:
-#  pull_request:
-#    branches: [develop]
   workflow_dispatch:
     inputs:
       branchname:
@@ -21,8 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@v2.12.1
     with:
-      inputs: |
-        repositories: "test-addonfactory-repo"
-        branchname: ${{ inputs.branchname }}
-    env:
+      repositories: "test-addonfactory-repo"
+      branchname: ${{ inputs.branchname }}
+    secrets:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
