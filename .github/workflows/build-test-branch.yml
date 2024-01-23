@@ -1,7 +1,14 @@
 name: "build-test-branch"
 on:
-  pull_request:
-    branches: [develop]
+#  pull_request:
+#    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      branchname:
+        description: "name of a branch that will be checked out in template repozitory"
+        required: true
+        type: string
+        default: ${{ github.ref_name }}
 
 permissions:
   contents: write
@@ -18,6 +25,6 @@ jobs:
         with:
           inputs: |
             repositories: "test-addonfactory-repo"
-            branchname: ${{ github.ref_name }}
+            branchname: ${{ inputs.branchname }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
