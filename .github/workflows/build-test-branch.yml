@@ -19,12 +19,10 @@ permissions:
 jobs:
   run-template-rollout:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@v2.12.1
-        with:
-          inputs: |
-            repositories: "test-addonfactory-repo"
-            branchname: ${{ inputs.branchname }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@v2.12.1
+    with:
+      inputs: |
+        repositories: "test-addonfactory-repo"
+        branchname: ${{ inputs.branchname }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
