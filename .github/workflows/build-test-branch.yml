@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       branchname:
-        description: "name of a branch that will be checked out in template repozitory"
+        description: "name of a branch that will be checked out in template repository"
         required: true
         type: string
         default: ${{ github.ref_name }}
