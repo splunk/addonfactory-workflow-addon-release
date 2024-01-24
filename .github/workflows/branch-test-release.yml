@@ -1,0 +1,24 @@
+name: "build-test-branch"
+on:
+  workflow_dispatch:
+    inputs:
+      branchname:
+        description: "name of a branch that will be checked out in template repository"
+        required: true
+        type: string
+        default: ${{ github.ref_name }}
+
+permissions:
+  contents: write
+  packages: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  run-template-rollout:
+    uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@v2.12.1
+    with:
+      repositories: "test-addonfactory-repo"
+      branchname: ${{ inputs.branchname }}
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
