@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   run-template-rollout:
-    uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@v2.12.1
+    uses: splunk/addonfactory-repository-template/.github/workflows/sync.yaml@feat/changes-tests-automation
     with:
       repositories: "test-addonfactory-repo"
       branchname: ${{ inputs.branchname }}
