@@ -1,4 +1,4 @@
-name: "build-test-branch"
+name: "branch-test-release"
 on:
   workflow_dispatch:
     inputs:
