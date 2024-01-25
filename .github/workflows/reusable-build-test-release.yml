@@ -274,7 +274,7 @@ jobs:
       - name: python39_Splunk
         id: python39_splunk
         run: |
-          echo "splunk={\"version\":\"unreleased-python3_9-a076ce4c50aa\", \"build\":\"a076ce4c50aa\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
+          echo "splunk={\"version\":\"unreleased-python3_9-7027496d63d8\", \"build\":\"7027496d63d8\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
           echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
 
   fossa-scan:
