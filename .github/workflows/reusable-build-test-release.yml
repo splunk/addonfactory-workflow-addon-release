@@ -284,7 +284,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
-      - name: run fossa anlyze and create report
+      - name: run fossa analyze and create report
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
@@ -835,82 +835,6 @@ jobs:
         with:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
-
-  artifact-registry:
-    runs-on: ubuntu-latest
-    needs:
-      - meta
-      - build
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.meta.result == 'success' }}
-    outputs:
-      artifact: ${{ steps.artifactid.outputs.result }}
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: package-splunkbase
-          path: build/package/splunkbase
-      - id: getappid
-        run: |
-          appid=$(jq -r '.info.id.name' package/app.manifest)
-          echo appid="$appid"
-          echo "result=$appid" >> "$GITHUB_OUTPUT"
-      - run: |
-          curl -LO https://github.com/oras-project/oras/releases/download/v0.12.0/oras_0.12.0_linux_amd64.tar.gz
-          mkdir -p oras-install/
-          tar -zxf oras_0.12.0_*.tar.gz -C oras-install/
-          mv oras-install/oras /usr/local/bin/
-          rm -rf oras_0.12.0_*.tar.gz oras-install/
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Packages Docker Registry
-        uses: docker/login-action@v2.2.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5.4.0
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern=v{{major}}.{{minor}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern=v{{major}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern=v{{version}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{major}}.{{minor}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{major}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{version}},prefix=${{ steps.getappid.outputs.result }}-
-            type=ref,event=branch,prefix=${{ steps.getappid.outputs.result }}-
-            type=ref,event=pr,prefix=${{ steps.getappid.outputs.result }}-
-            type=sha,prefix=${{ steps.getappid.outputs.result }}-
-            type=sha,format=long,prefix=${{ steps.getappid.outputs.result }}-
-      - name: Upload artifacts
-        run: |
-          tee /tmp/tags &>/dev/null <<EOF
-          ${{ steps.meta.outputs.tags }}
-          EOF
-          pushd build/package/splunkbase/
-          PACKAGE=$(ls ./*)
-          echo "$PACKAGE"
-          mv "$PACKAGE" "${{ steps.getappid.outputs.result }}".spl
-          while IFS= read -r line
-          do
-            echo ">>$line<<"
-            oras push \
-                --manifest-config /dev/null:application/vnd.splunk.ent.package.v1.tar+gzip \
-                "$line" \
-                "${{ steps.getappid.outputs.result }}".spl
-            echo "  complete"
-          done < /tmp/tags
-          popd
-      - name: Output artifact locator
-        id: artifactid
-        run: |
-          echo "result= ${{ needs.meta.outputs.sc4s }}" >> "$GITHUB_OUTPUT"
 
   setup:
     needs:
