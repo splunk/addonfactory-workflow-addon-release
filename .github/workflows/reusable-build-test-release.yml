@@ -1233,7 +1233,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/test-results/cim_field_report.json
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
@@ -1454,7 +1454,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
@@ -1682,7 +1682,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
@@ -1923,7 +1923,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
@@ -2158,7 +2158,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
@@ -2386,7 +2386,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
@@ -2395,7 +2395,7 @@ jobs:
       - name: Test Report Python 3.9
         continue-on-error: true
         id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
@@ -2633,7 +2633,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/test-results/escu-result.xml
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9')}}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
@@ -2642,7 +2642,7 @@ jobs:
       - name: Test Report Python 3.9
         continue-on-error: true
         id: test_report_python_3_9
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v1.7
         if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9')}}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
