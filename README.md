@@ -411,30 +411,6 @@ appinspect-api-html-report-self-service
 
 **Action used:** NA
 
-# artifact-registry
-
-**Description:**
-
-- Uploads the generated addon build to ghcr.io.
-
-**Action used:** 
-
-- https://github.com/actions/download-artifact
-- https://github.com/docker/setup-buildx-action
-- https://github.com/docker/login-action 
-
-**Artifacts:** 
-
-- No Artifacts
-
-- This build can be downloaded using oras if it’s not availale in ghcr yet
-
-- User can use the following command to download build for the respective PR
-
-```
-oras pull -u <github-username> -p <github-token> ghcr.io/splunk/splunk-add-on-for-microsoft-sql-server:Splunk_TA_microsoft-sqlserver-<PR-no> 
-```
-
 # test-unit-python3
 
 **Description:**
@@ -656,69 +632,6 @@ installation-update.json
 source_code.zip
 source_code.tar.gz
 ```
-
-Publish-untested (Publish a manual release):
-============================================
-
-**NOTE:** This stage will create a new release with the main branch code irrespective of the test-execution status hence before creating a new release via this stage make sure all stakeholders are aware before the release. 
-
-- Follow the below steps to create a manual release and publish the relevant packages:
-
-- Go to "Actions" tab of your Github repo link.
-
-- On the left side, you'd have **"publish-untested"** workflow mentioned. Click on this stage.
-
-- Click on **"Run Workflow"**.
-
-- Select the branch from which you to create the tag.
-
-- Ideally, all our final code would be in the main branch. Hence, in majority of cases the branch would be "main" only.
-
-- Provide the version in "Tag to release" textbox.
-
-- Example, if you are releasing a new version v4.0.1 of your add-on, just enter **"4.0.1"** (just the dot delimited digits, do not prefix it with "v").
-
-- Click on **"Run Workflow"**.
-
-- Wait for a couple minutes for the build to be generated and published. 
-
-- Once the above stage completes, go to "Releases" section of your repo.
-
-- Edit the release and write the relevant release notes you want to for your bugfix/ hotfix release and save the changes.
-
-<img src="images/publish-untested/publish-untested.png" alt="publish-untested" style="width:200px;"/> 
-
-
-release-set-git-tags
-====================
-**Description**
-
-- This action updates major/minor release tags on a tag push. e.g. Update v1 and v1.2 tag when released v1.2.3.
-
-**Action used** https://github.com/haya14busa/action-update-semver
-
-
-Artifacts for different stages:
-================================
-
-- Artifacts can be found in the summary if we scroll to the bottom as shown in the screenshot below. <br />
-<img src="images/artifacts_all.png" alt="publish-untested" style="width:200px;"/> 
-
-- Link to the test-report for the stage can be found inside logs as shown here: 
-
-<img src="images/modinput/report_link.png" alt="report_link" style="width:200px;"/> 
-<img src="images/modinput/report_stage.png" alt="report_stage" style="width:200px;"/> 
-
-
-Different Test reports stages
-=============================
-- addonfactory-sample-scanner
-- splunk 8.x.y knowledge test report
-- splunk 8.x.y modinput_functional test report
-- splunk 8.x.y ui chrome test report
-- splunk 8.x.y requirement_test test report
-- splunk 8.x.y unit test report
-
 
 Vendor Addon Matrix tests
 =========================
