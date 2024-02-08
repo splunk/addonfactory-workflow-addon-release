@@ -613,7 +613,7 @@ jobs:
               VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
             fi
           fi
-          FINALVERSION=$(echo "${VERSION}" | sed 's/v?\(.*\)/\1/')
+          FINALVERSION=$(echo "${VERSION//v?\(.*\)/\1}")
           echo "Version to build is ${FINALVERSION}"
           echo "VERSION=${FINALVERSION}" >> "$GITHUB_OUTPUT"
       - name: Download THIRDPARTY
@@ -767,7 +767,7 @@ jobs:
               VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
             fi
           fi
-          FINALVERSION=$(echo "${VERSION}" | sed 's/v?\(.*\)/\1/')
+          FINALVERSION=$(echo "${VERSION//v?\(.*\)/\1/}")
           echo "Version to build is $FINALVERSION"
           echo "VERSION=$FINALVERSION" >> "$GITHUB_OUTPUT"
       - id: uccgen
