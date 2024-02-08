@@ -615,7 +615,7 @@ jobs:
           fi
           FINALVERSION="$(echo "${VERSION}" | sed 's/v?\(.*\)/\1/')"
           echo "Version to build is ${FINALVERSION}"
-          echo "VERSION=${FINALVERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION="${FINALVERSION}"" >> $GITHUB_OUTPUT
       - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v3
