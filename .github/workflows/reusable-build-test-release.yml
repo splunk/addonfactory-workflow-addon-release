@@ -652,7 +652,7 @@ jobs:
           mkdir -p build/package/splunkbase
           slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
           for f in build/package/splunkbase/*.tar.gz; do
-            n=$(echo $f | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
+            n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
             mv "${f}" "${n}"
           done
           PACKAGE=$(ls build/package/splunkbase/*)
