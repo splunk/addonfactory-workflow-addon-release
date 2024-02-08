@@ -19,7 +19,7 @@ Workflow defines jobs which perform security code scanning, execute different ty
   * test it
   * create a PR to the `main` branch
   * get all the approvals from the team
-  * merge it using "merge commit" option
+  * merge it using "squash commit" option
   * backport the change back to the `develop` branch
   * new version of the workflow is going to be released (v4.17.0 (before) -> v4.17.1 (after)) and it will automatically applied to all the repositories
 
