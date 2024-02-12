@@ -1032,6 +1032,7 @@ jobs:
               python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
+      options: --user 1001
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
