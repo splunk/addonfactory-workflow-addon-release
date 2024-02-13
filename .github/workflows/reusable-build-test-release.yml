@@ -592,6 +592,7 @@ jobs:
         id: BuildVersion
         run: |
           INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          echo "Initial semver ${INPUT_SEMVER}"
           INPUT_PRNUMBER="${{ github.event.number }}"
           SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
           BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
@@ -745,6 +746,7 @@ jobs:
       - id: BuildVersion
         run: |
           INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          echo "Initial semver ${INPUT_SEMVER}"
           INPUT_PRNUMBER="${{ github.event.number }}"
           SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
           BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
