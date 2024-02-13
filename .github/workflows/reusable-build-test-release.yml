@@ -639,16 +639,13 @@ jobs:
       - name: Slim Package
         id: slim
         run: |
-          pip install semantic_version==2.6.0
-          pip install https://download.splunk.com/misc/packaging-toolkit/splunk-packaging-toolkit-1.0.1.tar.gz
+          pip install splunk-packaging-toolkit
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
           if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
             echo Removing trailing / from INPUT_SOURCE slim is picky
             INPUT_SOURCE=$(echo $INPUT_SOURCE | sed 's/\(.*\)\//\1/')
           fi
-          slim generate-manifest "${INPUT_SOURCE}" --update >/tmp/app.manifest   || true
-          cp  /tmp/app.manifest  "${INPUT_SOURCE}/app.manifest"
           mkdir -p build/package/splunkbase
           slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
           for f in build/package/splunkbase/*.tar.gz; do
