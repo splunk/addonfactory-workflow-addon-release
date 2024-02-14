@@ -679,12 +679,6 @@ jobs:
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
-      - name: artifact-splunk-parts
-        uses: actions/upload-artifact@v3
-        with:
-          name: package-deployment
-          path: build/package/deployment**
-        if: ${{ !cancelled() }}
 
   build-3_9:
     runs-on: ubuntu-latest
@@ -2715,13 +2709,6 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-      - name: Download package-deployment
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
-        id: download-package-deployment
-        with:
-          name: package-deployment
-          path: download/artifacts/
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v3
