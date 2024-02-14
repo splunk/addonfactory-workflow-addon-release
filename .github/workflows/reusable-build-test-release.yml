@@ -590,10 +590,33 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Determine the version to build
         id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@v1
-        with:
-          SemVer: ${{ steps.semantic.outputs.new_release_version }}
-          PrNumber: ${{ github.event.number }}
+        run: |
+          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          echo "Initial semver ${INPUT_SEMVER}"
+          INPUT_PRNUMBER="${{ github.event.number }}"
+          SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
+          BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
+          echo working with version $INPUT_SEMVER
+          if [[ $INPUT_SEMVER =~ $SEMVER_REGEX ]];
+          then
+            echo using provided semver
+            VERSION=$INPUT_SEMVER
+          elif [[ $INPUT_SEMVER =~ $BETA_REGEX ]];
+          then
+            VERSION=$(echo $INPUT_SEMVER | awk '{gsub("-beta\.", "-B");print}')
+          else
+            if [[ $GITHUB_EVENT_NAME != 'pull_request' ]];
+            then
+              echo this is not a release build and NOT PR RUNID + run ID
+              VERSION=0.0.${GITHUB_RUN_ID}
+            else 
+              echo this is not a release build and is a PR use run ID
+              VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
+            fi
+          fi
+          FINALVERSION="${VERSION//v}"
+          echo "Version to build is ${FINALVERSION}"
+          echo "VERSION=${FINALVERSION}" >> "$GITHUB_OUTPUT"
       - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v3
@@ -721,10 +744,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@v1
-        with:
-          SemVer: ${{ steps.semantic.outputs.new_release_version }}
-          PrNumber: ${{ github.event.number }}
+        run: |
+          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          echo "Initial semver ${INPUT_SEMVER}"
+          INPUT_PRNUMBER="${{ github.event.number }}"
+          SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
+          BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
+          echo working with version $INPUT_SEMVER
+          
+          if [[ $INPUT_SEMVER =~ $SEMVER_REGEX ]];
+          then
+            echo using provided semver
+            VERSION=$INPUT_SEMVER
+          elif [[ $INPUT_SEMVER =~ $BETA_REGEX ]];
+          then
+            VERSION=$(echo $INPUT_SEMVER | awk '{gsub("-beta\.", "-B");print}')
+          else
+            if [[ $GITHUB_EVENT_NAME != 'pull_request' ]];
+            then
+              echo this is not a release build and NOT PR RUNID + run ID
+              VERSION=0.0.${GITHUB_RUN_ID}
+            else 
+              echo this is not a release build and is a PR use run ID
+              VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
+            fi
+          fi
+          FINALVERSION="${VERSION//v}"
+          echo "Version to build is $FINALVERSION"
+          echo "VERSION=$FINALVERSION" >> "$GITHUB_OUTPUT"
       - id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v2
         with:
