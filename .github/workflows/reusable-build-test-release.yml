@@ -638,9 +638,24 @@ jobs:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
       - name: Slim Package
         id: slim
-        uses: splunk/addonfactory-packaging-toolkit-action@v1
-        with:
-          source: ${{ steps.uccgen.outputs.OUTPUT }}
+        run: |
+          pip install splunk-packaging-toolkit
+          INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
+          SOURCE_REGEX='^.*/$'
+          if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
+            echo Removing trailing / from INPUT_SOURCE slim is picky
+            INPUT_SOURCE=$(echo $INPUT_SOURCE | sed 's/\(.*\)\//\1/')
+          fi
+          mkdir -p build/package/splunkbase
+          slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
+          for f in build/package/splunkbase/*.tar.gz; do
+            n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
+            mv "${f}" "${n}"
+          done
+          PACKAGE=$(ls build/package/splunkbase/*)
+          slim validate "${PACKAGE}"
+          chmod -R +r build
+          echo "OUTPUT=$PACKAGE" >> "$GITHUB_OUTPUT"
         if: always()
       - name: artifact-openapi
         uses: actions/upload-artifact@v3
@@ -664,12 +679,6 @@ jobs:
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
-      - name: artifact-splunk-parts
-        uses: actions/upload-artifact@v3
-        with:
-          name: package-deployment
-          path: build/package/deployment**
-        if: ${{ !cancelled() }}
 
   build-3_9:
     runs-on: ubuntu-latest
@@ -2700,13 +2709,6 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-      - name: Download package-deployment
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
-        id: download-package-deployment
-        with:
-          name: package-deployment
-          path: download/artifacts/
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v3
