@@ -679,6 +679,12 @@ jobs:
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
+      - name: artifact-splunk-parts
+        uses: actions/upload-artifact@v3
+        with:
+          name: package-deployment
+          path: build/package/deployment**
+        if: ${{ !cancelled() }}
 
   build-3_9:
     runs-on: ubuntu-latest
