@@ -945,7 +945,7 @@ jobs:
           LABELS="addon-name=${ADDON_NAME}"
           ADDON_UPLOAD_PATH="s3://$S3_BUCKET/ta-apps/${{ needs.build.outputs.buildname }}"
           {
-          echo "argo-server=$S3_BUCKET:443"
+          echo "argo-server=$ARGO_SERVER_DOMAIN:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
           echo "argo-base-href=\'\'"
