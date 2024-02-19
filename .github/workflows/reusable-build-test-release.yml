@@ -55,10 +55,10 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 env:
-  S3_BUCKET: ta-production-artifacts
-  ARGO_SERVER_DOMAIN: argo.wfe.splgdi.com
+  S3_BUCKET: ta-production-artifacts                              #staging: ta-staging-artifacts
+  ARGO_SERVER_DOMAIN: argo.wfe.splgdi.com                         #staging: argo.staging.wfe.splgdi.com
+  ARGO_TOKEN_SECRET_ID: ta-github-workflow-automation-token       #staging: ta-staging-github-workflow-automation-token
   K8S_MANIFESTS_BRANCH: main
-  ARGO_TOKEN_SECRET_ID: ta-github-workflow-automation-token
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
