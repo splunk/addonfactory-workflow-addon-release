@@ -924,6 +924,7 @@ jobs:
 
   setup:
     needs:
+      - setup-workflow
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' }}
