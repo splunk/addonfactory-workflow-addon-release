@@ -89,7 +89,7 @@ jobs:
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
-      argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
+      argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
     steps:
       - name: set k8s environment
         id: k8s-environment
