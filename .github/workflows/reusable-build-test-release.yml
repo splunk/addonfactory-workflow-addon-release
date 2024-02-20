@@ -8,6 +8,16 @@ on:
         type: string
         default: >-
           [""]
+      k8s-environment:
+        required: false
+        description: Specifies which environmet to use for k8s testing. ["production", "staging"]
+        type: string
+        default: "production"
+      k8s-manifests-branch:
+        required: false
+        description: "branch for k8s manifests to run the tests on"
+        type: string
+        default: "main"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -54,11 +64,6 @@ permissions:
 concurrency: 
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-env:
-  S3_BUCKET: ta-production-artifacts                              #staging: ta-staging-artifacts
-  ARGO_SERVER_DOMAIN: argo.wfe.splgdi.com                         #staging: argo.staging.wfe.splgdi.com
-  ARGO_TOKEN_SECRET_ID: ta-github-workflow-automation-token       #staging: ta-staging-github-workflow-automation-token
-  K8S_MANIFESTS_BRANCH: main
 jobs:
   setup-workflow:
     runs-on: ubuntu-latest
@@ -82,7 +87,23 @@ jobs:
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
+      argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
+      argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
     steps:
+      - name: set k8s environment
+        id: k8s-environment
+        run: |
+          if [[ ${{ inputs.k8s-environment }} == 'staging' ]]; then
+            echo "setting up variables for staging"
+            echo "s3_bucket=ta-staging-artifacts" >> "$GITHUB_OUTPUT"
+            echo "argo_server_domain=argo.staging.wfe.splgdi.com" >> "$GITHUB_OUTPUT"
+            echo "argo_token_secret_id=ta-staging-github-workflow-automation-token" >> "$GITHUB_OUTPUT"
+          else
+            echo "s3_bucket=ta-production-artifacts" >> "$GITHUB_OUTPUT"
+            echo "argo_server_domain=argo.wfe.splgdi.com" >> "$GITHUB_OUTPUT"
+            echo "argo_token_secret_id=ta-github-workflow-automation-token" >> "$GITHUB_OUTPUT"
+          fi
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
         env:
@@ -683,7 +704,7 @@ jobs:
         run: |
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
-          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" "s3://$S3_BUCKET/ta-apps/"
+          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/"
 
   build-3_9:
     runs-on: ubuntu-latest
@@ -943,9 +964,9 @@ jobs:
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           LABELS="addon-name=${ADDON_NAME}"
-          ADDON_UPLOAD_PATH="s3://$S3_BUCKET/ta-apps/${{ needs.build.outputs.buildname }}"
+          ADDON_UPLOAD_PATH="s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/${{ needs.build.outputs.buildname }}"
           {
-          echo "argo-server=$ARGO_SERVER_DOMAIN:443"
+          echo "argo-server=${{ needs.setup-workflow.outputs.argo_server_domain_k8s }}:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
           echo "argo-base-href=\'\'"
@@ -953,13 +974,13 @@ jobs:
           echo "argo-workflow-tmpl-name=ta-workflow"
           echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
           echo "directory-path=/tmp"
-          echo "s3-bucket=$S3_BUCKET"
+          echo "s3-bucket=${{ needs.setup-workflow.outputs.s3_bucket_k8s }}"
           echo "addon-name=\"$ADDON_NAME\""
           echo "job-name=wf-$JOB_NAME"
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
           echo "spl-host-suffix=wfe.splgdi.com"
-          echo "k8s-manifests-branch=$K8S_MANIFESTS_BRANCH"
+          echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
         if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
@@ -993,7 +1014,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           swagger_name=swagger_$(basename "$BUILD_NAME" .spl)
-          aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://$S3_BUCKET/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
+          aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-knowledge-labeled == 'true') }}
@@ -1050,7 +1071,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1097,7 +1118,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1291,7 +1312,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1513,7 +1534,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1560,7 +1581,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1742,7 +1763,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1801,7 +1822,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1980,7 +2001,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -2209,7 +2230,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -2445,7 +2466,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARGO_TOKEN_SECRET_ID" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
