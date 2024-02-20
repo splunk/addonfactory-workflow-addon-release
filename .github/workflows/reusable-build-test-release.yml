@@ -95,13 +95,14 @@ jobs:
         id: k8s-environment
         run: |
           if [[ ${{ inputs.k8s-environment }} == 'staging' ]]; then
-            echo "setting up variables for staging"
+            echo "setting up argo variables for staging"
             {
               echo "s3_bucket=ta-staging-artifacts"
               echo "argo_server_domain=argo.staging.wfe.splgdi.com"
               echo "argo_token_secret_id=ta-staging-github-workflow-automation-token"
             } >> "$GITHUB_OUTPUT"
           else
+            echo "setting up argo variables for production"
             {
               echo "s3_bucket=ta-production-artifacts"
               echo "argo_server_domain=argo.wfe.splgdi.com"
