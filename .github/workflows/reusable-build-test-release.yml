@@ -96,13 +96,17 @@ jobs:
         run: |
           if [[ ${{ inputs.k8s-environment }} == 'staging' ]]; then
             echo "setting up variables for staging"
-            echo "s3_bucket=ta-staging-artifacts" >> "$GITHUB_OUTPUT"
-            echo "argo_server_domain=argo.staging.wfe.splgdi.com" >> "$GITHUB_OUTPUT"
-            echo "argo_token_secret_id=ta-staging-github-workflow-automation-token" >> "$GITHUB_OUTPUT"
+            {
+              echo "s3_bucket=ta-staging-artifacts"
+              echo "argo_server_domain=argo.staging.wfe.splgdi.com"
+              echo "argo_token_secret_id=ta-staging-github-workflow-automation-token"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "s3_bucket=ta-production-artifacts" >> "$GITHUB_OUTPUT"
-            echo "argo_server_domain=argo.wfe.splgdi.com" >> "$GITHUB_OUTPUT"
-            echo "argo_token_secret_id=ta-github-workflow-automation-token" >> "$GITHUB_OUTPUT"
+            {
+              echo "s3_bucket=ta-production-artifacts"
+              echo "argo_server_domain=argo.wfe.splgdi.com"
+              echo "argo_token_secret_id=ta-github-workflow-automation-token"
+            } >> "$GITHUB_OUTPUT"
           fi
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
