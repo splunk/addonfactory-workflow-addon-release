@@ -1069,7 +1069,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
@@ -1317,7 +1317,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
@@ -1546,7 +1546,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
@@ -1782,7 +1782,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
@@ -2027,7 +2027,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
@@ -2263,7 +2263,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
@@ -2506,7 +2506,7 @@ jobs:
         run: |
           git --version
           git_path="$(pwd)"
-          echo $git_path
+          echo "$git_path"
           git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
