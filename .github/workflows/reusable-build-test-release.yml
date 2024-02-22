@@ -1056,7 +1056,8 @@ jobs:
         id: configure-git
         run: |
           git --version
-          git config --global --add safe.directory /__w/*
+          git config --global --add safe.directory /__w/*'
+          /usr/bin/git ls-files -z
       - name: capture start time
         id: capture-start-time
         run: |
