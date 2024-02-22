@@ -1056,7 +1056,8 @@ jobs:
       - name: run git ls
         id: git-ls
         run: |
-          /usr/bin/git ls-files -z
+          /usr/bin/git ls-files -z 
+          /usr/bin/git --version
       - name: capture start time
         id: capture-start-time
         run: |
