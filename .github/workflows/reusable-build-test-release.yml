@@ -1064,7 +1064,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -1312,7 +1312,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -1541,7 +1541,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -1777,7 +1777,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2022,7 +2022,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2258,7 +2258,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2501,7 +2501,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
