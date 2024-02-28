@@ -1043,7 +1043,7 @@ jobs:
               sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
               python39: true
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1064,6 +1064,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -1285,7 +1292,7 @@ jobs:
               sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
               python39: true
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1305,6 +1312,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -1506,7 +1520,7 @@ jobs:
               browser: "chrome"
               python39: true
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1527,6 +1541,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -1735,7 +1756,7 @@ jobs:
               modinput-type: [ "modinput_functional" ]
               python39: true
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1756,6 +1777,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -1974,7 +2002,7 @@ jobs:
               os: "ubuntu:22.04"
               python39: true
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1994,6 +2022,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -2203,7 +2238,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         os: [ "ubuntu:22.04", "centos:7","redhat:8.5" ]
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2223,6 +2258,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -2439,7 +2481,7 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2459,6 +2501,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
