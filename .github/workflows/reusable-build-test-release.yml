@@ -1755,6 +1755,7 @@ jobs:
             - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
               modinput-type: [ "modinput_functional" ]
               python39: true
+              marker: ${{ fromJson(inputs.marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
