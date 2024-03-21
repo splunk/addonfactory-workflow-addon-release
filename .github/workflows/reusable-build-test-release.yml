@@ -195,6 +195,7 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
+          
 
   validate-pr-title:
     name: Validate PR title
@@ -284,7 +285,18 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+      - name: check  for fossa
+        run: |
+          pip install poetry==1.5.1
+          if [[ $(poetry show --only dev) ]]; then
+              echo "execute_fossa=true" 
+          else
+              echo "execute_fossa=false" 
+              echo "Only dev dependencies found in poetry, skipping FOSSA scans"
+          fi
       - name: run fossa anlyze and create report
+        if: ${{ env.execute_fossa==true }}
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
@@ -292,6 +304,7 @@ jobs:
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
+        if: ${{ env.execute_fossa==true }}
         uses: actions/upload-artifact@v3
         with:
           name: THIRDPARTY
