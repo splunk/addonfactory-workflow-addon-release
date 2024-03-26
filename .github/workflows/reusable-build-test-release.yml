@@ -1036,6 +1036,7 @@ jobs:
       - setup
       - meta
       - setup-workflow
+    runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
