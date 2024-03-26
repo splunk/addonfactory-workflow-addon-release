@@ -262,6 +262,7 @@ jobs:
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
+      matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
       python39_splunk: ${{steps.python39_splunk.outputs.splunk}}
@@ -307,6 +308,11 @@ jobs:
         run: |
           echo "splunk={\"version\":\"unreleased-python3_9-7027496d63d8\", \"build\":\"7027496d63d8\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
           echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
+      - name: combined_Splunkmatrix
+        id: combined_Splunkmatrix
+        run: |
+            combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}'  | jq --argjson A '${{steps.python39_splunk.outputs.splunk}}' '. + [$A]')
+            echo "combinedSplunkversions=$(echo "$combinedSplunkversions"| jq -c .)" >> "$GITHUB_OUTPUT"
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -1031,17 +1037,11 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
-              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1280,17 +1280,11 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
-              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1507,18 +1501,12 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              browser: "chrome"
-              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1742,19 +1730,14 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
         python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              modinput-type: [ "modinput_functional" ]
-              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
