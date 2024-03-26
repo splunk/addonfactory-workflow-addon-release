@@ -464,12 +464,13 @@ jobs:
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
-           then
-             mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-             poetry export --without-hashes -o package/lib/requirements.txt
-             poetry export --without-hashes --dev -o requirements_dev.txt
-           fi
+          then
+            mkdir -p package/lib || true
+            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            poetry lock --check
+            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes --dev -o requirements_dev.txt
+          fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
@@ -514,12 +515,13 @@ jobs:
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
-           then
-             mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-             poetry export --without-hashes -o package/lib/requirements.txt
-             poetry export --without-hashes --dev -o requirements_dev.txt
-           fi
+          then
+            mkdir -p package/lib || true
+            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            poetry lock --check
+            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes --dev -o requirements_dev.txt
+          fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
@@ -572,7 +574,6 @@ jobs:
           then
             echo " poetry.lock found "
             sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry lock --check
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
