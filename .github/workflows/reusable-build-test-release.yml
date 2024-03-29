@@ -72,18 +72,15 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
-      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
       delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
       delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
       execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
       execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
-      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
       execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
       execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
-      execute-escu-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
@@ -115,7 +112,7 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
-          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          TESTSET="knowledge ui modinput_functional scripted_inputs requirement_test"
           echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
           SKIP_WORKFLOW="No"
           if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
@@ -147,9 +144,6 @@ jobs:
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "$PR_BODY" >> body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            if [[ $tests =~ "escu" ]]; then
-              echo "preserve_infra for escu test-type is not supported yet"
-            fi
             for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
                     eval EXECUTE_$test_type="Yes"
@@ -157,20 +151,16 @@ jobs:
                 fi
             done
           fi
-          # PRESERVE_INFRA for escu test-type is not supported yet.
-          DELAY_DESTROY_escu="No"
           {
             echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
             echo "delay-destroy-ui=$DELAY_DESTROY_ui"
             echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional"
             echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs"
-            echo "delay-destroy-escu=$DELAY_DESTROY_escu"
             echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test"
             echo "execute-ko=$EXECUTE_knowledge"
             echo "execute-ui=$EXECUTE_ui"
             echo "execute-modinput_functional=$EXECUTE_modinput_functional"
             echo "execute-scripted_inputs=$EXECUTE_scripted_inputs"
-            echo "execute-escu=$EXECUTE_escu"
             echo "execute-requirement_test=$EXECUTE_requirement_test"
           } >> "$GITHUB_OUTPUT"
       - name: configure tests based on labels
@@ -178,7 +168,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_escu" "execute_requirement_test")
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_requirement_test")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -427,7 +417,6 @@ jobs:
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
-      escu: ${{ steps.testset.outputs.escu }}
       ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
     steps:
       - uses: actions/checkout@v3
@@ -2469,260 +2458,6 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  run-escu-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-escu-labeled == 'true') }}
-    needs:
-      - build
-      - test-inventory
-      - setup
-      - meta
-      - setup-workflow
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
-    container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.12
-    env:
-      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
-      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
-      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
-      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
-      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
-      SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-      TEST_TYPE: "escu"
-    permissions: 
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
-        id: configure-git
-        run: |
-          git --version
-          git_path="$(pwd)"
-          echo "$git_path"
-          git config --global --add safe.directory "$git_path"
-      - name: capture start time
-        id: capture-start-time
-        run: |
-          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: Read secrets from AWS Secrets Manager into environment variables
-        id: get-argo-token
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: create job name
-        id: create-job-name
-        shell: bash
-        run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
-          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME//[_.]/-}
-          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
-      - name: get escu detections
-        id: get-escu-detections
-        run: |
-          RUN_TEST=false
-          # shellcheck disable=SC2002
-          DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
-          if [ -z "$DETECTIONS" ]
-          then
-                echo "Detection list is empty."
-          else
-                RUN_TEST=true
-          fi
-          DETECTIONS="-tf $DETECTIONS"
-          {
-          echo "escu-detections=$DETECTIONS"
-          echo "escu-test-run=$RUN_TEST"
-          } >> "$GITHUB_OUTPUT"
-      - name: run-tests
-        id: run-tests
-        timeout-minutes: 340
-        continue-on-error: true
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
-        with:
-          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-          test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ steps.get-escu-detections.outputs.escu-detections }}
-          job-name: ${{ steps.create-job-name.outputs.job-name }}
-          labels: ${{ needs.setup.outputs.labels }}
-          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
-          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-escu }}
-          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
-          addon-name: ${{ needs.setup.outputs.addon-name }}
-          vendor-version: ${{ matrix.vendor-version.image }}
-          sc4s-version: "No"
-          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-      - name: calculate timeout
-        id: calculate-timeout
-        run: |
-          start_time=${{ steps.capture-start-time.outputs.start_time }}
-          current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Cancel workflow
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }}
-        run: |
-          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
-          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
-          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
-          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
-          else
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
-            exit 1
-          fi
-      - name: Retrying workflow
-        id: retry-wf
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        run: |
-          set -o xtrace
-          set +e
-          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
-          then
-            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "workflow-name=$WORKFLOW_NAME" >> "$GITHUB_OUTPUT"
-            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
-          else
-            echo "No retry required"
-            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
-            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
-          fi
-      - name: check if workflow completed
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        shell: bash
-        run: |
-          set +e
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          echo "Status of workflow:" "$ARGO_STATUS"
-          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
-          do
-              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
-              argo wait "${WORKFLOW_NAME}" -n workflows || true
-              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          done
-      - name: pull artifacts from s3 bucket
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        run: |
-          echo "pulling artifacts"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
-      - name: pull logs from s3 bucket
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        run: |
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          echo "pulling logs"
-          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v3
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v3
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/argo-logs
-      - name: Upload results
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: escu-test-result
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results/escu-result.xml
-      - name: Test Report
-        id: test_report
-        uses: dorny/test-reporter@v1.7.0
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9')}}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1.7.0
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9')}}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: pull diag from s3 bucket
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        run: |
-          echo "pulling diag"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v3
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/diag*
-
   pre-publish:
     if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
@@ -2769,7 +2504,6 @@ jobs:
     if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' }}
     needs:
       - pre-publish
-      - run-escu-tests
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -2814,14 +2548,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cim-field-report
-          path: download/artifacts/deployment
-      - name: Download escu-test-results
-        id: download-escu-xml
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: escu-test-result
           path: download/artifacts/deployment
       - name: List of assets
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
