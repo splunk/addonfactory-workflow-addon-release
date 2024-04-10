@@ -7,7 +7,7 @@ Once Splunk AppInspect team releases AppInspect CLI - we need to make sure that 
 ### Merge splunk/appinspect-cli-action PR
 
 - go to the PR [example](https://github.com/splunk/appinspect-cli-action/pull/127)
-    - check [release notes](https://dev.splunk.com/enterprise/docs/relnotes/relnotes-appinspectcli/whatsnew/) for the new version
+    - check [release notes](https://dev.splunk.com/enterprise/docs/relnotes/relnotes-appinspectcli/whatsnew/) for the new version add release notes link in the PR comment
     - make sure that the pipeline is green
         - if not - investigate why and report and issue to the AppInspect team
     - determine which version of `appinspect-cli-action` needs to be released based on the PR
