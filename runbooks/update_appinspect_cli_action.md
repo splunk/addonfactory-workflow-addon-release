@@ -10,9 +10,9 @@ Once Splunk AppInspect team releases AppInspect CLI - we need to make sure that 
     - check [release notes](https://dev.splunk.com/enterprise/docs/relnotes/relnotes-appinspectcli/whatsnew/) for the new version add release notes link in the PR comment
     - make sure that the pipeline is green
         - if not - investigate why and report and issue to the AppInspect team
-    - determine which version of `appinspect-cli-action` needs to be released based on the PR
-        - if it is a bug fix - change "chore" to "fix" in the title of the PR and skip [update section](#update-splunkaddonfactory-workflow-addon-release)
-        - if it is a new feature - change "chore" to "feat" in the title of the PR
+    - determine which version of `appinspect-cli-action` needs to be released based on the [splunk-appinspect release](https://dev.splunk.com/enterprise/docs/relnotes/relnotes-appinspectcli/whatsnew/)
+        - if it is a bug fix release (E.g. v3.6.0 > v3.6.1) - change "chore" to "fix" in the title of the PR and skip [update section](#update-splunkaddonfactory-workflow-addon-release)
+        - if it is a minor release (E.g v3.6.0 > v3.7.0) - change "chore" to "feat" in the title of the PR
     - get review from the team
     - "Squash and merge" the PR
     - wait for the release
@@ -23,6 +23,9 @@ Once Splunk AppInspect team releases AppInspect CLI - we need to make sure that 
 - create a PR in this repository with a new version of the action ([example PR](https://github.com/splunk/addonfactory-workflow-addon-release/pull/247))
     - make sure that PR is towards `main` branch
     - make sure that the pipeline is green
+    - determine which version of `appinspect-cli-action` needs to be released based on the PR
+      - if it is a bug fix or dependecnies update - "fix" in the title of the PR
+      - if it is a feature release - "feat" in the title of the PR
     - attach a link to a test run of reusable workflow
     - get review from the team
     - "Squash and merge" the PR
