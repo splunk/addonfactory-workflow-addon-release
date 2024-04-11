@@ -249,14 +249,11 @@ jobs:
       container_version: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_revision: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.revision'] }}
       container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
-      matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
-      matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
+      matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      python39_splunk: ${{steps.python39_splunk.outputs.splunk}}
-      python39_sc4s: ${{steps.python39_splunk.outputs.sc4s}}
     permissions:
       contents: write
       packages: read
@@ -293,17 +290,13 @@ jobs:
       - name: matrix
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.13
-      - name: python39_Splunk
-        id: python39_splunk
-        run: |
-          echo "splunk={\"version\":\"unreleased-python3_9-7027496d63d8\", \"build\":\"7027496d63d8\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
-          echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
-      - name: combined_Splunkmatrix
+
+      - name: Combined Splunk and SC4S Versions
         id: combined_Splunkmatrix
         run: |
-            combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}'  | jq --argjson A '${{steps.python39_splunk.outputs.splunk}}' '. + [$A]')
-            echo "combinedSplunkversions=$(echo "$combinedSplunkversions"| jq -c .)" >> "$GITHUB_OUTPUT"
-
+          splunk='{"version":"unreleased-python3_9-7027496d63d8", "build":"7027496d63d8", "islatest":false, "isoldest":false}'
+          combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq --argjson A "$splunk" '. + [$A]')
+          echo "combinedSplunkversions=$(echo "$combinedSplunkversions" | jq -c .)" >> "$GITHUB_OUTPUT"
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -1028,17 +1021,12 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
-              python39: true
+
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1277,17 +1265,12 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
-              python39: true
+
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1504,20 +1487,15 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              browser: "chrome"
-              python39: true
+
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.12
+      image: ghcr.io/splunk/workflow-engine-base:2.0.3
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1527,7 +1505,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1538,17 +1516,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
-        id: configure-git
-        run: |
-          git --version
-          git_path="$(pwd)"
-          echo "$git_path"
-          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -1558,7 +1529,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1573,7 +1544,7 @@ jobs:
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
-        shell: bash 
+        shell: bash
         run: |
           BOLD="\033[1m"
           NORMAL="\033[0m"
@@ -1605,7 +1576,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1981,17 +1952,11 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         os: [ "ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5" ]
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              os: "ubuntu:22.04"
-              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -2226,7 +2191,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         os: [ "ubuntu:22.04", "centos:7","redhat:8.5" ]
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
