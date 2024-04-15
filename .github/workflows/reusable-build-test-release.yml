@@ -320,7 +320,7 @@ jobs:
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
@@ -479,7 +479,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
           name: test-results-unit-python_${{ matrix.python-version }}
@@ -530,7 +530,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
           name: test-results-unit-python_${{ matrix.python-version }}
@@ -647,13 +647,13 @@ jobs:
           echo "VERSION=${FINALVERSION}" >> "$GITHUB_OUTPUT"
       - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
       - name: Download THIRDPARTY (Optional for PR and schedule)
         if: github.event_name == 'pull_request' || github.event_name == 'schedule'
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: THIRDPARTY
       - name: Update Notices
@@ -686,13 +686,13 @@ jobs:
           echo "OUTPUT=$PACKAGE" >> "$GITHUB_OUTPUT"
         if: always()
       - name: artifact-openapi
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: artifact-openapi
           path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/appserver/static/openapi.json
         if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true' }}
       - name: artifact-splunk-base
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: package-splunkbase
           path: ${{ steps.slim.outputs.OUTPUT }}
@@ -839,7 +839,7 @@ jobs:
           input-files: tests/requirement_test/logs
       - name: Archive production artifacts
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: |
@@ -864,7 +864,7 @@ jobs:
           - "manual"
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
           path: build/package/
@@ -876,13 +876,13 @@ jobs:
           result_file: appinspect_result_${{ matrix.tags }}.json
       - name: upload-appinspect-report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: appinspect_${{ matrix.tags }}_checks.json
           path: appinspect_result_${{ matrix.tags }}.json
       - name: upload-markdown
         if: matrix.tags == 'manual'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: check_markdown
           path: |
@@ -903,7 +903,7 @@ jobs:
           - "cloud"
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v3
         with:
           name: package-splunkbase
           path: build/package
@@ -914,7 +914,7 @@ jobs:
           password: ${{ secrets.SPL_COM_PASSWORD }}
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: appinspect-api-html-report-${{ matrix.tags }}
@@ -985,7 +985,7 @@ jobs:
           echo "spl-host-suffix=wfe.splgdi.com"
           echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v3
         if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
         id: download-openapi
         with:
@@ -1221,27 +1221,27 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Upload cim-compliance-report for ${{ matrix.splunk.version }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         if: ${{ matrix.splunk.islatest == true }}
         with:
           name: cim-compliance-report
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/cim-compliance-report.md
       - name: Upload cim-field-report for ${{ matrix.splunk.version }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         if: ${{ matrix.splunk.islatest == true }}
         with:
           name: cim-field-report
@@ -1260,7 +1260,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests diag
@@ -1463,13 +1463,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests logs
@@ -1488,7 +1488,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests diag
@@ -1698,13 +1698,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests logs
@@ -1723,7 +1723,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
@@ -1940,13 +1940,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs
@@ -1965,7 +1965,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
@@ -2182,13 +2182,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
@@ -2207,7 +2207,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
@@ -2417,13 +2417,13 @@ jobs:
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
@@ -2451,7 +2451,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
@@ -2528,7 +2528,7 @@ jobs:
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         id: download-package-splunkbase
         with:
           name: package-splunkbase
@@ -2537,7 +2537,7 @@ jobs:
         id: download-cim-compliance-report
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: cim-compliance-report
           path: download/artifacts/deployment
@@ -2545,7 +2545,7 @@ jobs:
         id: download-cim-field-report
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: cim-field-report
           path: download/artifacts/deployment
