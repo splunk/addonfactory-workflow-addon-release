@@ -592,7 +592,7 @@ jobs:
         run: if [ -f requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
       - name: pip cache
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements_dev.txt') }}
@@ -759,7 +759,7 @@ jobs:
         run: |
           echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
       - name: pip cache
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: ${{ runner.os }}-pip-python3_9-${{ hashFiles('requirements_dev.txt') }}
@@ -1073,7 +1073,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1249,7 +1249,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/test-results/cim_field_report.json
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
@@ -1321,7 +1321,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1477,7 +1477,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
@@ -1550,7 +1550,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1712,7 +1712,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
@@ -1780,7 +1780,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1954,7 +1954,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
@@ -2025,7 +2025,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -2196,7 +2196,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
@@ -2261,7 +2261,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -2431,7 +2431,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
@@ -2440,7 +2440,7 @@ jobs:
       - name: Test Report Python 3.9
         continue-on-error: true
         id: test_report_python_3_9
-        uses: dorny/test-reporter@v1.9.0
+        uses: dorny/test-reporter@v1.7.0
         if: ${{ !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9') }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
