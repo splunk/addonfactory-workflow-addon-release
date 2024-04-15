@@ -262,7 +262,7 @@ jobs:
       packages: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           submodules: false
           persist-credentials: false
@@ -311,7 +311,7 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: run fossa analyze and create report
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
@@ -332,7 +332,7 @@ jobs:
       - fossa-scan
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: run fossa test
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
@@ -348,7 +348,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@v1.1
 
@@ -358,7 +358,7 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
           python-version: "3.7"
@@ -373,13 +373,13 @@ jobs:
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           submodules: false
           fetch-depth: "0"
       - name: Checkout for PR
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           submodules: false
           fetch-depth: "0"
@@ -398,7 +398,7 @@ jobs:
       image: returntocorp/semgrep
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Semgrep
         id: semgrep
         run: semgrep ci
@@ -419,7 +419,7 @@ jobs:
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
       ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - id: testset
         name: Check available test types
         run: |
@@ -453,7 +453,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -504,7 +504,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -555,7 +555,7 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           # Very Important semantic-release won't trigger a tagged
           # build if this is not set false
@@ -727,7 +727,7 @@ jobs:
       contents: write
       packages: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           # Very Important semantic-release won't trigger a tagged
           # build if this is not set false
@@ -828,7 +828,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Install Python 3
         uses: actions/setup-python@v5
         with:
@@ -863,7 +863,7 @@ jobs:
           - "splunk_appinspect"
           - "manual"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: actions/download-artifact@v4
         with:
           name: package-splunkbase
@@ -902,7 +902,7 @@ jobs:
         tags:
           - "cloud"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - uses: actions/download-artifact@v4
         with:
           name: package-splunkbase
@@ -947,7 +947,7 @@ jobs:
     env:
       BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
           token: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -1058,7 +1058,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
@@ -1306,7 +1306,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
@@ -1535,7 +1535,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
@@ -1765,7 +1765,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
@@ -2010,7 +2010,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
@@ -2246,7 +2246,7 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
@@ -2512,7 +2512,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           submodules: false
           persist-credentials: false
