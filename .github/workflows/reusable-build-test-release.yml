@@ -1495,7 +1495,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
 
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1516,6 +1516,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
@@ -1529,7 +1536,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1576,7 +1583,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
