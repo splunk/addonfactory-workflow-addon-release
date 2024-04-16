@@ -279,7 +279,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Docker meta
         id: docker_action_meta
-        uses: docker/metadata-action@v5.4.0
+        uses: docker/metadata-action@v5.5.1
         with:
           images: ghcr.io/${{ github.repository }}/container
           tags: |
@@ -362,7 +362,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.7"
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3.0.1
 
   review_secrets:
     name: security-detect-secrets
@@ -1073,7 +1073,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1321,7 +1321,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1550,7 +1550,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1780,7 +1780,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -2025,7 +2025,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -2261,7 +2261,7 @@ jobs:
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
