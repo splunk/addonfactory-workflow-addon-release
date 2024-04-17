@@ -8,6 +8,16 @@ on:
         type: string
         default: >-
           [""]
+      k8s-environment:
+        required: false
+        description: Specifies which environmet to use for k8s testing. ["production", "staging"]
+        type: string
+        default: "production"
+      k8s-manifests-branch:
+        required: false
+        description: "branch for k8s manifests to run the tests on"
+        type: string
+        default: "main"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -62,29 +72,47 @@ jobs:
       delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
       delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
       delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
-      delay-destroy-escu: ${{ steps.delay-destroy-setup.outputs.delay-destroy-escu }}
       delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
       delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
       execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
       execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
-      execute-escu: ${{ steps.delay-destroy-setup.outputs.execute-escu }}
       execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
       execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
       execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
-      execute-escu-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
+      argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
+      argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
     steps:
+      - name: set k8s environment
+        id: k8s-environment
+        run: |
+          if [[ ${{ inputs.k8s-environment }} == 'staging' ]]; then
+            echo "setting up argo variables for staging"
+            {
+              echo "s3_bucket=ta-staging-artifacts"
+              echo "argo_server_domain=argo.staging.wfe.splgdi.com"
+              echo "argo_token_secret_id=ta-staging-github-workflow-automation-token"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "setting up argo variables for production"
+            {
+              echo "s3_bucket=ta-production-artifacts"
+              echo "argo_server_domain=argo.wfe.splgdi.com"
+              echo "argo_token_secret_id=ta-github-workflow-automation-token"
+            } >> "$GITHUB_OUTPUT"
+          fi
       - name: skip workflow if description is empty for labeled pr
         id: skip-workflow
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set +e
-          TESTSET="knowledge ui modinput_functional scripted_inputs escu requirement_test"
+          TESTSET="knowledge ui modinput_functional scripted_inputs requirement_test"
           echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
           SKIP_WORKFLOW="No"
           if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
@@ -116,9 +144,6 @@ jobs:
           if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
             echo "$PR_BODY" >> body.txt
             tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            if [[ $tests =~ "escu" ]]; then
-              echo "preserve_infra for escu test-type is not supported yet"
-            fi
             for test_type in $TESTSET; do
                 if [[ $tests =~ $test_type ]]; then
                     eval EXECUTE_$test_type="Yes"
@@ -126,20 +151,16 @@ jobs:
                 fi
             done
           fi
-          # PRESERVE_INFRA for escu test-type is not supported yet.
-          DELAY_DESTROY_escu="No"
           {
             echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
             echo "delay-destroy-ui=$DELAY_DESTROY_ui"
             echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional"
             echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs"
-            echo "delay-destroy-escu=$DELAY_DESTROY_escu"
             echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test"
             echo "execute-ko=$EXECUTE_knowledge"
             echo "execute-ui=$EXECUTE_ui"
             echo "execute-modinput_functional=$EXECUTE_modinput_functional"
             echo "execute-scripted_inputs=$EXECUTE_scripted_inputs"
-            echo "execute-escu=$EXECUTE_escu"
             echo "execute-requirement_test=$EXECUTE_requirement_test"
           } >> "$GITHUB_OUTPUT"
       - name: configure tests based on labels
@@ -147,7 +168,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_escu" "execute_requirement_test")
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_requirement_test")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -228,14 +249,11 @@ jobs:
       container_version: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
       container_revision: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.revision'] }}
       container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
-      matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
-      matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
+      matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      python39_splunk: ${{steps.python39_splunk.outputs.splunk}}
-      python39_sc4s: ${{steps.python39_splunk.outputs.sc4s}}
     permissions:
       contents: write
       packages: read
@@ -258,7 +276,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Docker meta
         id: docker_action_meta
-        uses: docker/metadata-action@v5.4.0
+        uses: docker/metadata-action@v5.5.1
         with:
           images: ghcr.io/${{ github.repository }}/container
           tags: |
@@ -272,17 +290,13 @@ jobs:
       - name: matrix
         id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.13
-      - name: python39_Splunk
-        id: python39_splunk
-        run: |
-          echo "splunk={\"version\":\"unreleased-python3_9-7027496d63d8\", \"build\":\"7027496d63d8\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
-          echo "sc4s={\"version\":\"2.49.5\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container2\"}"  >> "$GITHUB_OUTPUT"
-      - name: combined_Splunkmatrix
+
+      - name: Combined Splunk and SC4S Versions
         id: combined_Splunkmatrix
         run: |
-            combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}'  | jq --argjson A '${{steps.python39_splunk.outputs.splunk}}' '. + [$A]')
-            echo "combinedSplunkversions=$(echo "$combinedSplunkversions"| jq -c .)" >> "$GITHUB_OUTPUT"
-
+          splunk='{"version":"unreleased-python3_9-7027496d63d8", "build":"7027496d63d8", "islatest":false, "isoldest":false}'
+          combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq --argjson A "$splunk" '. + [$A]')
+          echo "combinedSplunkversions=$(echo "$combinedSplunkversions" | jq -c .)" >> "$GITHUB_OUTPUT"
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -291,7 +305,7 @@ jobs:
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
-      - name: run fossa anlyze and create report
+      - name: run fossa analyze and create report
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa analyze --debug
@@ -341,7 +355,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.7"
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3.0.1
 
   review_secrets:
     name: security-detect-secrets
@@ -396,7 +410,6 @@ jobs:
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
-      escu: ${{ steps.testset.outputs.escu }}
       ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
     steps:
       - uses: actions/checkout@v3
@@ -440,16 +453,17 @@ jobs:
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
-           then
-             mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-             poetry export --without-hashes -o package/lib/requirements.txt
-             poetry export --without-hashes --dev -o requirements_dev.txt
-           fi
+          then
+            mkdir -p package/lib || true
+            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            poetry lock --check
+            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
+          fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
+          poetry install --with dev
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -457,7 +471,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
@@ -490,16 +504,17 @@ jobs:
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
-           then
-             mkdir -p package/lib || true
-             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-             poetry export --without-hashes -o package/lib/requirements.txt
-             poetry export --without-hashes --dev -o requirements_dev.txt
-           fi
+          then
+            mkdir -p package/lib || true
+            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            poetry lock --check
+            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
+          fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
+          poetry install --with dev
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -507,7 +522,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
@@ -548,7 +563,6 @@ jobs:
           then
             echo " poetry.lock found "
             sudo pip3 install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry lock --check
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -559,7 +573,7 @@ jobs:
                 echo "No prod dependencies were found"
                 rm requirements.txt
             fi
-            poetry export --without-hashes --dev -o requirements_dev.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
       - name: Get pip cache dir
@@ -597,10 +611,33 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Determine the version to build
         id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@v1
-        with:
-          SemVer: ${{ steps.semantic.outputs.new_release_version }}
-          PrNumber: ${{ github.event.number }}
+        run: |
+          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          echo "Initial semver ${INPUT_SEMVER}"
+          INPUT_PRNUMBER="${{ github.event.number }}"
+          SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
+          BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
+          echo working with version $INPUT_SEMVER
+          if [[ $INPUT_SEMVER =~ $SEMVER_REGEX ]];
+          then
+            echo using provided semver
+            VERSION=$INPUT_SEMVER
+          elif [[ $INPUT_SEMVER =~ $BETA_REGEX ]];
+          then
+            VERSION=$(echo $INPUT_SEMVER | awk '{gsub("-beta\.", "-B");print}')
+          else
+            if [[ $GITHUB_EVENT_NAME != 'pull_request' ]];
+            then
+              echo this is not a release build and NOT PR RUNID + run ID
+              VERSION=0.0.${GITHUB_RUN_ID}
+            else 
+              echo this is not a release build and is a PR use run ID
+              VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
+            fi
+          fi
+          FINALVERSION="${VERSION//v}"
+          echo "Version to build is ${FINALVERSION}"
+          echo "VERSION=${FINALVERSION}" >> "$GITHUB_OUTPUT"
       - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v3
@@ -622,9 +659,24 @@ jobs:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
       - name: Slim Package
         id: slim
-        uses: splunk/addonfactory-packaging-toolkit-action@v1
-        with:
-          source: ${{ steps.uccgen.outputs.OUTPUT }}
+        run: |
+          pip install splunk-packaging-toolkit
+          INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
+          SOURCE_REGEX='^.*/$'
+          if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
+            echo Removing trailing / from INPUT_SOURCE slim is picky
+            INPUT_SOURCE=$(echo $INPUT_SOURCE | sed 's/\(.*\)\//\1/')
+          fi
+          mkdir -p build/package/splunkbase
+          slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
+          for f in build/package/splunkbase/*.tar.gz; do
+            n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
+            mv "${f}" "${n}"
+          done
+          PACKAGE=$(ls build/package/splunkbase/*)
+          slim validate "${PACKAGE}"
+          chmod -R +r build
+          echo "OUTPUT=$PACKAGE" >> "$GITHUB_OUTPUT"
         if: always()
       - name: artifact-openapi
         uses: actions/upload-artifact@v3
@@ -647,13 +699,7 @@ jobs:
         run: |
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
-          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" s3://ta-production-artifacts/ta-apps/
-      - name: artifact-splunk-parts
-        uses: actions/upload-artifact@v3
-        with:
-          name: package-deployment
-          path: build/package/deployment**
-        if: ${{ !cancelled() }}
+          aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/"
 
   build-3_9:
     runs-on: ubuntu-latest
@@ -699,7 +745,7 @@ jobs:
                 echo "No prod dependencies were found"
                 rm requirements.txt
             fi
-            poetry export --without-hashes --dev -o requirements_dev.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
       - id: pip-cache
@@ -728,10 +774,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - id: BuildVersion
-        uses: splunk/addonfactory-get-splunk-package-version-action@v1
-        with:
-          SemVer: ${{ steps.semantic.outputs.new_release_version }}
-          PrNumber: ${{ github.event.number }}
+        run: |
+          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          echo "Initial semver ${INPUT_SEMVER}"
+          INPUT_PRNUMBER="${{ github.event.number }}"
+          SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
+          BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
+          echo working with version $INPUT_SEMVER
+          
+          if [[ $INPUT_SEMVER =~ $SEMVER_REGEX ]];
+          then
+            echo using provided semver
+            VERSION=$INPUT_SEMVER
+          elif [[ $INPUT_SEMVER =~ $BETA_REGEX ]];
+          then
+            VERSION=$(echo $INPUT_SEMVER | awk '{gsub("-beta\.", "-B");print}')
+          else
+            if [[ $GITHUB_EVENT_NAME != 'pull_request' ]];
+            then
+              echo this is not a release build and NOT PR RUNID + run ID
+              VERSION=0.0.${GITHUB_RUN_ID}
+            else 
+              echo this is not a release build and is a PR use run ID
+              VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
+            fi
+          fi
+          FINALVERSION="${VERSION//v}"
+          echo "Version to build is $FINALVERSION"
+          echo "VERSION=$FINALVERSION" >> "$GITHUB_OUTPUT"
       - id: uccgen
         uses: splunk/addonfactory-ucc-generator-action@v2
         with:
@@ -843,84 +913,9 @@ jobs:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
 
-  artifact-registry:
-    runs-on: ubuntu-latest
-    needs:
-      - meta
-      - build
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.meta.result == 'success' }}
-    outputs:
-      artifact: ${{ steps.artifactid.outputs.result }}
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
-        with:
-          name: package-splunkbase
-          path: build/package/splunkbase
-      - id: getappid
-        run: |
-          appid=$(jq -r '.info.id.name' package/app.manifest)
-          echo appid="$appid"
-          echo "result=$appid" >> "$GITHUB_OUTPUT"
-      - run: |
-          curl -LO https://github.com/oras-project/oras/releases/download/v0.12.0/oras_0.12.0_linux_amd64.tar.gz
-          mkdir -p oras-install/
-          tar -zxf oras_0.12.0_*.tar.gz -C oras-install/
-          mv oras-install/oras /usr/local/bin/
-          rm -rf oras_0.12.0_*.tar.gz oras-install/
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to GitHub Packages Docker Registry
-        uses: docker/login-action@v2.2.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5.4.0
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern=v{{major}}.{{minor}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern=v{{major}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern=v{{version}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{major}}.{{minor}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{major}},prefix=${{ steps.getappid.outputs.result }}-
-            type=semver,pattern={{version}},prefix=${{ steps.getappid.outputs.result }}-
-            type=ref,event=branch,prefix=${{ steps.getappid.outputs.result }}-
-            type=ref,event=pr,prefix=${{ steps.getappid.outputs.result }}-
-            type=sha,prefix=${{ steps.getappid.outputs.result }}-
-            type=sha,format=long,prefix=${{ steps.getappid.outputs.result }}-
-      - name: Upload artifacts
-        run: |
-          tee /tmp/tags &>/dev/null <<EOF
-          ${{ steps.meta.outputs.tags }}
-          EOF
-          pushd build/package/splunkbase/
-          PACKAGE=$(ls ./*)
-          echo "$PACKAGE"
-          mv "$PACKAGE" "${{ steps.getappid.outputs.result }}".spl
-          while IFS= read -r line
-          do
-            echo ">>$line<<"
-            oras push \
-                --manifest-config /dev/null:application/vnd.splunk.ent.package.v1.tar+gzip \
-                "$line" \
-                "${{ steps.getappid.outputs.result }}".spl
-            echo "  complete"
-          done < /tmp/tags
-          popd
-      - name: Output artifact locator
-        id: artifactid
-        run: |
-          echo "result= ${{ needs.meta.outputs.sc4s }}" >> "$GITHUB_OUTPUT"
-
   setup:
     needs:
+      - setup-workflow
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' }}
@@ -965,9 +960,9 @@ jobs:
           JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           LABELS="addon-name=${ADDON_NAME}"
-          ADDON_UPLOAD_PATH="s3://ta-production-artifacts/ta-apps/${{ needs.build.outputs.buildname }}"
+          ADDON_UPLOAD_PATH="s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/${{ needs.build.outputs.buildname }}"
           {
-          echo "argo-server=argo.wfe.splgdi.com:443"
+          echo "argo-server=${{ needs.setup-workflow.outputs.argo_server_domain_k8s }}:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
           echo "argo-base-href=\'\'"
@@ -975,13 +970,13 @@ jobs:
           echo "argo-workflow-tmpl-name=ta-workflow"
           echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
           echo "directory-path=/tmp"
-          echo "s3-bucket=ta-production-artifacts"
+          echo "s3-bucket=${{ needs.setup-workflow.outputs.s3_bucket_k8s }}"
           echo "addon-name=\"$ADDON_NAME\""
           echo "job-name=wf-$JOB_NAME"
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
           echo "spl-host-suffix=wfe.splgdi.com"
-          echo "k8s-manifests-branch=main"
+          echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
         if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
@@ -1015,7 +1010,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           swagger_name=swagger_$(basename "$BUILD_NAME" .spl)
-          aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://ta-production-artifacts/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
+          aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-knowledge-labeled == 'true') }}
@@ -1026,19 +1021,14 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
-              python39: true
+
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1059,12 +1049,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1072,7 +1069,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1119,7 +1116,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1268,19 +1265,14 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              sc4s: ${{ fromJson(needs.meta.outputs.python39_sc4s) }}
-              python39: true
+
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1300,12 +1292,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1313,7 +1312,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1488,20 +1487,15 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              browser: "chrome"
-              python39: true
+
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1511,7 +1505,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1522,12 +1516,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1535,7 +1536,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1550,7 +1551,7 @@ jobs:
       - name: Splunk instance details
         id: splunk-instance-details
         if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
-        shell: bash 
+        shell: bash
         run: |
           BOLD="\033[1m"
           NORMAL="\033[0m"
@@ -1582,7 +1583,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1724,7 +1725,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1745,12 +1746,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1758,7 +1766,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -1817,7 +1825,7 @@ jobs:
         id: update-argo-token
         if: ${{ !cancelled() }}
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: calculate timeout
         id: calculate-timeout
@@ -1951,19 +1959,13 @@ jobs:
       - meta
       - setup-workflow
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.python39 }}
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         os: [ "ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5" ]
-        python39: [false]
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              os: "ubuntu:22.04"
-              python39: true
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1983,12 +1985,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -1996,7 +2005,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -2189,10 +2198,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         os: [ "ubuntu:22.04", "centos:7","redhat:8.5" ]
     container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
+      image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2212,12 +2221,19 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
       - name: capture start time
         id: capture-start-time
         run: |
           echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -2225,7 +2241,7 @@ jobs:
       - name: Read secrets from AWS Secrets Manager into environment variables
         id: get-argo-token
         run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
           echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
       - name: create job name
         id: create-job-name
@@ -2414,253 +2430,6 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  run-escu-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.escu == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-escu == 'Yes' || needs.setup-workflow.outputs.execute-escu-labeled == 'true') }}
-    needs:
-      - build
-      - test-inventory
-      - setup
-      - meta
-      - setup-workflow
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
-    container:
-      image: ghcr.io/splunk/workflow-engine-base:2.0.3
-    env:
-      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
-      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
-      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
-      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
-      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
-      SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-      TEST_TYPE: "escu"
-    permissions: 
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: capture start time
-        id: capture-start-time
-        run: |
-          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: Read secrets from AWS Secrets Manager into environment variables
-        id: get-argo-token
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id ta-github-workflow-automation-token | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: create job name
-        id: create-job-name
-        shell: bash
-        run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
-          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME//[_.]/-}
-          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-escu == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
-      - name: get escu detections
-        id: get-escu-detections
-        run: |
-          RUN_TEST=false
-          # shellcheck disable=SC2002
-          DETECTIONS=$(cat tests/escu/.escu_detections | tr '\n' ',' | tr -d "[:space:]")
-          if [ -z "$DETECTIONS" ]
-          then
-                echo "Detection list is empty."
-          else
-                RUN_TEST=true
-          fi
-          DETECTIONS="-tf $DETECTIONS"
-          {
-          echo "escu-detections=$DETECTIONS"
-          echo "escu-test-run=$RUN_TEST"
-          } >> "$GITHUB_OUTPUT"
-      - name: run-tests
-        id: run-tests
-        timeout-minutes: 340
-        continue-on-error: true
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
-        with:
-          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-          test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ steps.get-escu-detections.outputs.escu-detections }}
-          job-name: ${{ steps.create-job-name.outputs.job-name }}
-          labels: ${{ needs.setup.outputs.labels }}
-          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
-          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: ${{ needs.setup-workflow.outputs.delay-destroy-escu }}
-          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
-          addon-name: ${{ needs.setup.outputs.addon-name }}
-          vendor-version: ${{ matrix.vendor-version.image }}
-          sc4s-version: "No"
-          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-      - name: calculate timeout
-        id: calculate-timeout
-        run: |
-          start_time=${{ steps.capture-start-time.outputs.start_time }}
-          current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Cancel workflow
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() }}
-        run: |
-          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
-          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
-          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
-          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
-          else
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
-            exit 1
-          fi
-      - name: Retrying workflow
-        id: retry-wf
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        run: |
-          set -o xtrace
-          set +e
-          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
-          then
-            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "workflow-name=$WORKFLOW_NAME" >> "$GITHUB_OUTPUT"
-            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
-          else
-            echo "No retry required"
-            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
-            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
-          fi
-      - name: check if workflow completed
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        shell: bash
-        run: |
-          set +e
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          echo "Status of workflow:" "$ARGO_STATUS"
-          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
-          do
-              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
-              argo wait "${WORKFLOW_NAME}" -n workflows || true
-              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          done
-      - name: pull artifacts from s3 bucket
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        run: |
-          echo "pulling artifacts"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
-      - name: pull logs from s3 bucket
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        run: |
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          echo "pulling logs"
-          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v3
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v3
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/argo-logs
-      - name: Upload results
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: escu-test-result
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results/escu-result.xml
-      - name: Test Report
-        id: test_report
-        uses: dorny/test-reporter@v1.7.0
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && !contains(matrix.splunk.version, 'unreleased-python3_9')}}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Test Report Python 3.9
-        continue-on-error: true
-        id: test_report_python_3_9
-        uses: dorny/test-reporter@v1.7.0
-        if: ${{ steps.get-escu-detections.outputs.escu-test-run == 'true' && !cancelled() && contains(matrix.splunk.version, 'unreleased-python3_9')}}
-        with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: pull diag from s3 bucket
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        run: |
-          echo "pulling diag"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v3
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/diag*
-
   pre-publish:
     if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
@@ -2707,7 +2476,6 @@ jobs:
     if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' }}
     needs:
       - pre-publish
-      - run-escu-tests
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -2730,13 +2498,6 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-      - name: Download package-deployment
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
-        id: download-package-deployment
-        with:
-          name: package-deployment
-          path: download/artifacts/
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v3
@@ -2759,14 +2520,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: cim-field-report
-          path: download/artifacts/deployment
-      - name: Download escu-test-results
-        id: download-escu-xml
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v3
-        with:
-          name: escu-test-result
           path: download/artifacts/deployment
       - name: List of assets
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
