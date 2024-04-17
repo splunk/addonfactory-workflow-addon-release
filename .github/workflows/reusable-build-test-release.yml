@@ -458,12 +458,12 @@ jobs:
             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
-            poetry export --without-hashes --dev -o requirements_dev.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
           fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
+          poetry install --with dev
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -471,7 +471,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
@@ -509,12 +509,12 @@ jobs:
             pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
-            poetry export --without-hashes --dev -o requirements_dev.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
           fi
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
+          poetry install --with dev
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -522,7 +522,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - uses: actions/upload-artifact@v3
         if: success() || failure()
         with:
@@ -573,7 +573,7 @@ jobs:
                 echo "No prod dependencies were found"
                 rm requirements.txt
             fi
-            poetry export --without-hashes --dev -o requirements_dev.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
       - name: Get pip cache dir
@@ -745,7 +745,7 @@ jobs:
                 echo "No prod dependencies were found"
                 rm requirements.txt
             fi
-            poetry export --without-hashes --dev -o requirements_dev.txt
+            poetry export --without-hashes --with dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
       - id: pip-cache
