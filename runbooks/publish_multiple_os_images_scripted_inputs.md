@@ -4,7 +4,7 @@ Once there is new Splunk release, and [matrix](https://github.com/splunk/addonfa
 ## Steps
 
 ### Update OS iamges
-- check what OS are listed in definition of matrix in scripted inputs tests [line](https://github.com/splunk/addonfactory-workflow-addon-release/blob/v4.16/.github/workflows/reusable-build-test-release.yml#L1966)
+- check what OS are listed in definition of matrix in scripted inputs tests [here](https://github.com/splunk/addonfactory-workflow-addon-release/blob/v4.16/.github/workflows/reusable-build-test-release.yml#L1966)
 - if any is missing in [ta-automation-docker-images](https://cd.splunkdev.com/taautomation/ta-automation-docker-images/-/tree/main/dockerfiles) then add new dockerfile
 
 ### Create images and publish them to ECR
