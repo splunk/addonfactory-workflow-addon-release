@@ -474,7 +474,7 @@ jobs:
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Check coverage
         run: |
-          coverage_report=$(coverage report -m)
+          coverage_report=$(poetry run coverage report -m)
           overall_coverage=$(echo $coverage_report | awk -F'TOTAL' '{print $2}' | rev | cut -d " " -f1 | rev | cut -d'%' -f1)
           echo $overall_coverage
           if [ $(echo "$overall_coverage < 50" | bc -l) -eq 1 ]; then
