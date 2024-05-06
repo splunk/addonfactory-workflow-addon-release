@@ -471,7 +471,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: poetry run pytest --cov=package/bin/splunk_ta_aws --cov-config=.coveragerc --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Check coverage
         run: |
           coverage_report=$(poetry run coverage report -m)
