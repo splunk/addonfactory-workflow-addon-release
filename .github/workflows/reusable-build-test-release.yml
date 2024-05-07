@@ -922,7 +922,7 @@ jobs:
           aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-knowledge-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1155,7 +1155,7 @@ jobs:
 
 
   run-requirement-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && (needs.setup-workflow.outputs.execute-requirement-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1366,7 +1366,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1585,7 +1585,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1816,7 +1816,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -2041,7 +2041,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-canary:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && (needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'develop' || github.ref_name == 'develop' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
