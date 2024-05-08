@@ -4,7 +4,13 @@ on:
     inputs:
       marker:
         required: false
-        description: 'Parallel run marker'
+        description: 'Parallel run mod_input marker'
+        type: string
+        default: >-
+          [""]
+      ui_marker:
+        required: false
+        description: 'Parallel run ui marker'
         type: string
         default: >-
           [""]
@@ -1493,7 +1499,12 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
-
+        python39: [false]
+        marker: ${{ fromJson(inputs.ui_marker) }}
+        include:
+            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
+              browser: "chrome"
+              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1792,13 +1803,13 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          export comparing_variable="[]"
-          if [ "${{ inputs.marker }}" == "$comparing_variable" ]
-          then
-            TEST_ARG_M=""
-          else
+          TEST_ARG_M=""
+          EMPTY_MARKER="[]"
+
+          if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" || "${{ inputs.ui_marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
+      
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
