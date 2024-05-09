@@ -23,7 +23,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "main"
+        default: "v1.0.0"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -868,7 +868,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.6
+        uses: splunk/appinspect-cli-action@v2.7
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
