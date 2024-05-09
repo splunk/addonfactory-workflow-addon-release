@@ -242,13 +242,6 @@ jobs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
-      sc4s: ghcr.io/${{ github.repository }}/container:${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
-      container_tags: ${{ steps.docker_action_meta.outputs.tags }}
-      container_labels: ${{ steps.docker_action_meta.outputs.labels }}
-      container_buildtime: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.created'] }}
-      container_version: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.version'] }}
-      container_revision: ${{ fromJSON(steps.docker_action_meta.outputs.json).labels['org.opencontainers.image.revision'] }}
-      container_base: ${{ fromJSON(steps.docker_action_meta.outputs.json).tags[0] }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
@@ -258,39 +251,12 @@ jobs:
       contents: write
       packages: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
           submodules: false
           persist-credentials: false
-      - name: Semantic Release
-        id: version
-        uses: splunk/semantic-release-action@v1.3
-        with:
-          dry_run: true
-          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
-          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
-          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Docker meta
-        id: docker_action_meta
-        uses: docker/metadata-action@v5.5.1
-        with:
-          images: ghcr.io/${{ github.repository }}/container
-          tags: |
-            type=sha,format=long
-            type=sha
-            type=semver,pattern={{version}},value=${{ steps.version.outputs.new_release_version }}
-            type=semver,pattern={{major}},value=${{ steps.version.outputs.new_release_version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.version.outputs.new_release_version }}
-            type=ref,event=branch
-            type=ref,event=pr
-      - name: matrix
-        id: matrix
+      - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v1.13
-
       - name: Combined Splunk and SC4S Versions
         id: combined_Splunkmatrix
         run: |
