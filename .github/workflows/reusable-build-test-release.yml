@@ -1499,12 +1499,6 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
-        python39: [false]
-        marker: ${{ fromJson(inputs.ui_marker) }}
-        include:
-            - splunk: ${{ fromJson(needs.meta.outputs.python39_splunk) }}
-              browser: "chrome"
-              python39: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
