@@ -1499,6 +1499,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
+        marker: ${{ fromJson(inputs.ui_marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:2.0.12
     env:
@@ -1563,6 +1564,18 @@ jobs:
           echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
           echo -e "Splunk username is${BOLD} admin${NORMAL}"
           echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
+      - name: create test argument
+        id: create-test-arg
+        shell: bash
+        run: |
+          TEST_ARG_M=""
+          EMPTY_MARKER="[]"
+
+          if [[ "${{ inputs.ui_marker }}" != "$EMPTY_MARKER" ]]; then
+            TEST_ARG_M="-m"
+          fi
+
+          echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
         timeout-minutes: 340
@@ -1573,7 +1586,7 @@ jobs:
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1800,7 +1813,7 @@ jobs:
           TEST_ARG_M=""
           EMPTY_MARKER="[]"
 
-          if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" || "${{ inputs.ui_marker }}" != "$EMPTY_MARKER" ]]; then
+          if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
       
