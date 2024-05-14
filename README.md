@@ -52,16 +52,7 @@ meta stage
 
 **Description:** 
 
-- GitHub Action to extract metadata from Git reference and GitHub events.
-
-**Action used:** https://github.com/docker/metadata-action 
-
-**Artifacts:**
-
--  No Artifacts for this stage.
-
-<img src="images/meta/meta_logs.png" alt="meta_logs" style="width:200px;"/>
-
+- Determines which Splunk and SC4S versions to run tests with.
 
 fossa-scan
 =======================
