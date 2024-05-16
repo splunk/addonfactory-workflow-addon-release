@@ -33,7 +33,7 @@ Workflow defines jobs which perform security code scanning, execute different ty
 
 ## setup-workflow
 
-Job that is scanning PR and based on PR body or included labels defining tests to be executed..
+Job that is scanning PR and based on PR body or included labels defining tests to be executed.
 
 * All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
   * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
