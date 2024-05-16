@@ -266,7 +266,6 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
-    if: github.actor != 'dependabot[bot]'
     container:
       image: returntocorp/semgrep
     steps:
@@ -852,6 +851,7 @@ jobs:
           echo "job-name=wf-$JOB_NAME"
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
+          echo "spl-host-suffix=wfe.splgdi.com"
           echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v3
@@ -2279,7 +2279,7 @@ jobs:
       - name: exit without publish
         if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled') }}
         run: |
-          echo "some test job failed."
+          echo "Expand check step to see which job has failed pre-publish step."
           exit 1
 
   publish:
