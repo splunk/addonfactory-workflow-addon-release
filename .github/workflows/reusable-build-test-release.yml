@@ -17,7 +17,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v1.0.0"
+        default: "v1.1.0"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -68,17 +68,6 @@ jobs:
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
-      skip-workflow: ${{ steps.skip-workflow.outputs.skip-workflow }}
-      delay-destroy-ko: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ko }}
-      delay-destroy-ui: ${{ steps.delay-destroy-setup.outputs.delay-destroy-ui }}
-      delay-destroy-modinput_functional: ${{ steps.delay-destroy-setup.outputs.delay-destroy-modinput_functional }}
-      delay-destroy-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.delay-destroy-scripted_inputs }}
-      delay-destroy-requirement_test: ${{ steps.delay-destroy-setup.outputs.delay-destroy-requirement_test }}
-      execute-ko: ${{ steps.delay-destroy-setup.outputs.execute-ko }}
-      execute-ui: ${{ steps.delay-destroy-setup.outputs.execute-ui }}
-      execute-modinput_functional: ${{ steps.delay-destroy-setup.outputs.execute-modinput_functional }}
-      execute-scripted_inputs: ${{ steps.delay-destroy-setup.outputs.execute-scripted_inputs }}
-      execute-requirement_test: ${{ steps.delay-destroy-setup.outputs.execute-requirement_test }}
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
@@ -106,63 +95,7 @@ jobs:
               echo "argo_token_secret_id=ta-github-workflow-automation-token"
             } >> "$GITHUB_OUTPUT"
           fi
-      - name: skip workflow if description is empty for labeled pr
-        id: skip-workflow
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set +e
-          TESTSET="knowledge ui modinput_functional scripted_inputs requirement_test"
-          echo "testset=$TESTSET" >> "$GITHUB_OUTPUT"
-          SKIP_WORKFLOW="No"
-          if [[ '${{ github.event.action }}' == 'labeled' && '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            echo "$PR_BODY" >> body.txt
-            SKIP_WORKFLOW="Yes" 
-            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            for test_type in $TESTSET; do
-                if [[ $tests =~ $test_type ]]; then
-                    SKIP_WORKFLOW="No"
-                fi
-            done
-          fi
-          echo "skip-workflow=$SKIP_WORKFLOW" >> "$GITHUB_OUTPUT"
-          if [ "$SKIP_WORKFLOW" == "Yes" ]; then 
-            echo "No description is provided with preserve infra label"
-          fi 
-      - name: setup for delay destroy
-        id: delay-destroy-setup
-        shell: bash
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set +e
-          TESTSET="${{ steps.skip-workflow.outputs.testset }}"
-          for test_type in $TESTSET; do
-              eval DELAY_DESTROY_$test_type="No"
-              eval EXECUTE_$test_type="No"
-          done
-          if [[ '${{ github.event.label.name }}' == 'preserve_infra' ]]; then
-            echo "$PR_BODY" >> body.txt
-            tests=$(grep -i "^preserve:" body.txt | { grep -v grep || true; })
-            for test_type in $TESTSET; do
-                if [[ $tests =~ $test_type ]]; then
-                    eval EXECUTE_$test_type="Yes"
-                    eval DELAY_DESTROY_$test_type="Yes"
-                fi
-            done
-          fi
-          {
-            echo "delay-destroy-ko=$DELAY_DESTROY_knowledge"
-            echo "delay-destroy-ui=$DELAY_DESTROY_ui"
-            echo "delay-destroy-modinput_functional=$DELAY_DESTROY_modinput_functional"
-            echo "delay-destroy-scripted_inputs=$DELAY_DESTROY_scripted_inputs"
-            echo "delay-destroy-requirement_test=$DELAY_DESTROY_requirement_test"
-            echo "execute-ko=$EXECUTE_knowledge"
-            echo "execute-ui=$EXECUTE_ui"
-            echo "execute-modinput_functional=$EXECUTE_modinput_functional"
-            echo "execute-scripted_inputs=$EXECUTE_scripted_inputs"
-            echo "execute-requirement_test=$EXECUTE_requirement_test"
-          } >> "$GITHUB_OUTPUT"
+
       - name: configure tests based on labels
         id: configure-tests-on-labels
         run: |
@@ -219,9 +152,7 @@ jobs:
 
   validate-pr-title:
     name: Validate PR title
-    needs: 
-    - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' && github.event_name == 'pull_request' }}
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -238,9 +169,6 @@ jobs:
 
   meta:
     runs-on: ubuntu-latest
-    needs:
-      - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     outputs:
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
@@ -266,9 +194,6 @@ jobs:
 
   fossa-scan:
     runs-on: ubuntu-latest
-    needs:
-      - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: run fossa analyze and create report
@@ -289,7 +214,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: run fossa test
@@ -302,9 +226,6 @@ jobs:
   compliance-copyrights:
     name: compliance-copyrights
     runs-on: ubuntu-latest
-    needs:
-      - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -313,9 +234,6 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    needs:
-      - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
@@ -326,9 +244,6 @@ jobs:
   review_secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
-    needs:
-      - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
@@ -351,11 +266,8 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
-    needs:
-      - setup-workflow
     container:
       image: returntocorp/semgrep
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     steps:
       - uses: actions/checkout@v3
       - name: Semgrep
@@ -366,8 +278,6 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
-    needs: setup-workflow
-    if: ${{ needs.setup-workflow.outputs.skip-workflow != 'Yes' }}
     # Map a step output to a job output
     outputs:
       unit: ${{ steps.testset.outputs.unit }}
@@ -979,7 +889,7 @@ jobs:
           aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-knowledge-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && (needs.setup-workflow.outputs.execute-ko == 'Yes' || needs.setup-workflow.outputs.execute-knowledge-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1047,23 +957,13 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-ko == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
         timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@v2.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1072,7 +972,6 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -1223,7 +1122,7 @@ jobs:
 
 
   run-requirement-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && (needs.setup-workflow.outputs.execute-requirement_test == 'Yes' || needs.setup-workflow.outputs.execute-requirement-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1290,23 +1189,13 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-requirement_test == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
         timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@v2.1
         with:
           splunk: ${{ matrix.splunk.version }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1315,7 +1204,6 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
@@ -1445,7 +1333,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-ui-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && (needs.setup-workflow.outputs.execute-ui == 'Yes' || needs.setup-workflow.outputs.execute-ui-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1514,23 +1402,13 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-ui == 'Yes' }}
-        shell: bash
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: run-tests
         id: run-tests
         timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@v2.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1539,7 +1417,6 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1675,7 +1552,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-modinput-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && (needs.setup-workflow.outputs.execute-modinput_functional == 'Yes' || needs.setup-workflow.outputs.execute-modinput-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1744,16 +1621,6 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-modinput_functional == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: create test argument
         id: create-test-arg
         shell: bash
@@ -1772,7 +1639,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@v2.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1781,7 +1648,6 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -1917,7 +1783,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && (needs.setup-workflow.outputs.execute-scripted_inputs == 'Yes' || needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true') }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1983,16 +1849,6 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: Splunk instance details
-        id: splunk-instance-details
-        if: ${{ needs.setup-workflow.outputs.delay-destroy-scripted_inputs == 'Yes' }}
-        shell: bash 
-        run: |
-          BOLD="\033[1m"
-          NORMAL="\033[0m"
-          echo "Splunk Web UI will be available at https://${{ steps.create-job-name.outputs.job-name }}.${{ needs.setup.outputs.spl-host-suffix }}:8000 after test execution starts"
-          echo -e "Splunk username is${BOLD} admin${NORMAL}"
-          echo "Splunk password is available in SecretServer shared folder: Shared Splunk - GDI - Lab Credentials under SPLUNK_DEPLOYMENT_PASSWORD"
       - name: get os name and version
         id: os-name-version
         shell: bash
@@ -2012,7 +1868,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@v2.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2021,7 +1877,6 @@ jobs:
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          delay-destroy: "No"
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
           vendor-version: ${{ matrix.vendor-version.image }}
@@ -2189,9 +2044,9 @@ jobs:
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
           fi
       - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled' && github.event.label.name == 'preserve_infra' ) }}
+        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled') }}
         run: |
-          echo "Some test job failed or Workflow has triggered on preserve_infra label."
+          echo "Expand check step to see which job has failed pre-publish step."
           exit 1
 
   publish:

@@ -33,12 +33,8 @@ Workflow defines jobs which perform security code scanning, execute different ty
 
 ## setup-workflow
 
-Job that is scanning PR and based on PR body or included labels defining tests to be executed or infrastructures to be preserved.
+Job that is scanning PR and based on PR body or included labels defining tests to be executed.
 
-* To preserve infrastructure
-  * add to PR label `preserve_infra`
-  * add to PR description add `preserve: {comma separated list of test type}`, available choices: `knowledge ui modinput_functional scripted_inputs requirement_test`
-  * to trigger tests again, reapply `preserve_infra` label
 * All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
   * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
   * push event on branches `main`, `develop` and on `tags` (on release)
