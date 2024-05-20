@@ -434,8 +434,36 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name: Job summary
+        run: |
+          if [ -f ./.coveragerc ]; then
+            read_line=$(tail -n 1 ./.coveragerc)
+            if [[ $read_line == "COV_PATH="* ]]; then
+            IFS='=' read -r key value <<< "$read_line"
+                poetry run pytest --cov=${value} --cov-report=xml --junitxml=test-results/junit.xml tests/unit --junitxml=test-results/junit.xml tests/unit
+            else
+                poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit --junitxml=test-results/junit.xml tests/unit
+            fi
+          else
+              poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit --junitxml=test-results/junit.xml tests/unit
+          fi
+      - name: Check coverage
+        run: |
+          if [ -f ./.coveragerc ]; then
+            coverage_report=$(poetry run coverage report -m)
+            overall_coverage=$(echo $coverage_report | awk -F'TOTAL' '{print $2}' | rev | cut -d " " -f1 | rev | cut -d'%' -f1)
+            echo "$((tail -n 2 ./.coveragerc) | head -n 1)"
+            required_min_coverage=$((tail -n 2 ./.coveragerc) | head -n 1)
+            if [[ $required_min_coverage == "MIN_COVERAGE="* ]]; then
+                IFS='=' read -r key required_min_coverage_value <<< "$required_min_coverage"
+                echo $overall_coverage
+                echo $required_min_coverage_value
+                if [ $(echo "$overall_coverage < $required_min_coverage_value" | bc -l) -eq 1 ]; then
+                    echo "Overall coverage is below ${required_min_coverage_value}%"
+                    exit 1
+                fi
+            fi
+          fi
+      - name : Job summary
         continue-on-error: true
         run: |
           sudo apt-get update
@@ -503,8 +531,36 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name: Job summary
+        run: |
+          if [ -f ./.coveragerc ]; then
+            read_line=$(tail -n 1 ./.coveragerc)
+            if [[ $read_line == "COV_PATH="* ]]; then
+            IFS='=' read -r key value <<< "$read_line"
+                poetry run pytest --cov=${value} --cov-report=xml --junitxml=test-results/junit.xml tests/unit --junitxml=test-results/junit.xml tests/unit
+            else
+                poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit --junitxml=test-results/junit.xml tests/unit
+            fi
+          else
+              poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit --junitxml=test-results/junit.xml tests/unit
+          fi
+      - name: Check coverage
+        run: |
+          if [ -f ./.coveragerc ]; then
+            coverage_report=$(poetry run coverage report -m)
+            overall_coverage=$(echo $coverage_report | awk -F'TOTAL' '{print $2}' | rev | cut -d " " -f1 | rev | cut -d'%' -f1)
+            echo "$((tail -n 2 ./.coveragerc) | head -n 1)"
+            required_min_coverage=$((tail -n 2 ./.coveragerc) | head -n 1)
+            if [[ $required_min_coverage == "MIN_COVERAGE="* ]]; then
+                IFS='=' read -r key required_min_coverage_value <<< "$required_min_coverage"
+                echo $overall_coverage
+                echo $required_min_coverage_value
+                if [ $(echo "$overall_coverage < $required_min_coverage_value" | bc -l) -eq 1 ]; then
+                    echo "Overall coverage is below ${required_min_coverage_value}%"
+                    exit 1
+                fi
+            fi
+          fi
+      - name : Job summary
         continue-on-error: true
         run: |
           sudo apt-get update
