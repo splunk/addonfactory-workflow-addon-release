@@ -1103,7 +1103,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@fix/add-browser-arg
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1346,7 +1346,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@fix/add-browser-arg
         with:
           splunk: ${{ matrix.splunk.version }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1511,6 +1511,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
+      TEST_BROWSER: "${{ matrix.browser }}"
     permissions:
       actions: read
       deployments: read
@@ -1582,7 +1583,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@fix/add-browser-arg
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1597,6 +1598,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          test-browser: ${{ env.TEST_BROWSER }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1824,7 +1826,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@fix/add-browser-arg
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2064,7 +2066,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@fix/add-browser-arg
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2299,7 +2301,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v1.6
+        uses: splunk/wfe-test-runner-action@fix/add-browser-arg
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
