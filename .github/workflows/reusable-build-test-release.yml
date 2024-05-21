@@ -1511,7 +1511,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
-      TEST_BROWSER: "${{ matrix.browser }}"
+      TEST_BROWSER: ${{ matrix.browser }}
     permissions:
       actions: read
       deployments: read
