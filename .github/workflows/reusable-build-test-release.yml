@@ -449,16 +449,17 @@ jobs:
       - name: Check coverage
         run: |
           if [ -f ./.coveragerc ]; then
-            coverage_report=$(poetry run coverage report -m)
-            overall_coverage=$(echo $coverage_report | awk -F'TOTAL' '{print $2}' | rev | cut -d " " -f1 | rev | cut -d'%' -f1)
-            echo "$((tail -n 2 ./.coveragerc) | head -n 1)"
+            coverage_report=$((poetry run coverage report -m) | tail -n 1)
+            stmts=$(echo "$coverage_report" | awk '{print $2}')
+            miss=$(echo "$coverage_report" | awk '{print $3}')
+            cov=$((stmts - miss))
             required_min_coverage=$((tail -n 2 ./.coveragerc) | head -n 1)
-            if [[ $required_min_coverage == "MIN_COVERAGE="* ]]; then
-                IFS='=' read -r key required_min_coverage_value <<< "$required_min_coverage"
-                echo $overall_coverage
-                echo $required_min_coverage_value
-                if [ $(echo "$overall_coverage < $required_min_coverage_value" | bc -l) -eq 1 ]; then
-                    echo "Overall coverage is below ${required_min_coverage_value}%"
+            if [[ $required_min_coverage == "COVERAGE_LINES="* ]]; then
+                IFS='=' read -r key value <<< "$required_min_coverage"
+                if [ "$cov" != "$value" ]; then
+                    echo "Overall coverage is different then ${value}"
+                    echo "Current coverage is: ${cov}"
+                    echo "Please update COVERAGE_LINES in .coveragerc"
                     exit 1
                 fi
             fi
@@ -546,16 +547,17 @@ jobs:
       - name: Check coverage
         run: |
           if [ -f ./.coveragerc ]; then
-            coverage_report=$(poetry run coverage report -m)
-            overall_coverage=$(echo $coverage_report | awk -F'TOTAL' '{print $2}' | rev | cut -d " " -f1 | rev | cut -d'%' -f1)
-            echo "$((tail -n 2 ./.coveragerc) | head -n 1)"
+            coverage_report=$((poetry run coverage report -m) | tail -n 1)
+            stmts=$(echo "$coverage_report" | awk '{print $2}')
+            miss=$(echo "$coverage_report" | awk '{print $3}')
+            cov=$((stmts - miss))
             required_min_coverage=$((tail -n 2 ./.coveragerc) | head -n 1)
-            if [[ $required_min_coverage == "MIN_COVERAGE="* ]]; then
-                IFS='=' read -r key required_min_coverage_value <<< "$required_min_coverage"
-                echo $overall_coverage
-                echo $required_min_coverage_value
-                if [ $(echo "$overall_coverage < $required_min_coverage_value" | bc -l) -eq 1 ]; then
-                    echo "Overall coverage is below ${required_min_coverage_value}%"
+            if [[ $required_min_coverage == "COVERAGE_LINES="* ]]; then
+                IFS='=' read -r key value <<< "$required_min_coverage"
+                if [ "$cov" != "$value" ]; then
+                    echo "Overall coverage is different then ${value}"
+                    echo "Current coverage is: ${cov}"
+                    echo "Please update COVERAGE_LINES in .coveragerc"
                     exit 1
                 fi
             fi
