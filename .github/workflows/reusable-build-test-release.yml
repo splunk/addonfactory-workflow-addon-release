@@ -454,12 +454,12 @@ jobs:
             miss=$(echo "$coverage_report" | awk '{print $3}')
             cov=$((stmts - miss))
             required_min_coverage=$((tail -n 2 ./.coveragerc) | head -n 1)
-            if [[ $required_min_coverage == "COVERAGE_LINES="* ]]; then
+            if [[ $required_min_coverage == "COVERAGE_LINES_3_7="* ]]; then
                 IFS='=' read -r key value <<< "$required_min_coverage"
                 if [ "$cov" != "$value" ]; then
                     echo "Overall coverage is different then ${value}"
                     echo "Current coverage is: ${cov}"
-                    echo "Please update COVERAGE_LINES in .coveragerc"
+                    echo "Please update COVERAGE_LINES_3_7 in .coveragerc"
                     exit 1
                 fi
             fi
@@ -551,13 +551,13 @@ jobs:
             stmts=$(echo "$coverage_report" | awk '{print $2}')
             miss=$(echo "$coverage_report" | awk '{print $3}')
             cov=$((stmts - miss))
-            required_min_coverage=$((tail -n 2 ./.coveragerc) | head -n 1)
-            if [[ $required_min_coverage == "COVERAGE_LINES="* ]]; then
+            required_min_coverage=$((tail -n 3 ./.coveragerc) | head -n 1)
+            if [[ $required_min_coverage == "COVERAGE_LINES_3_9="* ]]; then
                 IFS='=' read -r key value <<< "$required_min_coverage"
                 if [ "$cov" != "$value" ]; then
                     echo "Overall coverage is different then ${value}"
                     echo "Current coverage is: ${cov}"
-                    echo "Please update COVERAGE_LINES in .coveragerc"
+                    echo "Please update COVERAGE_LINES_3_9 in .coveragerc"
                     exit 1
                 fi
             fi
