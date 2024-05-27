@@ -8,6 +8,7 @@ Workflow defines jobs which perform security code scanning, execute different ty
 
 ## Development flow
 
+
 * All the changes should first go to the `develop` branch (using "squash commit"), `main` branch should contain stable code
 * Official releases are made from `main` branch (when it's time to rollout new template changes):
   * create a PR from `develop` to `main`
