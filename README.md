@@ -486,6 +486,9 @@ cim-compliance-report
 **Description**
 
 - This stage does the setup for executing UI tests and reports the results
+- It is possible to parallelize UI tests execution by using pytest markers. 
+  To do so, one must specify `ui_marker` parameter in buid-test-release.yml as in [example](https://github.com/splunk/splunk-add-on-for-amazon-web-services/blob/925fd189737507dd91cc5275c59a8b390550411c/.github/workflows/build-test-release.yml#L35).
+  Markers must be created prior and each test case must be marked (check [run-modinput-tests](#run-modinput-tests), and this [PR](https://github.com/splunk/splunk-add-on-for-amazon-web-services/pull/1237))
 
 **Action used:** 
 - No action used
@@ -525,6 +528,10 @@ Junit XML file
 **Description**
 
 - This stage does the setup for executing Modinput tests and reports the results
+- It is possible to parallelize Modinput tests execution by using pytest markers. 
+  To do so, one must specify `marker` parameter in buid-test-release.yml as in [example](https://github.com/splunk/splunk-add-on-for-amazon-web-services/blob/603f37ee24565f23104c0297e55a0c72480f34c9/.github/workflows/build-test-release.yml#L33).
+  Markers must be created prior and each test case must be marked (check the following references: [ref1](https://github.com/splunk/splunk-add-on-for-amazon-web-services/blob/main/tests/modinput_functional/README-test.md), 
+[ref2](https://github.com/splunk/splunk-add-on-for-amazon-web-services/blob/main/tests/modinput_functional/centaurs/tacommon/test_ta_mark.py), [ref3](https://github.com/splunk/splunk-add-on-for-amazon-web-services/blob/603f37ee24565f23104c0297e55a0c72480f34c9/tests/modinput_functional/data_collection/aws_s3/test_aws_s3_line_content.py#L20))
 
 **Action used:** 
 - No action
