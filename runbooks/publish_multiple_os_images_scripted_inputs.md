@@ -9,4 +9,4 @@ Once there is new Splunk release, and [matrix](https://github.com/splunk/addonfa
 
 ### Create images and publish them to ECR
 - figure out what version of Splunk is needed (sha) using go/fetcher
-- trigger [pipeline](https://cd.splunkdev.com/taautomation/ta-automation-docker-images/-/pipelines/new) for every os flavour separately
+- trigger [pipeline](https://cd.splunkdev.com/taautomation/ta-automation-docker-images/-/pipelines/new) for every OS flavor separately
