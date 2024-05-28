@@ -1773,13 +1773,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts ${{ matrix.marker }}
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs ${{ matrix.marker }}
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
