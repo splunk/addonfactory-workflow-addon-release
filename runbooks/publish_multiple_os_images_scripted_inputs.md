@@ -1,4 +1,4 @@
-# Runbook to publish multiple images of different linux flavours and versions for scripted inputs tests
+# Runbook to publish multiple images of different Linux flavors and versions for scripted inputs tests
 
 Once there is new Splunk release, and [matrix](https://github.com/splunk/addonfactory-test-matrix-action) is updated, we need to make sure that Splunk images for scripted inputs tests are created and published.
 ## Steps
