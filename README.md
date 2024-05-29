@@ -162,15 +162,15 @@ security-detect-secrets
 
 **Description:**
 
-- This action is intended as a Continuous Integration secret scan in an already "clean" repository. The default commit scan depth is the last 50 commits and can be adjusted using Custom Arguments 
+- This action is intended as a Continuous Integration secret scan in an already "clean" repository.
 
-- The stage checks for addition/deletion of any secret/sensitive data in last 50 commits of the repository.
+- The stage checks for addition/deletion of any secret/sensitive data in referenced commits (commits pushed or commits within PR).
 
-**Action used** https://github.com/edplato/trufflehog-actions-scan
+**Action used** https://github.com/trufflesecurity/trufflehog
 
 **Pass/fail behaviour**
 
-- The stage is likely to fail if there is some sensitive or secrets or confidential data had been removed or added in the last 50 commits.
+- The stage is likely to fail if any sensitive secrets or confidential data were removed or added in the referenced commits.
 
 **Troubleshooting steps for failures if any**
 
@@ -178,20 +178,15 @@ security-detect-secrets
 
 **Exception File**
 
-- To ignore the file add the path of the file having the false positive in the `.github/workflows/exclude-patterns.txt`, ideally this should be avoided and only specific false positives should be added in exception files.
+- To ignore the file add the path of the file having the false positive in the `.github/workflows/exclude-patterns.txt`, ideally this should be avoided and only specific false positives should be added in exception files. This is file with newline separated regexes for files to exclude in scan.
 
 - False positives include: public keys, random / dummy session keys or tokens.
 
-- We can use this file `.github/workflows/trufflehog-false-positive.json` from action version `>=v0.9l-beta` to add specific failures or regexes. 
-
-- ref for how to add regex to json file : https://github.com/edplato/trufflehog-actions-scan#usage
-
-- **NOTE:** The usage of `.github/workflows/trufflehog-false-positive.json` is not rolled out yet, PR for feature support: https://github.com/splunk/addonfactory-workflow-addon-release/pull/32
-
+- User can add a `trufflehog:ignore` comment on the line containing the secret to ignore that secrets.
 
 **Artifacts:**
 
-- No additional artifacts, the commit info is available in the logs.
+- No additional artifacts, the commit info and secrets details are available in the logs.
 
 
 security-sast-semgrep
