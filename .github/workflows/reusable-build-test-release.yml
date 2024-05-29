@@ -261,8 +261,8 @@ jobs:
       - name: Secret Scanning Trufflehog
         uses: trufflesecurity/trufflehog@v3.76.3
         with:
-          scanArguments: "--max_dept 5 -x .github/workflows/exclude-patterns.txt --allow .github/workflows/trufflehog-false-positive.json"
-
+          extra_args:: -x ".github/workflows/exclude-patterns.txt"
+          
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
