@@ -4,7 +4,13 @@ on:
     inputs:
       marker:
         required: false
-        description: 'Parallel run marker'
+        description: 'Parallel run mod_input marker'
+        type: string
+        default: >-
+          [""]
+      ui_marker:
+        required: false
+        description: 'Parallel run ui marker'
         type: string
         default: >-
           [""]
@@ -17,7 +23,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v2.0.0"
+        default: "v3.0.0"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -258,11 +264,12 @@ jobs:
           submodules: false
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
-      - name: Trufflehog Actions Scan
-        uses: edplato/trufflehog-actions-scan@v0.9l-beta
+      - name: Secret Scanning Trufflehog
+        uses: trufflesecurity/trufflehog@v3.77.0
         with:
-          scanArguments: "--max_dept 5 -x .github/workflows/exclude-patterns.txt --allow .github/workflows/trufflehog-false-positive.json"
-
+          extra_args: -x .github/workflows/exclude-patterns.txt --json
+          version: 3.77.0
+          
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
@@ -904,7 +911,7 @@ jobs:
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
 
     container:
-      image: ghcr.io/splunk/workflow-engine-base:3.0.0
+      image: ghcr.io/splunk/workflow-engine-base:4.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -963,7 +970,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v3.0
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1137,7 +1144,7 @@ jobs:
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
 
     container:
-      image: ghcr.io/splunk/workflow-engine-base:3.0.0
+      image: ghcr.io/splunk/workflow-engine-base:4.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1195,7 +1202,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v3.0
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1347,9 +1354,9 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
-
+        marker: ${{ fromJson(inputs.ui_marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:3.0.0
+      image: ghcr.io/splunk/workflow-engine-base:4.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1359,6 +1366,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }}"
+      TEST_BROWSER: ${{ matrix.browser }}
     permissions:
       actions: read
       deployments: read
@@ -1402,17 +1410,29 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.:]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
+      - name: create test argument
+        id: create-test-arg
+        shell: bash
+        run: |
+          TEST_ARG_M=""
+          EMPTY_MARKER="[]"
+
+          if [[ "${{ inputs.ui_marker }}" != "$EMPTY_MARKER" ]]; then
+            TEST_ARG_M="-m"
+          fi
+
+          echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
         timeout-minutes: 340
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v3.0
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1422,6 +1442,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          test-browser: ${{ env.TEST_BROWSER }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1522,13 +1543,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests artifacts
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests logs
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
@@ -1568,7 +1589,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:3.0.0
+      image: ghcr.io/splunk/workflow-engine-base:4.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1625,13 +1646,13 @@ jobs:
         id: create-test-arg
         shell: bash
         run: |
-          export comparing_variable="[]"
-          if [ "${{ inputs.marker }}" == "$comparing_variable" ]
-          then
-            TEST_ARG_M=""
-          else
+          TEST_ARG_M=""
+          EMPTY_MARKER="[]"
+
+          if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
+      
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
@@ -1639,7 +1660,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v3.0
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1753,13 +1774,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests artifacts
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests logs
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
@@ -1797,7 +1818,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         os: [ "ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5" ]
     container:
-      image: ghcr.io/splunk/workflow-engine-base:3.0.0
+      image: ghcr.io/splunk/workflow-engine-base:4.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1868,7 +1889,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v3.0
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
