@@ -259,9 +259,10 @@ jobs:
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
       - name: Secret Scanning Trufflehog
-        uses: trufflesecurity/trufflehog@v3.76.3
+        uses: trufflesecurity/trufflehog@v3.77.0
         with:
           extra_args: -x ".github/workflows/exclude-patterns.txt"
+          version: 3.77.0
           
   semgrep:
     runs-on: ubuntu-latest
