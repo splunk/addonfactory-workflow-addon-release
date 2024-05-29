@@ -264,11 +264,12 @@ jobs:
           submodules: false
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
-      - name: Trufflehog Actions Scan
-        uses: edplato/trufflehog-actions-scan@v0.9l-beta
+      - name: Secret Scanning Trufflehog
+        uses: trufflesecurity/trufflehog@v3.77.0
         with:
-          scanArguments: "--max_dept 5 -x .github/workflows/exclude-patterns.txt --allow .github/workflows/trufflehog-false-positive.json"
-
+          extra_args: -x .github/workflows/exclude-patterns.txt --json
+          version: 3.77.0
+          
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
