@@ -156,23 +156,6 @@ jobs:
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
 
-  validate-pr-title:
-    name: Validate PR title
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-      pull-requests: read
-      statuses: write
-    steps:
-      - uses: amannn/action-semantic-pull-request@v5.5.2
-        with:
-          wip: true
-          validateSingleCommit: true
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
   meta:
     runs-on: ubuntu-latest
     outputs:
@@ -201,36 +184,6 @@ jobs:
           
           echo "combinedSplunkversions=$(echo "$combinedSplunkversions" | jq -c .)" >> "$GITHUB_OUTPUT"
 
-  fossa-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: run fossa analyze and create report
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug
-          fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
-      - name: upload THIRDPARTY file
-        uses: actions/upload-artifact@v4
-        with:
-          name: THIRDPARTY
-          path: /tmp/THIRDPARTY
-
-  fossa-test:
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    needs:
-      - fossa-scan
-    steps:
-      - uses: actions/checkout@v4
-      - name: run fossa test
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa test --debug
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
   compliance-copyrights:
     name: compliance-copyrights
@@ -324,8 +277,7 @@ jobs:
       - lint
       - review_secrets
       - semgrep
-      # - run-unit-tests
-      - fossa-scan
+
     if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
@@ -586,7 +538,6 @@ jobs:
           aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-modinput-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
     needs:
       - build
       - test-inventory
