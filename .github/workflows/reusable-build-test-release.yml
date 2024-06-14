@@ -490,6 +490,8 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+          extra_plugins: |
+            semantic-release-replace-plugin
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Determine the version to build
@@ -654,6 +656,8 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+          extra_plugins: |
+            semantic-release-replace-plugin
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - id: BuildVersion
@@ -2096,6 +2100,8 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+          extra_plugins: |
+            semantic-release-replace-plugin
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v4
