@@ -875,8 +875,6 @@ jobs:
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
-        env:
-          PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
           sudo pip3 install poetry==1.5.1 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
