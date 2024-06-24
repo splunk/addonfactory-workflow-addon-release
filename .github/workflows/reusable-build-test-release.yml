@@ -338,7 +338,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -389,7 +389,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -437,7 +437,6 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: 3.7
@@ -446,7 +445,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python${{ steps.setup-python.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python3.7 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -610,7 +609,6 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: 3.9
@@ -619,7 +617,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python${{ steps.setup-python.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python3.9 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -870,7 +868,6 @@ jobs:
           name: artifact-openapi
           path: ${{ github.workspace }}
       - name: Setup python
-        id: setup-python
         if: steps.download-openapi.conclusion != 'skipped'
         uses: actions/setup-python@v5
         with:
@@ -881,7 +878,7 @@ jobs:
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          python${{ steps.setup-python.python-version }} -m pip install poetry==1.5.1 
+          python3.7 -m pip install poetry==1.5.1 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
