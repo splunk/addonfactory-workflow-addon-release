@@ -14,6 +14,11 @@ on:
         type: string
         default: >-
           [""]
+      skip-publish:
+        required: false
+        description: 'when true skip publish step in workflow'
+        type: boolean
+        default: false
       k8s-environment:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
@@ -2086,7 +2091,7 @@ jobs:
           exit 1
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' }}
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' && false}}
     needs:
       - pre-publish
     runs-on: ubuntu-latest
