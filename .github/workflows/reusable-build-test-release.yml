@@ -194,7 +194,7 @@ jobs:
       - name: Combined Splunk and SC4S Versions
         id: combined_Splunkmatrix
         run: |
-          splunk='{"version":"unreleased-python3_9-7027496d63d8", "build":"7027496d63d8", "islatest":false, "isoldest":false}'
+          splunk='{"version":"unreleased-python3_9-f8b1a92a256b", "build":"7027496d63d8", "islatest":false, "isoldest":false}'
           combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq --argjson A "$splunk" '. + [$A]')
           echo "combinedSplunkversions=$(echo "$combinedSplunkversions" | jq -c .)" >> "$GITHUB_OUTPUT"
 
