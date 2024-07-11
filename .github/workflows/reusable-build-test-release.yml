@@ -544,6 +544,7 @@ jobs:
         id: slim
         run: |
           pip install splunk-packaging-toolkit
+          pip install semantic-version==2.6.0
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
           if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
