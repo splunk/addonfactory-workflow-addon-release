@@ -2113,7 +2113,7 @@ jobs:
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         id: download-package-deployment
         with:
           name: package-deployment
