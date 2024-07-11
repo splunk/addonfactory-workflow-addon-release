@@ -544,19 +544,28 @@ jobs:
         id: slim
         run: |
           pip install splunk-packaging-toolkit
+          pip install semantic-version==2.6.0
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
           if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
             echo Removing trailing / from INPUT_SOURCE slim is picky
             INPUT_SOURCE=$(echo $INPUT_SOURCE | sed 's/\(.*\)\//\1/')
           fi
+          slim generate-manifest "${INPUT_SOURCE}" --update >/tmp/app.manifest   || true
+          cp /tmp/app.manifest "${INPUT_SOURCE}"/app.manifest
           mkdir -p build/package/splunkbase
+          mkdir -p build/package/deployment
           slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
           for f in build/package/splunkbase/*.tar.gz; do
             n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
             mv "${f}" "${n}"
           done
           PACKAGE=$(ls build/package/splunkbase/*)
+          slim partition "${PACKAGE}" -o build/package/deployment/ || true
+          for f in build/package/deployment/*.tar.gz; do
+            n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
+            mv "${f}" "${n}"
+          done
           slim validate "${PACKAGE}"
           chmod -R +r build
           echo "OUTPUT=$PACKAGE" >> "$GITHUB_OUTPUT"
@@ -583,6 +592,12 @@ jobs:
           echo "name=$(basename "${{ steps.slim.outputs.OUTPUT }}")" >> "$GITHUB_OUTPUT"
           basename "${{ steps.slim.outputs.OUTPUT }}"
           aws s3 cp "${{ steps.slim.outputs.OUTPUT }}" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/"
+      - name: artifact-splunk-parts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-deployment
+          path: build/package/deployment**
+        if: ${{ !cancelled() }}
 
   build-3_9:
     runs-on: ubuntu-latest
@@ -2096,6 +2111,13 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+      - name: Download package-deployment
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        uses: actions/download-artifact@v4
+        id: download-package-deployment
+        with:
+          name: package-deployment
+          path: download/artifacts/
       - name: Download package-splunkbase
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: actions/download-artifact@v4
