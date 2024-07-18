@@ -801,6 +801,7 @@ jobs:
       - setup-workflow
       - build
       - test-inventory
+      - meta
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     outputs:
@@ -820,6 +821,7 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
+      tests-matrix: ${{ steps.set-matrix.output.matrix }}
     env:
       BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
@@ -894,8 +896,36 @@ jobs:
         run: |
           swagger_name=swagger_$(basename "$BUILD_NAME" .spl)
           aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
+      - id: set-matrix
+        run: |
+          splunks=($(echo "${{ needs.meta.outputs.matrix_combinedSplunkversion }}"|jq -r '.[]'))
+          ui_markers=($(echo "${{ inputs.ui_marker }}"|jq -r '.[]'))
+          sc4ss=($(echo "${{ needs.meta.outputs.matrix_supportedSC4S }}"|jq -r '.[]'))
+          matrix="{\"include\":["
 
-  run-knowledge-tests:
+          for s in "$splunks[@]"; do
+            for b in ("chrome"); do
+              for m in "$ui_markers[@]"; do
+                matrix+="{\"test_type\":\"ui\",\"splunk\":\"$s\",\"browser\":\"$b\",\"marker\":\"$m\"},"
+              done
+            done
+          done
+
+          for s in "$splunks[@]"; do
+            for sc in "$sc4ss[@]"; do
+              matrix+="{\"test_type\":\"knowledge\",\"splunk\":\"$s\",\"sc4s\":\"$sc\"},"
+            done
+          done
+
+          for s in "$splunks[@]"; do
+            matrix+="{\"test_type\":\"modinput_functional\",\"splunk\":\"$s\"},"
+          done
+
+          matrix="${matrix%,}]}" 
+
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+
+  run-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
     needs:
       - build
@@ -906,10 +936,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
-        sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-
+      matrix: ${{ fromJSON(needs.setup.outputs.tests-matrix) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -919,7 +946,7 @@ jobs:
       ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-      TEST_TYPE: "knowledge"
+      TEST_TYPE: ${{ matrix.test_type }}
       TEST_ARGS: ""
     permissions: 
       actions: read
@@ -2045,7 +2072,6 @@ jobs:
       - run-unit-tests
       - appinspect
       - setup
-      - run-knowledge-tests
       - run-modinput-tests
       - run-ui-tests
       - validate-pr-title
