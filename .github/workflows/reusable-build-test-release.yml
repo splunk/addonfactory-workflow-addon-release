@@ -161,6 +161,7 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
+          echo '### Hello world! 🚀' >> $GITHUB_STEP_SUMMARY
 
   validate-pr-title:
     name: Validate PR title
