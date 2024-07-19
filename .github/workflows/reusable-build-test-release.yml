@@ -821,7 +821,7 @@ jobs:
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
       directory-path: ${{ steps.test-setup.outputs.directory-path }}
       s3-bucket: ${{ steps.test-setup.outputs.s3-bucket }}
-      tests-matrix: ${{ steps.set-matrix.output.matrix }}
+      tests-matrix: ${{ steps.set-matrix.outputs.matrix }}
     env:
       BUILD_NAME: ${{ needs.build.outputs.buildname }}
     steps:
@@ -910,12 +910,13 @@ jobs:
               done
             done
           done
-
-          for s in "${splunks[@]}"; do
-            for sc in "${sc4ss[@]}"; do
-              matrix+="{\"test_type\":\"knowledge\",\"splunk\":\"$s\",\"sc4s\":\"$sc\"},"
+          if [[ "${{ needs.test-inventory.outputs.knowledge }}" == 'true' && "${{ needs.setup-workflow.outputs.execute-knowledge-labeled }}" == 'true' ]]; then
+            for s in "${splunks[@]}"; do
+              for sc in "${sc4ss[@]}"; do
+                matrix+="{\"test_type\":\"knowledge\",\"splunk\":\"$s\",\"sc4s\":\"$sc\"},"
+              done
             done
-          done
+          fi
 
           for s in "${splunks[@]}"; do
             matrix+="{\"test_type\":\"modinput_functional\",\"splunk\":\"$s\"},"
