@@ -898,26 +898,26 @@ jobs:
           aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
       - id: set-matrix
         run: |
-          splunks=($(echo "${{ needs.meta.outputs.matrix_combinedSplunkversion }}"|jq -r '.[]'))
-          ui_markers=($(echo "${{ inputs.ui_marker }}"|jq -r '.[]'))
-          sc4ss=($(echo "${{ needs.meta.outputs.matrix_supportedSC4S }}"|jq -r '.[]'))
+          splunks=($(echo '${{ needs.meta.outputs.matrix_combinedSplunkversion }}'|jq -r '.[].version'))
+          ui_markers=($(echo '${{ inputs.ui_marker }}'|jq -r '.[]'))
+          sc4ss=($(echo '${{ needs.meta.outputs.matrix_supportedSC4S }}'|jq -r '.[].version'))
           matrix="{\"include\":["
 
-          for s in "$splunks[@]"; do
-            for b in ("chrome"); do
-              for m in "$ui_markers[@]"; do
+          for s in "${splunks[@]}"; do
+            for b in "chrome"; do
+              for m in "${ui_markers[@]}"; do
                 matrix+="{\"test_type\":\"ui\",\"splunk\":\"$s\",\"browser\":\"$b\",\"marker\":\"$m\"},"
               done
             done
           done
 
-          for s in "$splunks[@]"; do
-            for sc in "$sc4ss[@]"; do
+          for s in "${splunks[@]}"; do
+            for sc in "${sc4ss[@]}"; do
               matrix+="{\"test_type\":\"knowledge\",\"splunk\":\"$s\",\"sc4s\":\"$sc\"},"
             done
           done
 
-          for s in "$splunks[@]"; do
+          for s in "${splunks[@]}"; do
             matrix+="{\"test_type\":\"modinput_functional\",\"splunk\":\"$s\"},"
           done
 
