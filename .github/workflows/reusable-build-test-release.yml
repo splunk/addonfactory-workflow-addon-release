@@ -901,10 +901,11 @@ jobs:
           splunks=($(echo '${{ needs.meta.outputs.matrix_combinedSplunkversion }}'|jq -r '.[].version'))
           ui_markers=($(echo '${{ inputs.ui_marker }}'|jq -r '.[]'))
           sc4ss=($(echo '${{ needs.meta.outputs.matrix_supportedSC4S }}'|jq -r '.[].version'))
+          browsers=("chrome")
           matrix="{\"include\":["
 
           for s in "${splunks[@]}"; do
-            for b in "chrome"; do
+            for b in "${browsers[@]}"; do
               for m in "${ui_markers[@]}"; do
                 matrix+="{\"test_type\":\"ui\",\"splunk\":\"$s\",\"browser\":\"$b\",\"marker\":\"$m\"},"
               done
@@ -1000,7 +1001,7 @@ jobs:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v5.0
         with:
-          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          splunk: ${{ matrix.splunk }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
           test-args: ""
           job-name: ${{ steps.create-job-name.outputs.job-name }}
@@ -1009,8 +1010,8 @@ jobs:
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
-          sc4s-version: ${{ matrix.sc4s.version }}
-          sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
+          sc4s-version: ${{ matrix.sc4s }}
+          sc4s-docker-registry: "ghcr.io/splunk/splunk-connect-for-syslog/container3"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
