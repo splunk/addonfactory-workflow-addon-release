@@ -1133,7 +1133,6 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         if: ${{ !cancelled() }}
         with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           report_paths: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
