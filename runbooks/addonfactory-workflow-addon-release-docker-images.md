@@ -24,4 +24,5 @@ Whenever there is a need for running tests with unreleased splunk, we need to cr
 - set AWS environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
 - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 956110764581.dkr.ecr.us-west-2.amazonaws.com
 - docker push 956110764581.dkr.ecr.us-west-2.amazonaws.com/splunk/splunk:[new-image-tag]
-- confirm that image is visible in AWS [ECR](https://us-west-2.console.aws.amazon.com/ecr/repositories/private/956110764581/splunk/splunk?region=us-west-2) 
+- confirm that image is visible in AWS [ECR](https://us-west-2.console.aws.amazon.com/ecr/repositories/private/956110764581/splunk/splunk?region=us-west-2)
+- there are TAs which use Splunk images with installed java fot testing (e.g. JBOSS). Separate image with installed java has to be built, tagged and pushed to ECR. This [branch](https://cd.splunkdev.com/core-ee/workflow-engine/workflow-engine-images/-/tree/feat/unreleased_splunk_java/image-copy/ta-automation-k8s-apps/unreleased-splunk-java?ref_type=heads) can be used for this purpose. Existing CI/CD expects Splunk image with tag "956110764581.dkr.ecr.us-west-2.amazonaws.com/splunk/splunk:[new-image-tag]-java"
