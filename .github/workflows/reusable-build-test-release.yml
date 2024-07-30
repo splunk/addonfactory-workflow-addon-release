@@ -17,7 +17,7 @@ on:
       skip-publish:
         required: false
         description: 'when true skip publish step in workflow'
-        type: boolean
+        type: string
         default: false
       k8s-environment:
         required: false
@@ -77,10 +77,11 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-publish:
-    if: ${{ fromJson(inputs.skip-publish) == true }}
+    if: ${{ inputs.skip-publish == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🎉 The job was automatically triggered by a ${{ inputs.skip-publish }} event."
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
@@ -156,7 +157,7 @@ jobs:
             done
             ;;
           "workflow_dispatch")
-            if ${{ fromJson(inputs.skip-publish) == false }} ; then
+            if ${{ inputs.skip-publish == 'false' }} ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
