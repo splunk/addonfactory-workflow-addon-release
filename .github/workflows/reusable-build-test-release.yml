@@ -121,13 +121,13 @@ jobs:
           case "${{ github.event_name }}" in
           "pull_request")
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            if ${{ github.base_ref == 'main' || ${{ github.ref_name == 'release/v5.3.2' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+            if ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'chore/run-publish-for-release-branches' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
                 fi
               done
-            elif ${{ github.base_ref == 'main' || ${{ github.ref_name == 'release/v5.3.2' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
+            elif ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'chore/run-publish-for-release-branches' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
@@ -140,7 +140,7 @@ jobs:
             fi
             ;;
           "push")
-            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'release/v5.3.2' }} || ${{ github.ref_type == 'tag' }} ; then
+            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'chore/run-publish-for-release-branches' }} || ${{ github.ref_type == 'tag' }} ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
@@ -791,7 +791,7 @@ jobs:
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
-      ( github.base_ref == 'main' || github.ref_name == 'main' || ${{ github.ref_name == 'release/v5.3.2' )
+      ( github.base_ref == 'main' || github.ref_name == 'main' || github.ref_name == 'chore/run-publish-for-release-branches' )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1825,7 +1825,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || ${{ github.ref_name == 'release/v5.3.2') && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.ref_name == 'chore/run-publish-for-release-branches') && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
