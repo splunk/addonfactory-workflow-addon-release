@@ -76,6 +76,11 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 jobs:
+  test-publish:
+    if: ${{ fromJson(inputs.skip-publish) == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
@@ -2091,7 +2096,7 @@ jobs:
           exit 1
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' && false}}
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' && fromJson(inputs.skip-publish) == false }}
     needs:
       - pre-publish
     runs-on: ubuntu-latest
