@@ -2144,11 +2144,9 @@ jobs:
           name: cim-field-report
           path: download/artifacts/deployment
       - name: List of assets
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         run: |
           ls -la ${{ steps.download-package-splunkbase.outputs.download-path }}
       - name: Upload assets to release
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ github.token }}
