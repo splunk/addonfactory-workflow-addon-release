@@ -155,6 +155,13 @@ jobs:
               EXECUTE_LABELED["$test_type"]="true"
             done
             ;;
+          "workflow_dispatch")
+            if ${{ fromJson(inputs.skip-publish) == false }} ; then
+              for test_type in "${TESTSET[@]}"; do
+                EXECUTE_LABELED["$test_type"]="true"
+              done
+            fi
+            ;;
           *)
             echo "No tests were labeled for execution!"
             ;;
@@ -2094,9 +2101,16 @@ jobs:
         run: |
           echo "Expand check step to see which job has failed pre-publish step."
           exit 1
+  check-pre-publish:
+    needs:
+      - pre-publish
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "🎉 Pre-publish ${{ needs.pre-publish.result == 'success' }}"
+      - run: echo "🎉 Event_name ${{ github.event_name != 'pull_request' }}"
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' && fromJson(inputs.skip-publish) == false }}
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' && false }}
     needs:
       - pre-publish
     runs-on: ubuntu-latest
