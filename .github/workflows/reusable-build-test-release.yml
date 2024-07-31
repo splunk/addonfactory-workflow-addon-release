@@ -196,7 +196,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v2.0.2
+        uses: splunk/addonfactory-test-matrix-action@v2.1.5
       - name: Combined Splunk and SC4S Versions
         id: combined_Splunkmatrix
         run: |
