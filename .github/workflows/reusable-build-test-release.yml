@@ -165,6 +165,7 @@ jobs:
 #        run: echo "### Test-Types to be executed  [${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}, ]" >> $GITHUB_STEP_SUMMARY
         run: |
           echo "| Test-Types to be executed |"  >> $GITHUB_STEP_SUMMARY
+          echo "| ------------- |" >> $GITHUB_STEP_SUMMARY
           if ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}; then
             echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
           fi
