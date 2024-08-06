@@ -219,10 +219,15 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v2.1
       - name: job summary
         run: |
+          apt-get install jq
+          splunk_version_list=${{ steps.matrix.outputs.supportedSplunk }}
+          sc4s_version_list=${{ steps.matrix.outputs.supportedSC4S }}
+          splunk_version_list=$(echo "splunk_version_list" | jq -r '.[].version')
+          sc4s_version_list=$(echo "sc4s_version_list" | jq -r '.[].version')
           echo "Below are the splunk versions and sc4s version used for testing"
           echo "| Splunk versions | SC4S version |"  >> $GITHUB_STEP_SUMMARY
           echo "| ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
-          echo "| ${{ steps.matrix.outputs.supportedSplunk }} | ${{ steps.matrix.outputs.supportedSC4S }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ${splunk_version_list} | ${sc4s_version_list} |" >> $GITHUB_STEP_SUMMARY
 
   fossa-scan:
     runs-on: ubuntu-latest
