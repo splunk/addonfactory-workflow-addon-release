@@ -219,7 +219,7 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v2.1
       - name: job summary
         run: |
-          apt-get install jq
+#          apt-get install jq
           splunk_version_list=${{ steps.matrix.outputs.supportedSplunk }}
           sc4s_version_list=${{ steps.matrix.outputs.supportedSC4S }}
           splunk_version_list1=$(echo "$splunk_version_list" | jq -r '.[].version')
