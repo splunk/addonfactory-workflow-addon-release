@@ -165,19 +165,19 @@ jobs:
 #        run: echo "### Test-Types to be executed  [${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}, ]" >> $GITHUB_STEP_SUMMARY
         run: |
           echo "| Test-Types to be executed |"  >> $GITHUB_STEP_SUMMARY
-          if ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}, then
+          if ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}; then
             echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
           fi
           if ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}, then
             echo "| UI |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}, then
+          if ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}; then
             echo "| Modinput |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}, then
+          if ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}; then
             echo "| Scripted Input |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}, then
+          if ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}; then
             echo "| Requirement |" >> $GITHUB_STEP_SUMMARY
           fi
           echo "| Content Cell  | Content Cell  |" >> $GITHUB_STEP_SUMMARY
