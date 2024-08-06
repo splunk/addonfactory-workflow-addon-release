@@ -218,15 +218,11 @@ jobs:
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v2.1
       - name: job summary
-#        run: echo "### Test-Types to be executed  [${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}, ]" >> $GITHUB_STEP_SUMMARY
         run: |
-          echo "Below are the splunk versions and sc4s verison used for testing"
-          echo "| Splunk versions | SC4S version"  >> $GITHUB_STEP_SUMMARY
+          echo "Below are the splunk versions and sc4s version used for testing"
+          echo "| Splunk versions | SC4S version |"  >> $GITHUB_STEP_SUMMARY
           echo "| ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
-#          if ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}; then
-          echo "| ${{ steps.matrix.outputs.supportedSplunk }} | ${{ steps.matrix.outputs.supportedSC4S }}" >> $GITHUB_STEP_SUMMARY
-#          echo "| ${{ steps.matrix.outputs.supportedSplunk }} |" >> $GITHUB_STEP_SUMMARY
-#          fi
+          echo "| ${{ steps.matrix.outputs.supportedSplunk }} | ${{ steps.matrix.outputs.supportedSC4S }} |" >> $GITHUB_STEP_SUMMARY
 
   fossa-scan:
     runs-on: ubuntu-latest
