@@ -23,6 +23,14 @@ jobs:
       - uses: apache/skywalking-eyes@v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: job summary
+        run: |
+          echo "| First Header  | Second Header |"  >> $GITHUB_STEP_SUMMARY
+          echo "| ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Content Cell  | Content Cell  |" >> $GITHUB_STEP_SUMMARY
+#| Content Cell  | Content Cell  |
+
+
 
   pre-commit:
     runs-on: ubuntu-latest
