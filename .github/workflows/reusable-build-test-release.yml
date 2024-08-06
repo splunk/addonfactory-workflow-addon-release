@@ -168,7 +168,7 @@ jobs:
           if ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}; then
             echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}, then
+          if ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}; then
             echo "| UI |" >> $GITHUB_STEP_SUMMARY
           fi
           if ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}; then
