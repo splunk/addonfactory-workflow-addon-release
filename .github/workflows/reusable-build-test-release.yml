@@ -1124,7 +1124,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/test-results/cim_field_report.json
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v1.9.1
+        uses: dorny/test-reporter@95058abb17504553158e70e2c058fe1fda4392c2
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
