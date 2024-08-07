@@ -219,8 +219,8 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v2.1
       - name: job summary
         run: |
-          splunk_version_list1=$(echo ${{ steps.matrix.outputs.supportedSplunk }} | jq -r '.[].version')
-          sc4s_version_list1=$(echo ${{ steps.matrix.outputs.supportedSC4S }} | jq -r '.[].version')
+          splunk_version_list1=$(${{ steps.matrix.outputs.supportedSplunk }} | jq -r '.[].version')
+          sc4s_version_list1=$(${{ steps.matrix.outputs.supportedSC4S }} | jq -r '.[].version')
           echo $splunk_version_list1,$sc4s_version_list1
           echo "Below are the splunk versions and sc4s version used for testing"
           echo "| Splunk versions | SC4S version |"  >> $GITHUB_STEP_SUMMARY
