@@ -14,6 +14,11 @@ on:
         type: string
         default: >-
           [""]
+      custom-version:
+        required: false
+        description: 'Version of release specified by user instead of semver'
+        type: string
+        default: ""
       k8s-environment:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
@@ -121,7 +126,7 @@ jobs:
                   EXECUTE_LABELED["$test_type"]="true"
                 fi
               done
-            elif ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
+            elif ${{ github.base_ref == 'main' }} || ${{ github.ref_name == 'develop' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
@@ -144,6 +149,13 @@ jobs:
             for test_type in "${TESTSET[@]}"; do
               EXECUTE_LABELED["$test_type"]="true"
             done
+            ;;
+          "workflow_dispatch")
+            if ${{ inputs.custom-version != '' }} ; then
+              for test_type in "${TESTSET[@]}"; do
+                EXECUTE_LABELED["$test_type"]="true"
+              done
+            fi
             ;;
           *)
             echo "No tests were labeled for execution!"
@@ -489,7 +501,7 @@ jobs:
       - name: Determine the version to build
         id: BuildVersion
         run: |
-          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          INPUT_SEMVER="${{ github.event.inputs.custom-version != '' && github.event.inputs.custom-version || steps.semantic.outputs.new_release_version }}"
           echo "Initial semver ${INPUT_SEMVER}"
           INPUT_PRNUMBER="${{ github.event.number }}"
           SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
@@ -667,7 +679,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - id: BuildVersion
         run: |
-          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          INPUT_SEMVER="${{ github.event.inputs.custom-version != '' && github.event.inputs.custom-version || steps.semantic.outputs.new_release_version }}"
           echo "Initial semver ${INPUT_SEMVER}"
           INPUT_PRNUMBER="${{ github.event.number }}"
           SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
@@ -779,7 +791,7 @@ jobs:
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
-      ( github.base_ref == 'main' || github.ref_name == 'main' )
+      ( github.base_ref == 'main' || github.ref_name == 'main' || github.ref_name == 'develop')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1813,7 +1825,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' || github.ref_name == 'develop') && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -2148,3 +2160,67 @@ jobs:
           overwrite: true
           file_glob: true
           tag: v${{ steps.semantic.outputs.new_release_version }}
+
+
+  publish_custom_version:
+    if: ${{ !cancelled() && github.event.inputs.custom-version != '' }}
+    needs:
+      - meta
+      - compliance-copyrights
+      - lint
+      - review_secrets
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Release on github
+        uses: "softprops/action-gh-release@v2"
+        with:
+          token: "${{ secrets.GH_TOKEN_ADMIN }}"
+          tag_name: v${{ github.event.inputs.custom-version }}
+      - name: Download package-deployment
+        uses: actions/download-artifact@v4
+        id: download-package-deployment
+        with:
+          name: package-deployment
+          path: download/artifacts/
+      - name: Download package-splunkbase
+        uses: actions/download-artifact@v4
+        id: download-package-splunkbase
+        with:
+          name: package-splunkbase
+          path: download/artifacts/deployment
+      - name: Download cim-compliance-report
+        id: download-cim-compliance-report
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: cim-compliance-report
+          path: download/artifacts/deployment
+      - name: Download cim-field-report
+        id: download-cim-field-report
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: cim-field-report
+          path: download/artifacts/deployment
+      - name: List of assets
+        run: |
+          ls -la ${{ steps.download-package-splunkbase.outputs.download-path }}
+      - name: Upload assets to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ github.token }}
+          file: ${{ steps.download-package-splunkbase.outputs.download-path }}/*
+          overwrite: true
+          file_glob: true
+          tag: v${{ github.event.inputs.custom-version }}
