@@ -2188,6 +2188,8 @@ jobs:
         with:
           token: "${{ secrets.GH_TOKEN_ADMIN }}"
           tag_name: v${{ github.event.inputs.custom-version }}
+          target_commitish: "${{github.ref_name}}"
+          make_latest: false
       - name: Download package-deployment
         uses: actions/download-artifact@v4
         id: download-package-deployment
