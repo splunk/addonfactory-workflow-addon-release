@@ -161,26 +161,7 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
-      - name: job summary
-#        run: echo "### Test-Types to be executed  [${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}, ]" >> $GITHUB_STEP_SUMMARY
-        run: |
-          echo "| Test-Types to be executed |"  >> $GITHUB_STEP_SUMMARY
-          echo "| ------------- |" >> $GITHUB_STEP_SUMMARY
-          if ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}; then
-            echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}; then
-            echo "| UI |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}; then
-            echo "| Modinput |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}; then
-            echo "| Scripted Input |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}; then
-            echo "| Requirement |" >> $GITHUB_STEP_SUMMARY
-          fi
+
 
   validate-pr-title:
     name: Validate PR title
@@ -237,9 +218,9 @@ jobs:
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           fossa_analyze_output=$(fossa analyze --debug || true)
-          echo "fossa analysis complete"
           exit_code=$?
-          FOSSA_REPORT_URL=$(echo "fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*')
+          echo "fossa analysis complete"
+          FOSSA_REPORT_URL=$(echo "$fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*') || true
           echo $FOSSA_REPORT_URL
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           echo $$FOSSA_REPORT_URL
@@ -351,7 +332,33 @@ jobs:
             ucc_modinput_tests="false"
           fi
           echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
-        
+      - name: job summary
+        run: |
+          echo "| Test-Types to be executed |"  >> $GITHUB_STEP_SUMMARY
+          echo "| ------------- |" >> $GITHUB_STEP_SUMMARY
+          if ${{ steps.testset.outputs.unit }}; then
+            echo "| Unit |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if ${{ steps.testset.outputs.knowledge }}; then
+            echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if ${{ steps.testset.outputs.ui }}; then
+            echo "| UI |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if ${{ steps.testset.outputs.modinput_functional }}; then
+            echo "| Modinput |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}; then
+            echo "| Scripted Input |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if ${{ steps.testset.outputs.scripted_inputs }}; then
+            echo "| Requirement |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if ${{ steps.modinput-version.outputs.ucc_modinput_tests }}; then
+            echo "| UCC Modinput |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
