@@ -247,6 +247,7 @@ jobs:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
       - name: job summary
+        if: success() || failure()
         run: |
           echo "View FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> $GITHUB_STEP_SUMMARY
 
