@@ -110,7 +110,6 @@ jobs:
 
       - name: configure tests based on labels
         id: configure-tests-on-labels
-        id: configure-tests-on-labels
         run: |
           set +e
           declare -A EXECUTE_LABELED
