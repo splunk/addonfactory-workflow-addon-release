@@ -236,7 +236,7 @@ jobs:
         id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          FOSSA_REPORT_URL=$(fossa analyze --debug | grep "View FOSSA Report" | awk '{print $NF}')
+          FOSSA_REPORT_URL=$(fossa analyze --debug | grep -o 'https://app.fossa.com[^ ]*'))
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
         env:
