@@ -110,6 +110,7 @@ jobs:
 
       - name: configure tests based on labels
         id: configure-tests-on-labels
+        id: configure-tests-on-labels
         run: |
           set +e
           declare -A EXECUTE_LABELED
@@ -236,7 +237,7 @@ jobs:
         id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa_analyze_output=$(fossa analyze --debug 2>&1 | tee /dev/tty)
+          fossa_analyze_output=$(fossa analyze --debug 2>&1 | tee /dev/stderr)
           exit_code=$?
           FOSSA_REPORT_URL=$(echo "fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*')
           echo $FOSSA_REPORT_URL
@@ -465,7 +466,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') }}
+    if: failure()
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
