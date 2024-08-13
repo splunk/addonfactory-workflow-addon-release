@@ -1222,6 +1222,24 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          sudo apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          echo "| Total Tests | $total_tests |"  >> $GITHUB_STEP_SUMMARY
+          echo "| ------------- | -------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed Tests | $passed |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Failed Tests | $failures |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Errored Tests | $errors |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Skipped Tests | $skipped |"  >> $GITHUB_STEP_SUMMARY
+
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
