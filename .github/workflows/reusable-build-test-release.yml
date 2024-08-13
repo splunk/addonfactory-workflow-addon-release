@@ -221,9 +221,8 @@ jobs:
           exit_code=$?
           echo "fossa analysis complete"
           echo $fossa_analyze_output
-          FOSSA_REPORT_URL=$(echo $fossa_analyze_output | grep -o 'https://app.fossa.com[^ ]*') || true
+          FOSSA_REPORT_URL=$(echo "$fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*'  || true)
           echo $FOSSA_REPORT_URL
-#          echo $$FOSSA_REPORT_URL
           fossa_analyze_output_1=$(fossa analyze --debug 2>&1 | tee /dev/stderr)
           echo $fossa_analyze_output_1
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
