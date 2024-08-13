@@ -236,7 +236,7 @@ jobs:
         id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa_analyze_output=$(fossa analyze --debug 2>&1 | tee /dev/stderr)
+          fossa_analyze_output=$(fossa analyze --debug || true)
           echo "fossa analysis complete"
           exit_code=$?
           FOSSA_REPORT_URL=$(echo "fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*')
