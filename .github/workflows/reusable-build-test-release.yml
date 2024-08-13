@@ -464,7 +464,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - job-summary:
+      - name : Job summary
         run: |
           junit_xml_path="test-results/junit.xml"
           total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
