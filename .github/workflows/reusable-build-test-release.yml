@@ -238,6 +238,7 @@ jobs:
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
           FOSSA_REPORT_URL=$(fossa analyze --debug | grep -o 'https://app.fossa.com[^ ]*')
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
+          echo $$FOSSA_REPORT_URL
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
