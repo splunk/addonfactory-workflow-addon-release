@@ -216,17 +216,32 @@ jobs:
       - name: run fossa analyze and create report
         id: fossa-scan
         run: |
+          # Install the latest version of FOSSA CLI
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa_analyze_output=$(fossa analyze --debug || true)
+          
+          # Run FOSSA analyze, display the output in real-time, and capture it for further processing
+          fossa_analyze_output=$(fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt)
           exit_code=$?
+          
+          # Print a message indicating the completion of the FOSSA analysis
           echo "fossa analysis complete"
-          FOSSA_REPORT_URL=$(echo "$fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*')
-          echo "url="$FOSSA_REPORT_URL
-          fossa_analyze_output_1=$(fossa analyze --debug 2>&1 | tee /dev/stderr)
-          echo $fossa_analyze_output_1
+          
+          # Extract the FOSSA report URL from the captured output
+          # Using '|| true' ensures that the script doesn't fail if grep returns no matches
+          FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
+          
+          # Print the extracted URL (if any)
+          echo "url=$FOSSA_REPORT_URL"
+          
+          # Save the FOSSA report URL to the GitHub Actions output
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
+          
+          # Run the FOSSA report command, capturing the output to a file
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
+          
+          # Exit with the same exit code as the FOSSA analyze command
           exit $exit_code
+
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
