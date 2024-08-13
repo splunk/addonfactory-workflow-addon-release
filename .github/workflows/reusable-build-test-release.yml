@@ -220,10 +220,12 @@ jobs:
           fossa_analyze_output=$(fossa analyze --debug || true)
           exit_code=$?
           echo "fossa analysis complete"
+          echo $fossa_analyze_output
           FOSSA_REPORT_URL=$(echo "$fossa_analyze_output" | grep -o 'https://app.fossa.com[^ ]*') || true
           echo $FOSSA_REPORT_URL
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           echo $$FOSSA_REPORT_URL
+          fossa_analyze_output_1=$(fossa analyze --debug 2>&1 | tee /dev/stderr  || true)
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
           exit $exit_code
         env:
@@ -336,25 +338,25 @@ jobs:
         run: |
           echo "| Test-Types to be executed |"  >> $GITHUB_STEP_SUMMARY
           echo "| ------------- |" >> $GITHUB_STEP_SUMMARY
-          if ${{ steps.testset.outputs.unit }}; then
+          if ${{ steps.testset.outputs.unit == 'true' }}; then
             echo "| Unit |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.testset.outputs.knowledge }}; then
+          if ${{ steps.testset.outputs.knowledge == 'true' }}; then
             echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.testset.outputs.ui }}; then
+          if ${{ steps.testset.outputs.ui == 'true' }}; then
             echo "| UI |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.testset.outputs.modinput_functional }}; then
+          if ${{ steps.testset.outputs.modinput_functional == 'true' }}; then
             echo "| Modinput |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}; then
+          if ${{ steps.testset.outputs.scripted_inputs == 'true' }}; then
             echo "| Scripted Input |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.testset.outputs.scripted_inputs }}; then
+          if ${{ steps.testset.outputs.scripted_inputs == 'true' }}; then
             echo "| Requirement |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.modinput-version.outputs.ucc_modinput_tests }}; then
+          if ${{ steps.modinput-version.outputs.ucc_modinput_tests == 'true' }}; then
             echo "| UCC Modinput |" >> $GITHUB_STEP_SUMMARY
           fi
 
