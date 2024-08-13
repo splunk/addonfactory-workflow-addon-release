@@ -1225,7 +1225,7 @@ jobs:
       - name: Job summary
         if: ${{ !cancelled() }}
         run: |
-          sudo apt-get install -y libxml2-utils
+          apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
           failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
