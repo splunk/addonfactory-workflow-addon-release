@@ -415,7 +415,6 @@ jobs:
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name : Job summary
         run: |
-          apt-get update -qq
           apt-get install -y libxml2-utils
           junit_xml_path="test-results/junit.xml"
           total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
