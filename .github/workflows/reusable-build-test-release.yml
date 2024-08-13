@@ -223,9 +223,6 @@ jobs:
           fossa_analyze_output=$(fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt)
           exit_code=$?
           
-          # Print a message indicating the completion of the FOSSA analysis
-          echo "fossa analysis complete"
-          
           # Extract the FOSSA report URL from the captured output
           # Using '|| true' ensures that the script doesn't fail if grep returns no matches
           FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
@@ -252,7 +249,7 @@ jobs:
       - name: job summary
         if: success() || failure()
         run: |
-          echo "View FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> $GITHUB_STEP_SUMMARY
 
   fossa-test:
     continue-on-error: true
@@ -367,13 +364,9 @@ jobs:
           if ${{ steps.testset.outputs.scripted_inputs == 'true' }}; then
             echo "| Scripted Input |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.testset.outputs.scripted_inputs == 'true' }}; then
+          if ${{ steps.testset.outputs.requirement_test == 'true' }}; then
             echo "| Requirement |" >> $GITHUB_STEP_SUMMARY
           fi
-          if ${{ steps.modinput-version.outputs.ucc_modinput_tests == 'true' }}; then
-            echo "| UCC Modinput |" >> $GITHUB_STEP_SUMMARY
-          fi
-
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -471,6 +464,22 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - job-summary:
+        run: |
+          junit_xml_path="test-results/junit.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          echo "| Total Tests | $total_tests |"  >> $GITHUB_STEP_SUMMARY
+          echo "| ------------- | -------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed Tests | $passed |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Failed Tests | $failures |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Errored Tests | $errors |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Skipped Tests | $skipped |"  >> $GITHUB_STEP_SUMMARY
+
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
