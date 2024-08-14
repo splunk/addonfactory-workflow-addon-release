@@ -516,7 +516,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: failure()
+    if: success() || failure()
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
