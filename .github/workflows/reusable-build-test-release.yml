@@ -203,11 +203,9 @@ jobs:
           splunk_version_list1=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
           sc4s_version_list1=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo $splunk_version_list1,$sc4s_version_list1
-          echo "Below are the splunk versions and sc4s version used for testing"
-          echo "| Splunk versions | SC4S version |"  >> $GITHUB_STEP_SUMMARY
-          echo "| ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
-          echo "| ${splunk_version_list} | ${sc4s_version_list} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ${splunk_version_list1} | ${sc4s_version_list1} |" >> $GITHUB_STEP_SUMMARY
+          echo "## Summary of Versions Used" >> $GITHUB_STEP_SUMMARY
+          echo "- **Splunk versions used:** (${splunk_version_list})" >> $GITHUB_STEP_SUMMARY
+          echo "- **SC4S versions used:** (${sc4s_version_list})" >> $GITHUB_STEP_SUMMARY
 
   fossa-scan:
     runs-on: ubuntu-latest
@@ -423,12 +421,9 @@ jobs:
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
 
-          echo "| Total Tests | $total_tests |"  >> $GITHUB_STEP_SUMMARY
-          echo "| ------------- | -------- |" >> $GITHUB_STEP_SUMMARY
-          echo "| Passed Tests | $passed |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Failed Tests | $failures |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Errored Tests | $errors |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Skipped Tests | $skipped |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         if: success() || failure()
@@ -490,13 +485,10 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
 
-          echo "| Total Tests | $total_tests |"  >> $GITHUB_STEP_SUMMARY
-          echo "| ------------- | -------- |" >> $GITHUB_STEP_SUMMARY
-          echo "| Passed Tests | $passed |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Failed Tests | $failures |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Errored Tests | $errors |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Skipped Tests | $skipped |"  >> $GITHUB_STEP_SUMMARY
 
       - uses: actions/upload-artifact@v4
         if: success() || failure()
@@ -1227,18 +1219,15 @@ jobs:
         run: |
           apt-get install -y libxml2-utils || true
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          ls ${{ needs.setup.outputs.directory-path }}/test-results/
           total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
           failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-
-          echo "| Total Tests | $total_tests |"  >> $GITHUB_STEP_SUMMARY
-          echo "| ------------- | -------- |" >> $GITHUB_STEP_SUMMARY
-          echo "| Passed Tests | $passed |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Failed Tests | $failures |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Errored Tests | $errors |"  >> $GITHUB_STEP_SUMMARY
-          echo "| Skipped Tests | $skipped |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
 
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
