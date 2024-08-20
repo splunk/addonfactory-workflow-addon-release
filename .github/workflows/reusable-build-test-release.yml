@@ -1232,7 +1232,7 @@ jobs:
           passed=$((total_tests - failures - errors - skipped))
 
           # Check for failures or errors
-          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
           echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
           echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
@@ -1468,7 +1468,7 @@ jobs:
           passed=$((total_tests - failures - errors - skipped))
 
           # Check for failures or errors
-          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
           echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
           echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
@@ -1725,13 +1725,12 @@ jobs:
           passed=$((total_tests - failures - errors - skipped))
 
           # Check for failures or errors
-          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
           echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
           echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
           echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
           echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
-
           else
             echo "All tests passed successfully. No failures or errors to report."
           fi
@@ -1980,7 +1979,7 @@ jobs:
           passed=$((total_tests - failures - errors - skipped))
 
           # Check for failures or errors
-          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
           echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
           echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
