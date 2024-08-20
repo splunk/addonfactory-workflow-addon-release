@@ -420,10 +420,16 @@ jobs:
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
 
+          # Check for failures or errors
+          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
+          echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
           echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
           echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
-
+          echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "All tests passed successfully. No failures or errors to report."
+          fi
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -1224,11 +1230,18 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
+
+          # Check for failures or errors
+          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
           echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
           echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
           echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
           echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
+
+          else
+            echo "All tests passed successfully. No failures or errors to report."
+          fi
 
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
@@ -1442,6 +1455,30 @@ jobs:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils || true
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          ls ${{ needs.setup.outputs.directory-path }}/test-results/
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          # Check for failures or errors
+          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
+          echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
+
+          else
+            echo "All tests passed successfully. No failures or errors to report."
+          fi
+
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1675,6 +1712,30 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils || true
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          ls ${{ needs.setup.outputs.directory-path }}/test-results/
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          # Check for failures or errors
+          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
+          echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
+
+          else
+            echo "All tests passed successfully. No failures or errors to report."
+          fi
+
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1906,6 +1967,29 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils || true
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          ls ${{ needs.setup.outputs.directory-path }}/test-results/
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          # Check for failures or errors
+          if [ "failures" -gt 0 ] || [ "errors" -gt 0 ]; then
+          echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
+          echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
+
+          else
+            echo "All tests passed successfully. No failures or errors to report."
+          fi
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -2131,6 +2215,27 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils || true
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          # Check for failures or errors
+          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
+          echo "## Summary for  splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
+          echo "### Link to html test report: ${{steps.test_report.outputs.url_html}}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "All tests passed successfully. No failures or errors to report."
+          fi
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
