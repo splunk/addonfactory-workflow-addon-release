@@ -1013,8 +1013,6 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-    outputs:
-      summary-${{ matrix.splunk.version }}-${{ matrix.splunk.version }}: ${{ steps.parse-junit.outputs.summary }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1231,15 +1229,12 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "tests=$total_tests" >> $GITHUB_ENV
-          echo "passed=passed" >> $GITHUB_ENV
-          echo "failed=$failures" >> $GITHUB_ENV
-          echo "skipped=$skipped" >> $GITHUB_ENV
-          echo "errors=$errors" >> $GITHUB_ENV
-      - name: Add job summary
-        run: |
-          summary="${{ matrix.splunk }}-${{ matrix.sc4s }}| ${{ env.tests }} | ${{ env.passed }} | ${{ env.failed }} | ${{ env.skipped }} | ${{ env.errors }} |"
-          echo "summary=$summary" >> $GITHUB_OUTPUT
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$tests |$passed |$failures |$errors" > summary.txt
+      - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: summary-${{ matrix.job }}
+          path: summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1256,23 +1251,16 @@ jobs:
     needs: run-knowledge-tests
     runs-on: ubuntu-latest
     steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v3
+        with:
+          name: summary-*
       - name: Combine summaries into a table
         run: |
-          echo "| Splunk - SC4S | Total Tests | Passed | Failed | skipped | errors" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
-          # Get the JSON string for the matrix strategy
-          matrix_json='${{ toJson(needs.run-knowledge-tests.strategy.matrix) }}'
-
-          # Parse JSON to extract version values
-          splunk_versions=$(echo "$matrix_json" | jq -r '.splunk[].version')
-          sc4s_versions=$(echo "$matrix_json" | jq -r '.sc4s[].version')
-
-          # Dynamically iterate over all matrix combinations
-          for splunk in $splunk_versions; do
-            for sc4s in $sc4s_versions; do
-              job_summary="${{ needs.run-knowledge-tests.outputs['summary-'$splunk'-'$sc4s] }}"
-              echo "$splunk-$sc4s | $job_summary" >> $GITHUB_STEP_SUMMARY
-            done
+          echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          for file in summary-*/summary.txt; do
+            cat "$file" >> $GITHUB_STEP_SUMMARY
           done
 
   run-requirement-tests:
