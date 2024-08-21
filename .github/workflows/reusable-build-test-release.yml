@@ -1252,14 +1252,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           pattern: summary-ko-*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
           echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
-          for file in summary-*/summary.txt; do
+          for file in summary-ko*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
 
@@ -1753,7 +1753,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           pattern: summary-ui-*
       - name: Combine summaries into a table
@@ -2017,7 +2017,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           pattern: summary-modinput-*
       - name: Combine summaries into a table
