@@ -1231,7 +1231,7 @@ jobs:
           passed=$((total_tests - failures - errors - skipped))
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: summary-ko-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           path: summary.txt
@@ -1253,10 +1253,9 @@ jobs:
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
-        with:
-          pattern: summary-ko-*
       - name: Combine summaries into a table
         run: |
+          ls -al
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
           echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ko*/summary.txt; do
@@ -1754,13 +1753,11 @@ jobs:
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
-        with:
-          pattern: summary-ui-*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
           echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
-          for file in summary-*/summary.txt; do
+          for file in summary-ui-*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
 
@@ -2018,13 +2015,11 @@ jobs:
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
-        with:
-          pattern: summary-modinput-*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
           echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
-          for file in summary-*/summary.txt; do
+          for file in summary-modinput-*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
 
