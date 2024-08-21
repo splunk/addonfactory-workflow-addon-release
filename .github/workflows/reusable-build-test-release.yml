@@ -1013,7 +1013,8 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-
+    outputs:
+      summary-${{ matrix.splunk }}-${{ matrix.sc4s }}: ${{ steps.parse-junit.outputs.summary }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1237,10 +1238,10 @@ jobs:
           echo "errors=$errors" >> $GITHUB_ENV
       - name: Add job summary
         run: |
-          echo "| Job | Total Tests | Passed | Failed | skipped | errors" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | ----------- | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
-          echo "| ${{ matrix.splunk }} | ${{ env.tests }} | ${{ env.passed }} | ${{ env.failed }} | ${{ env.skipped }} | ${{ env.errors }} |" >> $GITHUB_STEP_SUMMARY
-
+          summary="${{ matrix.splunk }}-${{ matrix.sc4s }}| ${{ env.tests }} | ${{ env.passed }} | ${{ env.failed }} | ${{ env.skipped }} | ${{ env.errors }} |"
+          echo "summary=$summary" >> $GITHUB_ENV
+        outputs:
+          summary: ${{ env.summary }}
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1253,6 +1254,22 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+  finalize:
+    needs: run-knowledge-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Combine summaries into a table
+        run: |
+          echo "| Splunk - SC4S | Total Tests | Passed | Failed | skipped | errors" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+
+          # Dynamically iterate over all matrix combinations
+          for splunk in ${{ fromJson(needs.ko-tests.strategy.matrix.splunk) }}; do
+            for sc4s in ${{ fromJson(needs.ko-tests.strategy.matrix.sc4s) }}; do
+              job_summary="${{ needs.run-knowledge-tests.outputs['summary-'$splunk'-'$sc4s] }}"
+              echo "$splunk-$sc4s | $job_summary" >> $GITHUB_STEP_SUMMARY
+            done
+          done
 
   run-requirement-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
