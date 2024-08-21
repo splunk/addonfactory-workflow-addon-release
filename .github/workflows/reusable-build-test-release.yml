@@ -1229,11 +1229,11 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$tests |$passed |$failures |$errors" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v3
         with:
-          name: summary-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          name: summary-ko-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           path: summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
@@ -1254,7 +1254,7 @@ jobs:
       - name: Download all summaries
         uses: actions/download-artifact@v3
         with:
-          pattern: summary*
+          pattern: summary-ko-*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
@@ -1734,7 +1734,7 @@ jobs:
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v3
         with:
-          name: summary-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          name: summary-ui-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           path: summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
@@ -1755,7 +1755,7 @@ jobs:
       - name: Download all summaries
         uses: actions/download-artifact@v3
         with:
-          pattern: summary*
+          pattern: summary-ui-*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
@@ -1998,7 +1998,7 @@ jobs:
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v3
         with:
-          name: summary-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          name: summary-modinput-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           path: summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
@@ -2019,7 +2019,7 @@ jobs:
       - name: Download all summaries
         uses: actions/download-artifact@v3
         with:
-          pattern: summary*
+          pattern: summary-modinput-*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
