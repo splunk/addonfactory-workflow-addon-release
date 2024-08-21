@@ -1014,7 +1014,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     outputs:
-      summary-${{ matrix.splunk }}-${{ matrix.sc4s }}: ${{ steps.parse-junit.outputs.summary }}
+      summary-${{ matrix.splunk.version }}-${{ matrix.splunk.version }}: ${{ steps.parse-junit.outputs.summary }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1239,9 +1239,7 @@ jobs:
       - name: Add job summary
         run: |
           summary="${{ matrix.splunk }}-${{ matrix.sc4s }}| ${{ env.tests }} | ${{ env.passed }} | ${{ env.failed }} | ${{ env.skipped }} | ${{ env.errors }} |"
-          echo "summary=$summary" >> $GITHUB_ENV
-        outputs:
-          summary: ${{ env.summary }}
+          echo "summary=$summary" >> $GITHUB_OUTPUT
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1262,10 +1260,16 @@ jobs:
         run: |
           echo "| Splunk - SC4S | Total Tests | Passed | Failed | skipped | errors" >> $GITHUB_STEP_SUMMARY
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          # Get the JSON string for the matrix strategy
+          matrix_json='${{ toJson(needs.run-knowledge-tests.strategy.matrix) }}'
+
+          # Parse JSON to extract version values
+          splunk_versions=$(echo "$matrix_json" | jq -r '.splunk[].version')
+          sc4s_versions=$(echo "$matrix_json" | jq -r '.sc4s[].version')
 
           # Dynamically iterate over all matrix combinations
-          for splunk in ${{ fromJson(needs.ko-tests.strategy.matrix.splunk) }}; do
-            for sc4s in ${{ fromJson(needs.ko-tests.strategy.matrix.sc4s) }}; do
+          for splunk in $splunk_versions; do
+            for sc4s in $sc4s_versions; do
               job_summary="${{ needs.run-knowledge-tests.outputs['summary-'$splunk'-'$sc4s] }}"
               echo "$splunk-$sc4s | $job_summary" >> $GITHUB_STEP_SUMMARY
             done
