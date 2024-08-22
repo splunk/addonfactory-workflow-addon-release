@@ -1229,7 +1229,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v4
         with:
@@ -1259,8 +1259,8 @@ jobs:
       - name: Combine summaries into a table
         run: |
           ls -al
-          echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | errors | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ko*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
@@ -1732,7 +1732,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v4
         with:
@@ -1761,8 +1761,8 @@ jobs:
           pattern: summary-ui*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | errors | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ----- |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ui-*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
@@ -1997,7 +1997,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v3
         with:
@@ -2026,8 +2026,8 @@ jobs:
           pattern: summary-modinput*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-modinput-*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
