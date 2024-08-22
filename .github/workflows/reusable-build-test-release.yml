@@ -73,7 +73,7 @@ on:
 permissions:
   contents: read
   packages: read
-concurrency: 
+concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 jobs:
@@ -303,7 +303,7 @@ jobs:
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
-          
+
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
@@ -378,7 +378,7 @@ jobs:
       matrix:
         python-version:
           - "3.7"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -422,7 +422,7 @@ jobs:
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
 
-          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | Passed | Failed | Errors | Skipped |" >> $GITHUB_STEP_SUMMARY
           echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
           echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
       - uses: actions/upload-artifact@v4
@@ -442,7 +442,7 @@ jobs:
       matrix:
         python-version:
           - "3.9"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -795,7 +795,7 @@ jobs:
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' }}
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1019,7 +1019,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1253,7 +1253,7 @@ jobs:
           pattern: summary-ko*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | errors | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors | Report Link" >> $GITHUB_STEP_SUMMARY
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ko*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
@@ -1284,7 +1284,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       TEST_TYPE: "requirement_test"
       TEST_ARGS: ""
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1489,9 +1489,9 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   Requirement-input-tests-report:
-    needs: run-knowledge-tests
+    needs: run-requirement-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: ${{ !cancelled() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -1758,7 +1758,7 @@ jobs:
   UI-tests-report:
     needs: run-ui-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: ${{ !cancelled() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2001,7 +2001,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} test report |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-artifact-for-github-summary
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -2023,7 +2023,7 @@ jobs:
   Modinput-tests-report:
     needs: run-modinput-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: ${{ !cancelled() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2061,7 +2061,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -2280,7 +2280,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   scripted-input-tests-report:
-    needs: run-knowledge-tests
+    needs: run-scripted-input-tests-full-matrix
     runs-on: ubuntu-latest
     if: success() || failure()
     steps:
