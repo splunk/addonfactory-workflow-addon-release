@@ -1250,9 +1250,12 @@ jobs:
   knowledge-tests-report-summary:
     needs: run-knowledge-tests
     runs-on: ubuntu-latest
+    if: success() || failure()
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ko*
       - name: Combine summaries into a table
         run: |
           ls -al
@@ -1740,7 +1743,7 @@ jobs:
         run: |
           echo "pulling diag"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
@@ -1750,9 +1753,10 @@ jobs:
   UI-tests-report-summary:
     needs: run-ui-tests
     runs-on: ubuntu-latest
+    if: success() || failure()
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
@@ -2012,9 +2016,10 @@ jobs:
   Modinput-tests-report-summary:
     needs: run-modinput-tests
     runs-on: ubuntu-latest
+    if: success() || failure()
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
