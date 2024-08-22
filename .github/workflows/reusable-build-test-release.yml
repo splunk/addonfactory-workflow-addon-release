@@ -1488,7 +1488,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  Scripted-input-tests-report:
+  Requirement-input-tests-report:
     needs: run-knowledge-tests
     runs-on: ubuntu-latest
     if: success() || failure()
