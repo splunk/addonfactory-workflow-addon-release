@@ -1734,7 +1734,7 @@ jobs:
           passed=$((total_tests - failures - errors - skipped))
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report |$total_tests |$passed |$failures |$errors" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: summary-ui-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           path: summary.txt
@@ -1756,7 +1756,9 @@ jobs:
     if: success() || failure()
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ui*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
@@ -2019,7 +2021,9 @@ jobs:
     if: success() || failure()
     steps:
       - name: Download all summaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-modinput*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed | Failed  | errors" >> $GITHUB_STEP_SUMMARY
