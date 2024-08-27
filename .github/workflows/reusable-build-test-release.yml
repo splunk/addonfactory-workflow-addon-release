@@ -343,29 +343,6 @@ jobs:
             ucc_modinput_tests="false"
           fi
           echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
-      - name: job summary
-        run: |
-          echo "| Test-Types to be executed |"  >> $GITHUB_STEP_SUMMARY
-          echo "| ------------- |" >> $GITHUB_STEP_SUMMARY
-          if ${{ steps.testset.outputs.unit == 'true' }}; then
-            echo "| Unit-python3.7 |" >> $GITHUB_STEP_SUMMARY
-            echo "| Unit-python3.9 |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.testset.outputs.knowledge == 'true' }}; then
-            echo "| Knowledge |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.testset.outputs.ui == 'true' }}; then
-            echo "| UI |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.testset.outputs.modinput_functional == 'true' }}; then
-            echo "| Modinput |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.testset.outputs.scripted_inputs == 'true' }}; then
-            echo "| Scripted Input |" >> $GITHUB_STEP_SUMMARY
-          fi
-          if ${{ steps.testset.outputs.requirement_test == 'true' }}; then
-            echo "| Requirement |" >> $GITHUB_STEP_SUMMARY
-          fi
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -1223,7 +1200,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -1253,8 +1230,8 @@ jobs:
           pattern: summary-ko*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors | Report Link" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ko*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
@@ -1468,7 +1445,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -1499,8 +1476,8 @@ jobs:
           pattern: summary-requirement*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | errors | Report Link" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-requirement*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
@@ -1766,8 +1743,8 @@ jobs:
           pattern: summary-ui*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | errors | Report Link" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ----- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ui-*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
@@ -2001,7 +1978,7 @@ jobs:
           errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
           skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
-          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > summary.txt
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > summary.txt
       - name: Upload-artifact-for-github-summary
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -2031,8 +2008,8 @@ jobs:
           pattern: summary-modinput*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors| Report Link" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-modinput-*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
@@ -2290,8 +2267,8 @@ jobs:
           pattern: summary-scripted-*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | errors | Report Link" >> $GITHUB_STEP_SUMMARY
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ------ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
           for file in summary-ko*/summary.txt; do
             cat "$file" >> $GITHUB_STEP_SUMMARY
           done
