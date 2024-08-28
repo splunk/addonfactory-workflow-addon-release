@@ -949,7 +949,7 @@ jobs:
           echo "argo-server=${{ needs.setup-workflow.outputs.argo_server_domain_k8s }}:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
-          printf "argo-base-href=\'\'"
+          echo -e "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
           echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
