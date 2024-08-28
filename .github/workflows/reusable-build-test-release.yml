@@ -244,11 +244,7 @@ jobs:
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
-          echo "## Summary of Versions Used" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Splunk versions used:** (${splunk_version_list})" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **SC4S versions used:** (${sc4s_version_list})" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
-
+          echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
     runs-on: ubuntu-latest
     steps:
@@ -422,15 +418,14 @@ jobs:
         run: |
           sudo apt-get install -y libxml2-utils
           junit_xml_path="test-results/junit.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
 
-          echo "| Total Tests | Passed | Failed | Errors | Skipped |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+          echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -486,15 +481,14 @@ jobs:
         run: |
           sudo apt-get install -y libxml2-utils
           junit_xml_path="test-results/junit.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
           
-          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+          echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -955,7 +949,7 @@ jobs:
           echo "argo-server=${{ needs.setup-workflow.outputs.argo_server_domain_k8s }}:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
-          echo "argo-base-href=\'\'"
+          printf "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
           echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
@@ -1226,10 +1220,10 @@ jobs:
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
           
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
@@ -1472,10 +1466,10 @@ jobs:
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
@@ -1739,10 +1733,10 @@ jobs:
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
       - name: Upload-artifact-for-github-summary
@@ -2004,10 +1998,10 @@ jobs:
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
       - name: Upload-artifact-for-github-summary
@@ -2266,10 +2260,10 @@ jobs:
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
           passed=$((total_tests - failures - errors - skipped))
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > job_summary.txt
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
