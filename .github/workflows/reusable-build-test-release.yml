@@ -2025,7 +2025,7 @@ jobs:
   Modinput-tests-report:
     needs: run-modinput-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: always() && needs.run-modinput-tests.result != 'skipped'
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2287,7 +2287,7 @@ jobs:
   scripted-input-tests-report:
     needs: run-scripted-input-tests-full-matrix
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: always() && needs.run-scripted-input-tests-full-matrix.result != 'skipped'
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
