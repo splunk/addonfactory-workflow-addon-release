@@ -240,16 +240,32 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v2.1
+      - name: job summary
+        run: |
+          splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
+          sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
+          echo "## Summary of Versions Used" >> $GITHUB_STEP_SUMMARY
+          echo "- **Splunk versions used:** (${splunk_version_list})" >> $GITHUB_STEP_SUMMARY
+          echo "- **SC4S versions used:** (${sc4s_version_list})" >> $GITHUB_STEP_SUMMARY
+          echo "- Browser: Chrome" >> $GITHUB_STEP_SUMMARY
 
   fossa-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: run fossa analyze and create report
+        id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug
+          
+          fossa_analyze_output=$(fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt)
+          exit_code=$?
+          FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
+          echo "url=$FOSSA_REPORT_URL"
+          echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
+          exit $exit_code
+
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
@@ -257,6 +273,10 @@ jobs:
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
+      - name: job summary
+        if: success() || failure()
+        run: |
+          echo "FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> $GITHUB_STEP_SUMMARY
 
   fossa-test:
     continue-on-error: true
@@ -312,7 +332,7 @@ jobs:
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
-          
+
   semgrep:
     runs-on: ubuntu-latest
     name: security-sast-semgrep
@@ -352,7 +372,7 @@ jobs:
             ucc_modinput_tests="false"
           fi
           echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
-        
+
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
@@ -398,6 +418,19 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - name : Job summary
+        run: |
+          sudo apt-get install -y libxml2-utils
+          junit_xml_path="test-results/junit.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+
+          echo "| Total Tests | Passed | Failed | Errors | Skipped |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -449,6 +482,19 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - name : Job summary
+        run: |
+          sudo apt-get install -y libxml2-utils
+          junit_xml_path="test-results/junit.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+          
+          echo "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |" >> $GITHUB_STEP_SUMMARY
+          echo "| ----------- | ------------ | ------------ | ------------- | ------------- |" >> $GITHUB_STEP_SUMMARY
+          echo "| $total_tests | $passed | $failures | $errors | $skipped |" >> $GITHUB_STEP_SUMMARY
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -970,7 +1016,6 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1176,6 +1221,24 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+          
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+      - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-ko-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1188,6 +1251,22 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+  knowledge-tests-report:
+    needs: run-knowledge-tests
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ko*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
+          for file in summary-ko*/job_summary.txt; do
+            cat "$file" >> $GITHUB_STEP_SUMMARY
+          done
 
   run-requirement-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
@@ -1214,7 +1293,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       TEST_TYPE: "requirement_test"
       TEST_ARGS: ""
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1388,6 +1467,23 @@ jobs:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+      - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-scripted-input-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1399,6 +1495,23 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+
+  Requirement-input-tests-report:
+    needs: run-requirement-tests
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-requirement*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
+          for file in summary-requirement*/job_summary.txt; do
+            cat "$file" >> $GITHUB_STEP_SUMMARY
+          done
 
   run-ui-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
@@ -1621,6 +1734,23 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-ui-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ matrix.browser }}-${{ matrix.vendor-version.image }}-${{ matrix.marker }}-artifact
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1632,6 +1762,23 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+
+  UI-tests-report:
+    needs: run-ui-tests
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ui*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
+          for file in summary-ui-*/job_summary.txt; do
+            cat "$file" >> $GITHUB_STEP_SUMMARY
+          done
 
   run-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
@@ -1852,6 +1999,23 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-modinput-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ matrix.vendor-version.image }}-${{ matrix.marker }}-artifact
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1863,6 +2027,23 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+
+  Modinput-tests-report:
+    needs: run-modinput-tests
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-modinput*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
+          for file in summary-modinput-*/job_summary.txt; do
+            cat "$file" >> $GITHUB_STEP_SUMMARY
+          done
 
   run-scripted-input-tests-full-matrix:
     if: |
@@ -1891,7 +2072,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -2080,6 +2261,23 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
+          passed=$((total_tests - failures - errors - skipped))
+          echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+      - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-ko-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -2091,6 +2289,23 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+
+  scripted-input-tests-report:
+    needs: run-scripted-input-tests-full-matrix
+    runs-on: ubuntu-latest
+    if: success() || failure()
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-scripted-*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> $GITHUB_STEP_SUMMARY
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> $GITHUB_STEP_SUMMARY
+          for file in summary-scripted*/job_summary.txt; do
+            cat "$file" >> $GITHUB_STEP_SUMMARY
+          done
 
   pre-publish:
     if: ${{ !cancelled() && needs.validate-custom-version.result == 'success' }}
