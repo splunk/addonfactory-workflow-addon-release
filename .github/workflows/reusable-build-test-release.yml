@@ -19,11 +19,6 @@ on:
         description: 'Version of release in the form of "x.x.x" string, specified by user instead of automatically generated semantic release'
         type: string
         default: ""
-      execute-tests-on-push-to-develop:
-        required: false
-        description: 'Flag to run all tests on push to develop branch'
-        type: string
-        default: 'false'
       execute-tests-on-push-to-release:
         required: false
         description: 'Flag to run all tests on push to release branch'
@@ -173,10 +168,8 @@ jobs:
             fi
             ;;
           "push")
-            if ${{ github.ref_name == 'main' }} ||
-            ${{ github.ref_name == 'develop' && inputs.execute-tests-on-push-to-develop == 'true' }} ||
-            ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ||
-            ${{ github.ref_type == 'tag' }} ; then
+            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} || ${{ github.ref_type == 'tag' }} ||
+            ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
@@ -1858,10 +1851,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: |
-      ( !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' ) && 
-      ( github.base_ref == 'main' || github.ref_name == 'main' || ( github.ref_name == 'develop' && inputs.execute-tests-on-push-to-develop == 'true' ) || ( startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' ) ) && 
-      ( needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' )
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
