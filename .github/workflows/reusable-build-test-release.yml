@@ -418,8 +418,9 @@ jobs:
         run: |
           sudo apt-get install -y libxml2-utils
           junit_xml_path="test-results/junit.xml"          
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
@@ -486,8 +487,9 @@ jobs:
         run: |
           sudo apt-get install -y libxml2-utils
           junit_xml_path="test-results/junit.xml"          
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
@@ -1229,8 +1231,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           apt-get install -y libxml2-utils
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
@@ -1480,8 +1482,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           apt-get install -y libxml2-utils
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
@@ -1753,8 +1755,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           apt-get install -y libxml2-utils
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
@@ -2024,8 +2026,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           apt-get install -y libxml2-utils
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
@@ -2292,8 +2294,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           apt-get install -y libxml2-utils
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          junit_xml_file=$(find "$junit_xml_path" 2>/dev/null | head -n 1)
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
