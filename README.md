@@ -37,7 +37,14 @@ Job that is scanning PR and based on PR body or included labels defining tests t
 
 * All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
   * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
-  * push event on branches `main`, `develop` and on `tags` (on release)
+  * triggering event is push to `main` branch and on `tags` (on release)
+  * triggering event is push to `develop` branch 
+    * only when `execute-tests-on-push-to-develop` is set to 'true'
+    * when `execute-tests-on-push-to-develop` is set to 'false' tests will not be triggered
+  * triggering event is push event to `release/*` branch 
+    * only when `execute-tests-on-push-to-release` is set to 'true'
+    * when `execute-tests-on-push-to-release` is set to 'false' tests will not be triggered
+  * triggering event is workflow_dispatch (used to create custom release version)
   * schedule event (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/tools/jinja_parameters.yml))
 * To trigger specific test type
   * add to PR one or multiple labels, available choices can be found [here](https://github.com/splunk/addonfactory-workflow-addon-release/blob/4f3fa4d779b6ec7649f0dc6b973eb4d68e5fcc48/.github/workflows/reusable-build-test-release.yml#L153)
