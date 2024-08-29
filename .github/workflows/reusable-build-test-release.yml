@@ -274,6 +274,7 @@ jobs:
     uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
     secrets:
       SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+    permissions: write-all
     with:
       upload_results: true
 
