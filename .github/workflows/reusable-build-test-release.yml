@@ -1248,7 +1248,7 @@ jobs:
   knowledge-tests-report:
     needs: run-knowledge-tests
     runs-on: ubuntu-latest
-    if: ${{ success() || failure() }}
+    if: ${{ !cancelled() && needs.run-knowledge-tests.result != 'skipped' }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -1493,7 +1493,7 @@ jobs:
   Requirement-input-tests-report:
     needs: run-requirement-tests
     runs-on: ubuntu-latest
-    if: ${{ success() || failure() }}
+    if: ${{ !cancelled() && needs.run-requirement-tests.result != 'skipped' }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -1760,7 +1760,7 @@ jobs:
   UI-tests-report:
     needs: run-ui-tests
     runs-on: ubuntu-latest
-    if: ${{ success() || failure() }}
+    if: ${{ !cancelled() && needs.run-ui-tests.result != 'skipped' }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2025,7 +2025,7 @@ jobs:
   Modinput-tests-report:
     needs: run-modinput-tests
     runs-on: ubuntu-latest
-    if: ${{ success() || failure() }}
+    if: ${{ !cancelled() && needs.run-modinput-tests.result != 'skipped' }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2300,6 +2300,7 @@ jobs:
           for file in summary-scripted*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done
+
 
   pre-publish:
     if: ${{ !cancelled() && needs.validate-custom-version.result == 'success' }}
