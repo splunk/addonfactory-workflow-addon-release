@@ -274,6 +274,8 @@ jobs:
     uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
     secrets:
       SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+    with:
+      allow_failure: false
 
   test-inventory:
     runs-on: ubuntu-latest
