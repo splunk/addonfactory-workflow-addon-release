@@ -1858,10 +1858,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: |
-      ( !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' ) && 
-      ( github.base_ref == 'main' || github.ref_name == 'main' || ( github.ref_name == 'develop' && inputs.execute-tests-on-push-to-develop == 'true' ) || ( startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' ) ) && 
-      ( needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' )
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
