@@ -423,7 +423,7 @@ jobs:
               total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
               failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
               errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_fileh")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
               passed=$((total_tests - failures - errors - skipped))
               echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
