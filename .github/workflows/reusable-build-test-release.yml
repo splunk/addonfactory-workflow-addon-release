@@ -2287,7 +2287,7 @@ jobs:
   scripted-input-tests-report:
     needs: run-scripted-input-tests-full-matrix
     runs-on: ubuntu-latest
-    if: ${{ success() || failure() }}
+    if: ${{ !cancelled() && needs.run-scripted-input-tests-full-matrix.result != 'skipped' }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
