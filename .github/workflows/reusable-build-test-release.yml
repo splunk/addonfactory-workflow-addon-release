@@ -275,7 +275,7 @@ jobs:
     secrets:
       SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
     with:
-      allow_failure: false
+      upload_results: true
 
   test-inventory:
     runs-on: ubuntu-latest
