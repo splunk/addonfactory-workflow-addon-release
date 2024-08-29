@@ -1248,7 +1248,7 @@ jobs:
   knowledge-tests-report:
     needs: run-knowledge-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: ${{ success() || failure() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -1493,7 +1493,7 @@ jobs:
   Requirement-input-tests-report:
     needs: run-requirement-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: ${{ success() || failure() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -1760,7 +1760,7 @@ jobs:
   UI-tests-report:
     needs: run-ui-tests
     runs-on: ubuntu-latest
-    if: success() || failure()
+    if: ${{ success() || failure() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2025,7 +2025,7 @@ jobs:
   Modinput-tests-report:
     needs: run-modinput-tests
     runs-on: ubuntu-latest
-    if: always() && needs.run-modinput-tests.result != 'skipped'
+    if: ${{ success() || failure() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
@@ -2287,7 +2287,7 @@ jobs:
   scripted-input-tests-report:
     needs: run-scripted-input-tests-full-matrix
     runs-on: ubuntu-latest
-    if: always() && needs.run-scripted-input-tests-full-matrix.result != 'skipped'
+    if: ${{ success() || failure() }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
