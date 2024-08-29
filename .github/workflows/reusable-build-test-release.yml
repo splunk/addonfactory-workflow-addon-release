@@ -1075,24 +1075,6 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
-        id: update-argo-token
-        if: ${{ !cancelled() }}
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
-          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
