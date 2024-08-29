@@ -16,7 +16,14 @@ permissions:
   statuses: write
 
 jobs:
+  test-skip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
   compliance-copyrights:
+    needs:
+      - test-skip
     if: false
     runs-on: ubuntu-latest
     steps:
@@ -25,11 +32,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  test-skip:
-    if: false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
   pre-commit:
     needs:
