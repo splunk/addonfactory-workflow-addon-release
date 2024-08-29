@@ -1220,10 +1220,10 @@ jobs:
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_path")
-          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_path")
-          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_path")
-          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_path")
+          total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' $junit_xml_path)
+          failures=$(xmllint --xpath 'sum(//testsuite/@failures)' $junit_xml_path)
+          errors=$(xmllint --xpath 'sum(//testsuite/@errors)' $junit_xml_path)
+          skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' $junit_xml_path)
           passed=$((total_tests - failures - errors - skipped))
           
           echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
