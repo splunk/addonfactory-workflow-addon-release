@@ -253,7 +253,6 @@ jobs:
         id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          
           fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
           exit_code=$?
           FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
@@ -261,7 +260,6 @@ jobs:
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
           exit $exit_code
-
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
@@ -427,7 +425,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - uses: actions/upload-artifact@v4
@@ -494,7 +492,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - uses: actions/upload-artifact@v4
@@ -1237,7 +1235,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
@@ -1488,7 +1486,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
@@ -1761,7 +1759,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - name: Upload-artifact-for-github-summary
@@ -2032,7 +2030,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - name: Upload-artifact-for-github-summary
@@ -2300,7 +2298,7 @@ jobs:
               passed=$((total_tests - failures - errors - skipped))
               echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "No XML files found, exiting"
+              echo "no XML File found, exiting"
               exit 1
           fi
       - name: Upload-${{ matrix.splunk.version }}-${{ matrix.sc4s.version }}-${{ env.TEST_TYPE }}
