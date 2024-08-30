@@ -19,11 +19,6 @@ on:
         description: 'Version of release in the form of "x.x.x" string, specified by user instead of automatically generated semantic release'
         type: string
         default: ""
-      execute-tests-on-push-to-develop:
-        required: false
-        description: 'Flag to run all tests on push to develop branch'
-        type: string
-        default: 'false'
       execute-tests-on-push-to-release:
         required: false
         description: 'Flag to run all tests on push to release branch'
@@ -38,7 +33,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.0.4"
+        default: "v3.0.5"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
@@ -173,8 +168,7 @@ jobs:
             fi
             ;;
           "push")
-            if ${{ github.ref_name == 'main' }} ||
-            ${{ github.ref_name == 'develop' && inputs.execute-tests-on-push-to-develop == 'true' }} ||
+            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} || ${{ github.ref_type == 'tag' }} ||
             ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
@@ -311,19 +305,11 @@ jobs:
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
-          
+
   semgrep:
-    runs-on: ubuntu-latest
-    name: security-sast-semgrep
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - uses: actions/checkout@v4
-      - name: Semgrep
-        id: semgrep
-        run: semgrep ci
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+    uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
+    secrets:
+      SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
   test-inventory:
     runs-on: ubuntu-latest
@@ -805,7 +791,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.7
+        uses: splunk/appinspect-cli-action@v2.8
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -1140,7 +1126,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1359,7 +1345,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1592,7 +1578,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1621,7 +1607,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
@@ -1823,7 +1809,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1841,7 +1827,7 @@ jobs:
         uses: dorny/test-reporter@v1.9.1
         if: ${{ !cancelled() }}
         with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
       - name: pull diag from s3 bucket
@@ -1852,15 +1838,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-scripted-input-tests-full-matrix:
-    if: |
-      ( !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' ) && 
-      ( github.base_ref == 'main' || github.ref_name == 'main' || ( github.ref_name == 'develop' && inputs.execute-tests-on-push-to-develop == 'true' ) || ( startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' ) ) && 
-      ( needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' )
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -2051,7 +2034,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
