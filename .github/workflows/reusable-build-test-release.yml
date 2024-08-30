@@ -232,7 +232,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@vfix/update-sc4s-version
+        uses: splunk/addonfactory-test-matrix-action@fix/update-sc4s-version
 
   fossa-scan:
     runs-on: ubuntu-latest
