@@ -1269,7 +1269,7 @@ jobs:
           pattern: summary-ko*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-ko*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -1524,7 +1524,7 @@ jobs:
           pattern: summary-requirement*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-requirement*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -1801,7 +1801,7 @@ jobs:
           pattern: summary-ui*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-ui-*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -2076,7 +2076,7 @@ jobs:
           pattern: summary-modinput*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-modinput-*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -2348,7 +2348,7 @@ jobs:
           pattern: summary-scripted*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed | Failed  | Errors| Skipped | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-scripted*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
