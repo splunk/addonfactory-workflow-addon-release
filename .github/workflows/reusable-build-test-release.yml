@@ -909,6 +909,7 @@ jobs:
       k8s-manifests-branch: ${{ steps.test-setup.outputs.k8s-manifests-branch }}
       argo-namespace: ${{ steps.test-setup.outputs.argo-namespace }}
       addon-name: ${{ steps.test-setup.outputs.addon-name }}
+      addon-folder-name: ${{ steps.test-setup.outputs.addon-folder-name }}
       job-name: ${{ steps.test-setup.outputs.job-name }}
       labels: ${{ steps.test-setup.outputs.labels }}
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
