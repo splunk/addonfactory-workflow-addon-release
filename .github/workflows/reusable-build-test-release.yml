@@ -1079,6 +1079,31 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
+        id: update-argo-token
+        if: ${{ !cancelled() }}
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$(( 10-((current_time-start_time)/60) ))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Cancel workflow
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
@@ -1091,6 +1116,47 @@ jobs:
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
+      - name: check if workflow completed
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          echo "Status of workflow:" "$ARGO_STATUS"
+          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
+          do
+              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
+              argo wait "${WORKFLOW_NAME}" -n workflows || true
+              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          done
+      - name: Test report
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        shell: bash
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          echo "Status of workflow:" "$ARGO_STATUS"
+          if [ "$ARGO_STATUS" == "Succeeded" ]; then
+            exit 0
+          else
             exit 1
           fi
       - name: pull artifacts from s3 bucket
