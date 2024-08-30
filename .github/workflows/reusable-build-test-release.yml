@@ -305,19 +305,11 @@ jobs:
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
-          
+
   semgrep:
-    runs-on: ubuntu-latest
-    name: security-sast-semgrep
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - uses: actions/checkout@v4
-      - name: Semgrep
-        id: semgrep
-        run: semgrep ci
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+    uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
+    secrets:
+      SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
   test-inventory:
     runs-on: ubuntu-latest
