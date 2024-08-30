@@ -175,8 +175,7 @@ jobs:
           "push")
             if ${{ github.ref_name == 'main' }} ||
             ${{ github.ref_name == 'develop' && inputs.execute-tests-on-push-to-develop == 'true' }} ||
-            ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ||
-            ${{ github.ref_type == 'tag' }} ; then
+            ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
