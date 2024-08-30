@@ -37,7 +37,7 @@ Job that is scanning PR and based on PR body or included labels defining tests t
 
 * All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
   * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
-  * triggering event is push to `main` branch and on `tags` (on release)
+  * triggering event is push to `main` branch 
   * triggering event is push to `develop` branch 
   * triggering event is push event to `release/*` branch 
     * only when `execute-tests-on-push-to-release` is set to 'true'
