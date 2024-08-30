@@ -1101,7 +1101,7 @@ jobs:
           ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
         run: |
           set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+          if argo watch ${{ steps.run-btool-check.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
             echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Cancel workflow
@@ -1109,13 +1109,13 @@ jobs:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         if: ${{ cancelled() }}
         run: |
-          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-btool-check.outputs.workflow-name }})
           cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
           cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
-          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-btool-check.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-btool-check.outputs.workflow-name }} stopped"
           else
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            echo "Workflow ${{ steps.run-btool-check.outputs.workflow-name }} didn't stop"
             exit 1
           fi
       - name: check if workflow completed
@@ -1127,7 +1127,7 @@ jobs:
           set +e
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+            WORKFLOW_NAME=${{ steps.run-btool-check.outputs.workflow-name }}
           else
             WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
           fi
@@ -1148,7 +1148,7 @@ jobs:
           set +e
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+            WORKFLOW_NAME=${{ steps.run-btool-check.outputs.workflow-name }}
           else
             WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
           fi
@@ -1170,7 +1170,7 @@ jobs:
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+            WORKFLOW_NAME=${{ steps.run-btool-check.outputs.workflow-name }}
           else
             WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
           fi
