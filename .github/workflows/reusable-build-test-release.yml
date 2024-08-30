@@ -2161,7 +2161,6 @@ jobs:
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
-          vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
@@ -2260,13 +2259,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
@@ -2274,7 +2273,7 @@ jobs:
         uses: dorny/test-reporter@v1.9.1
         if: ${{ !cancelled() }}
         with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
       - name: Parse JUnit XML
@@ -2289,7 +2288,7 @@ jobs:
               errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
               skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
               passed=$((total_tests - failures - errors - skipped))
-              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
               echo "no XML File found, exiting"
               exit 1
@@ -2298,7 +2297,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ steps.os-name-version.outputs.os-name }}-${{ steps.os-name-version.outputs.os-version }}
           path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
@@ -2308,7 +2307,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
