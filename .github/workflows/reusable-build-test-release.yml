@@ -2056,7 +2056,7 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-modinput-*/job_summary.txt; do
+          for file in summary-modinput*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done
       - uses: geekyeggo/delete-artifact@v5
