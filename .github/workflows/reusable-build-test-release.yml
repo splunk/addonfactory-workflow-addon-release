@@ -1160,13 +1160,13 @@ jobs:
             exit 1
           fi
       - name: pull artifacts from s3 bucket
-        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != "Succeeded" }}
+        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != 'Succeeded' }}
         run: |
           echo "pulling artifacts"
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
           tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
       - name: pull logs from s3 bucket
-        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != "Succeeded" }}
+        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != 'Succeeded' }}
         run: |
           # shellcheck disable=SC2157
           if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
@@ -1178,13 +1178,13 @@ jobs:
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
           aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != "Succeeded" }}
+        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != 'Succeeded' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != "Succeeded" }}
+        if: ${{ !cancelled() && steps.check-workflow-status.outputs.workflow-status != 'Succeeded' }}
         with:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
