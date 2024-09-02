@@ -1941,14 +1941,6 @@ jobs:
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: create splunkbase download url for given TA version
-        id: create-splunkbase-url
-        shell: bash
-        run: |
-          APP_ID=${{ inputs.splunkbase-app-id }}
-          TA_VERSION=${{ matrix.ta-version-to-upgrade }}
-          TA_SPLUNKBASE_URL="https://splunkbase.splunk.com/app/${APP_ID}/release/${TA_VERSION}/download"
-          echo "splunkbase-url=$TA_SPLUNKBASE_URL" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
         timeout-minutes: 340
@@ -1971,7 +1963,7 @@ jobs:
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           pre-upgrade-marker: ${{ inputs.pre-upgrade-marker }} # TODO: add pre-upgrade marker input in `wfe-test-runner-action`
           post-upgrade-marker: ${{ inputs.post-upgrade-marker }} # TODO: add post-upgrade marker input in `wfe-test-runner-action`
-          ta-splunkbase-url: ${{ steps.create-splunkbase-url.outputs.splunkbase-url }} # TODO: add ta-splunkbase-url input in `wfe-test-runner-action`
+          splunkbase-app-id: ${{ inputs.splunkbase-app-id }} # TODO: add splunkbase-app-id input in `wfe-test-runner-action`
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
