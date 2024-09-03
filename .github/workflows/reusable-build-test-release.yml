@@ -14,6 +14,16 @@ on:
         type: string
         default: >-
           [""]
+      custom-version:
+        required: false
+        description: 'Version of release in the form of "x.x.x" string, specified by user instead of automatically generated semantic release'
+        type: string
+        default: ""
+      execute-tests-on-push-to-release:
+        required: false
+        description: 'Flag to run all tests on push to release branch'
+        type: string
+        default: 'false'
       k8s-environment:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
@@ -23,7 +33,13 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.0.3"
+        default: "v3.0.5"
+      scripted-inputs-os-list:
+        required: false
+        description: "list of OS used for scripted input tests"
+        type: string
+        default: >-
+          ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -71,6 +87,24 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 jobs:
+  validate-custom-version:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.custom-version != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate custom version
+        run: |
+          if [[ ! ${{ github.event.inputs.custom-version }} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid custom version provided. Please provide a valid semver version."
+            exit 1
+          fi
+
+          git fetch --tags
+          if [ "$(git tag -l 'v${{ github.event.inputs.custom-version }}')" ]; then
+            echo "The provided version already exists. Please provide a unique version."
+            exit 1
+          fi
+          
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
@@ -134,7 +168,8 @@ jobs:
             fi
             ;;
           "push")
-            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} || ${{ github.ref_type == 'tag' }} ; then
+            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} ||
+            ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
               for test_type in "${TESTSET[@]}"; do
                 EXECUTE_LABELED["$test_type"]="true"
               done
@@ -144,6 +179,13 @@ jobs:
             for test_type in "${TESTSET[@]}"; do
               EXECUTE_LABELED["$test_type"]="true"
             done
+            ;;
+          "workflow_dispatch")
+            if ${{ inputs.custom-version != '' }} ; then
+              for test_type in "${TESTSET[@]}"; do
+                EXECUTE_LABELED["$test_type"]="true"
+              done
+            fi
             ;;
           *)
             echo "No tests were labeled for execution!"
@@ -166,7 +208,7 @@ jobs:
       pull-requests: read
       statuses: write
     steps:
-      - uses: amannn/action-semantic-pull-request@v5.5.2
+      - uses: amannn/action-semantic-pull-request@v5.5.3
         with:
           wip: true
           validateSingleCommit: true
@@ -191,16 +233,26 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v2.1
-
+      - name: job summary
+        run: |
+          splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
+          sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
+          echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: run fossa analyze and create report
+        id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug
+          fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
+          exit_code="${PIPESTATUS[0]}"
+          FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
+          echo "url=$FOSSA_REPORT_URL"
+          echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
+          exit "$exit_code"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
@@ -208,6 +260,10 @@ jobs:
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
+      - name: job summary
+        if: success() || failure()
+        run: |
+          echo "FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> "$GITHUB_STEP_SUMMARY"
 
   fossa-test:
     continue-on-error: true
@@ -259,23 +315,15 @@ jobs:
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
       - name: Secret Scanning Trufflehog
-        uses: trufflesecurity/trufflehog@v3.78.0
+        uses: trufflesecurity/trufflehog@v3.81.10
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
-          
+
   semgrep:
-    runs-on: ubuntu-latest
-    name: security-sast-semgrep
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - uses: actions/checkout@v4
-      - name: Semgrep
-        id: semgrep
-        run: semgrep ci
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+    uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@main
+    secrets:
+      SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
 
   test-inventory:
     runs-on: ubuntu-latest
@@ -303,7 +351,7 @@ jobs:
             ucc_modinput_tests="false"
           fi
           echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
-        
+
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
@@ -315,7 +363,7 @@ jobs:
       matrix:
         python-version:
           - "3.7"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -349,6 +397,23 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - name : Job summary
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y libxml2-utils      
+          junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
+
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -366,7 +431,7 @@ jobs:
       matrix:
         python-version:
           - "3.9"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -400,6 +465,23 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - name : Job summary
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y libxml2-utils
+          junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
+
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
@@ -409,6 +491,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs:
+      - validate-custom-version
       - setup-workflow
       - test-inventory
       - meta
@@ -418,7 +501,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') }}
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -489,7 +572,7 @@ jobs:
       - name: Determine the version to build
         id: BuildVersion
         run: |
-          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          INPUT_SEMVER="${{ github.event.inputs.custom-version != '' && github.event.inputs.custom-version || steps.semantic.outputs.new_release_version }}"
           echo "Initial semver ${INPUT_SEMVER}"
           INPUT_PRNUMBER="${{ github.event.number }}"
           SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
@@ -596,6 +679,7 @@ jobs:
   build-3_9:
     runs-on: ubuntu-latest
     needs:
+      - validate-custom-version
       - setup-workflow
       - test-inventory
       - meta
@@ -607,7 +691,8 @@ jobs:
       - fossa-scan
     if: |
       always() &&
-      (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped')
+      (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped') &&
+      (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped')
     permissions:
       contents: write
       packages: read
@@ -667,7 +752,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - id: BuildVersion
         run: |
-          INPUT_SEMVER="${{ steps.semantic.outputs.new_release_version }}"
+          INPUT_SEMVER="${{ github.event.inputs.custom-version != '' && github.event.inputs.custom-version || steps.semantic.outputs.new_release_version }}"
           echo "Initial semver ${INPUT_SEMVER}"
           INPUT_PRNUMBER="${{ github.event.number }}"
           SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
@@ -705,7 +790,7 @@ jobs:
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' }}
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -754,7 +839,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.7
+        uses: splunk/appinspect-cli-action@v2.8
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -857,7 +942,7 @@ jobs:
           echo "argo-server=${{ needs.setup-workflow.outputs.argo_server_domain_k8s }}:443"
           echo "argo-http1=true"
           echo "argo-secure=true"
-          echo "argo-base-href=\'\'"
+          echo -e "argo-base-href=\'\'"
           echo "argo-namespace=workflows"
           echo "argo-workflow-tmpl-name=ta-workflow"
           echo "argo-cancel-workflow-tmpl-name=cancel-workflow"
@@ -918,7 +1003,6 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -930,7 +1014,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1089,7 +1173,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1109,13 +1193,6 @@ jobs:
           name: cim-compliance-report
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/cim-compliance-report.md
-      - name: Upload cim-field-report for ${{ matrix.splunk.version }}
-        uses: actions/upload-artifact@v4
-        if: ${{ matrix.splunk.islatest == true }}
-        with:
-          name: cim-field-report
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results/cim_field_report.json
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
@@ -1124,6 +1201,29 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-ko-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1136,6 +1236,26 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+  knowledge-tests-report:
+    needs: run-knowledge-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-knowledge-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ko*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-ko*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-ko*
 
   run-requirement-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
@@ -1162,7 +1282,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       TEST_TYPE: "requirement_test"
       TEST_ARGS: ""
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1183,7 +1303,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"  
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -1257,7 +1377,7 @@ jobs:
           else
             echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
             exit 1
-          fi  
+          fi
       - name: Retrying workflow
         id: retry-wf
         shell: bash
@@ -1315,7 +1435,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1336,6 +1456,29 @@ jobs:
           name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-requirement-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1347,6 +1490,27 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+
+  Requirement-input-tests-report:
+    needs: run-requirement-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-requirement-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-requirement*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-requirement*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-requirement*
 
   run-ui-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
@@ -1548,7 +1712,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1569,6 +1733,29 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ matrix.browser }}-${{ matrix.vendor-version.image }}-${{ matrix.marker }}-artifact
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1577,9 +1764,30 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
+
+  UI-tests-report:
+    needs: run-ui-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-ui-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ui*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-ui-*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-ui*
 
   run-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
@@ -1608,7 +1816,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1779,7 +1987,7 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -1797,9 +2005,32 @@ jobs:
         uses: dorny/test-reporter@v1.9.1
         if: ${{ !cancelled() }}
         with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ matrix.vendor-version.image }}-${{ matrix.marker }}-artifact
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -1808,12 +2039,33 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+  Modinput-tests-report:
+    needs: run-modinput-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-modinput-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-modinput*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-modinput*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-modinput*
+
   run-scripted-input-tests-full-matrix:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && ( github.base_ref == 'main' || github.ref_name == 'main' ) && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -1825,7 +2077,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
-        os: [ "ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "centos:7", "redhat:8.0", "redhat:8.2", "redhat:8.3", "redhat:8.4", "redhat:8.5" ]
+        os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1836,7 +2088,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
-    permissions: 
+    permissions:
       actions: read
       deployments: read
       contents: read
@@ -1909,7 +2161,6 @@ jobs:
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
-          vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
@@ -2004,17 +2255,17 @@ jobs:
           fi
           echo "pulling logs"
           mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests artifacts
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
@@ -2022,9 +2273,32 @@ jobs:
         uses: dorny/test-reporter@v1.9.1
         if: ${{ !cancelled() }}
         with:
-          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
+              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              passed=$((total_tests - failures - errors - skipped))
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+              echo "no XML File found, exiting"
+              exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ steps.os-name-version.outputs.os-name }}-${{ steps.os-name-version.outputs.os-version }}
+          path: job_summary.txt
       - name: pull diag from s3 bucket
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         run: |
@@ -2033,17 +2307,39 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
         with:
-          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} tests diag
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+  scripted-input-tests-report:
+    needs: run-scripted-input-tests-full-matrix
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-scripted-input-tests-full-matrix.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-scripted*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-scripted*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-scripted*
+
   pre-publish:
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.validate-custom-version.result == 'success' }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
     # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
     name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' &&  'pre-publish' ||  'pre-publish-not_main_pr' }}
     needs:
+      - validate-custom-version
       - meta
       - compliance-copyrights
       - lint
@@ -2080,9 +2376,14 @@ jobs:
           exit 1
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule' }}
+    if: |
+      (!cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule') ||
+      (!cancelled() && needs.pre-publish.result == 'success' && github.event.inputs.custom-version != '' && needs.validate-custom-version.result == 'success')
+    name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
+
     needs:
       - pre-publish
+      - validate-custom-version
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -2096,6 +2397,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - name: Semantic Release
+        if: ${{ github.event.inputs.custom-version  == '' }}
         id: semantic
         uses: splunk/semantic-release-action@v1.3
         env:
@@ -2105,15 +2407,24 @@ jobs:
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
           gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
+      - name: Release custom version
+        if: ${{ github.event.inputs.custom-version  != '' }}
+        id: custom
+        uses: "softprops/action-gh-release@v2"
+        with:
+          token: "${{ secrets.GH_TOKEN_ADMIN }}"
+          tag_name: v${{ github.event.inputs.custom-version }}
+          target_commitish: "${{github.ref_name}}"
+          make_latest: false
       - name: Download package-deployment
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' || steps.custom.outputs.upload_url  != '' }}
         uses: actions/download-artifact@v4
         id: download-package-deployment
         with:
           name: package-deployment
           path: download/artifacts/
       - name: Download package-splunkbase
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' || steps.custom.outputs.upload_url  != '' }}
         uses: actions/download-artifact@v4
         id: download-package-splunkbase
         with:
@@ -2121,30 +2432,22 @@ jobs:
           path: download/artifacts/deployment
       - name: Download cim-compliance-report
         id: download-cim-compliance-report
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' || steps.custom.outputs.upload_url  != '' }}
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: cim-compliance-report
           path: download/artifacts/deployment
-      - name: Download cim-field-report
-        id: download-cim-field-report
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: cim-field-report
-          path: download/artifacts/deployment
       - name: List of assets
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        if: ${{ steps.semantic.outputs.new_release_published == 'true'|| steps.custom.outputs.upload_url  != '' }}
         run: |
           ls -la ${{ steps.download-package-splunkbase.outputs.download-path }}
       - name: Upload assets to release
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
+        if: ${{ steps.semantic.outputs.new_release_published == 'true' || steps.custom.outputs.upload_url  != '' }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ github.token }}
           file: ${{ steps.download-package-splunkbase.outputs.download-path }}/*
           overwrite: true
           file_glob: true
-          tag: v${{ steps.semantic.outputs.new_release_version }}
+          tag: v${{ github.event.inputs.custom-version != '' && github.event.inputs.custom-version || steps.semantic.outputs.new_release_version }}
