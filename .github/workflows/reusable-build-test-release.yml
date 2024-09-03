@@ -2288,7 +2288,7 @@ jobs:
               errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
               skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
               passed=$((total_tests - failures - errors - skipped))
-              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
               echo "no XML File found, exiting"
               exit 1
