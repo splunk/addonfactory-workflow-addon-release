@@ -472,7 +472,6 @@ test_check_unicode_output.txt
 ```
 Junit XML file
 pytest_splunk_addon.log
-cim-field-report
 cim-compliance-report
 ```
 

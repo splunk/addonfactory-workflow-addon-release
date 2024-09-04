@@ -1109,13 +1109,6 @@ jobs:
           name: cim-compliance-report
           path: |
             ${{ needs.setup.outputs.directory-path }}/test-results/cim-compliance-report.md
-      - name: Upload cim-field-report for ${{ matrix.splunk.version }}
-        uses: actions/upload-artifact@v4
-        if: ${{ matrix.splunk.islatest == true }}
-        with:
-          name: cim-field-report
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results/cim_field_report.json
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
@@ -2126,14 +2119,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cim-compliance-report
-          path: download/artifacts/deployment
-      - name: Download cim-field-report
-        id: download-cim-field-report
-        if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: cim-field-report
           path: download/artifacts/deployment
       - name: List of assets
         if: ${{ steps.semantic.outputs.new_release_published == 'true' }}
