@@ -23,7 +23,7 @@ This runbook shows a real example of backporting changes correlated to `ta-autom
   ```
   git checkout -b fix/bump-k8s-manifest-version
   ```
-- changes made in `ta-automation-k8s-manifests` were correlated with changes in `addonfactory-workflow-addon-release`, so there is a need to backport **only necessary** changes to v.4.16. There are two ways to do that: by cherrypicking specific commits (and resolving the conflicts if they exist) or by commiting necessary changes manually.
+- changes made in `ta-automation-k8s-manifests` were correlated with changes in `addonfactory-workflow-addon-release`, so there is a need to backport **only necessary** changes to `v.4.16`. There are two ways to do that: by cherrypicking specific commits (and resolving the conflicts if they exist) or by commiting necessary changes manually.
   - for example make necessary changes and commit them: 
     ```
     git add .github/workflows/reusable-build-test-release.yml
