@@ -42,5 +42,5 @@ This runbook shows a real example of backporting changes correlated to `ta-autom
   - uncheck `Set as the latest release` box 
   - click `Publish release`
   - check if the release is available, and it points at the proper version - https://github.com/splunk/addonfactory-workflow-addon-release/tags tag `v4.16` should point to the same commit as tag `v4.16.15` 
-    <img src="../images/backporting/compare-tags.png" alt="tags" style="width:200px;"/>
+    <img src="../images/backporting/compare-tags.png" alt="tags"/>
 - run the workflow for some TA using v4.16 to verify if the pipeline works as expected.
