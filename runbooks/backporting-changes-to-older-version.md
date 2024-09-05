@@ -31,7 +31,7 @@ This runbook shows a real example of backporting changes correlated to `ta-autom
     ```
 - push newly created branch to the remote repository
   - ```git push -u origin fix/bump-k8s-manifest-version```
-- in github UI: 
+- in GitHub UI: 
   - navigate to releases
   - draft a new release 
   - `Choose a tag`: type the tag that will be created, i.e. `v.4.16.15` 
