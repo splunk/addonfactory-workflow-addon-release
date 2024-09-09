@@ -242,8 +242,7 @@ jobs:
           echo "sc4s={\"version\":\"3.30.1\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container3\"}" >> "$GITHUB_OUTPUT"
       - name: job summary
         run: |
-          splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
-          splunk_version_list="${splunk_version_list} ${{steps.openssl3_splunk.outputs.splunk}}" || true
+          splunk_version_list=$(echo "${{ steps.matrix.outputs.supportedSplunk }}" | jq -r '.[].version'; echo "${{steps.openssl3_splunk.outputs.splunk}}" | jq -r '.version' | paste -sd "," -)
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
