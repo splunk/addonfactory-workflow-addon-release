@@ -223,6 +223,7 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
+      openssl3_splunk: ${{steps.openssl3_splunk.outputs.splunk}}
     permissions:
       contents: write
       packages: read
@@ -233,6 +234,10 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v2.1
+      - name: OpenSSL3-splunk
+        id: openssl3_splunk
+        run: |
+          echo "splunk={\"version\":\"splunk-9.4-OpenSSL3-1c4ff4fc48b6\", \"build\":\"1c4ff4fc48b6\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
@@ -1003,6 +1008,10 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
+        openssl3_splunk: [ false ]
+        include:
+          - splunk: ${{ fromJson(needs.meta.outputs.openssl3_splunk) }}
+            openssl3_splunk: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
