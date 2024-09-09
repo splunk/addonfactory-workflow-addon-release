@@ -1011,6 +1011,7 @@ jobs:
         openssl3_splunk: [ false ]
         include:
           - splunk: ${{ fromJson(needs.meta.outputs.openssl3_splunk) }}
+          - sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
             openssl3_splunk: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0

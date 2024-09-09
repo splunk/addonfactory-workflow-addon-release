@@ -1,0 +1,2 @@
+[2024-09-03 13:22:15.390] WARNING - pytest-splunk-addon: Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+[2024-09-03 13:22:15.396] INFO - pytest-splunk-addon: Samples path is: package/samples
