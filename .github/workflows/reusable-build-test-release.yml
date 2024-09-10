@@ -223,8 +223,7 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      openssl3_splunk: ${{steps.openssl3_splunk.outputs.splunk}}
-      openssl3_sc4s: ${{steps.openssl3_splunk.outputs.sc4s}}
+      matrix_combinedSplunkversion: ${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}
     permissions:
       contents: write
       packages: read
@@ -235,14 +234,14 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v2.1
-      - name: OpenSSL3-splunk
-        id: openssl3_splunk
+      - id: combined_Splunkmatrix
         run: |
-          echo "splunk={\"version\":\"splunk-9.4-OpenSSL3-1c4ff4fc48b6\", \"build\":\"1c4ff4fc48b6\", \"islatest\":false, \"isoldest\":false}" >> "$GITHUB_OUTPUT"
-          echo "sc4s={\"version\":\"3.30.1\", \"docker_registry\":\"ghcr.io/splunk/splunk-connect-for-syslog/container3\"}" >> "$GITHUB_OUTPUT"
+          splunk='{"version":"splunk-9.4-OpenSSL3-1c4ff4fc48b6", "build":"1c4ff4fc48b6", "islatest":false, "isoldest":false}'
+          combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq --argjson A "$splunk" '. + [$A]')
+          echo "combinedSplunkversions=$(echo "$combinedSplunkversions" | jq -c .)" >> "$GITHUB_OUTPUT"
       - name: job summary
         run: |
-          splunk_version_list=$(echo "${{ steps.matrix.outputs.supportedSplunk }}" | jq -r '.[].version'; echo "${{steps.openssl3_splunk.outputs.splunk}}" | jq -r '.version' | paste -sd "," -)
+          splunk_version_list=$(echo '${{ steps.combined_Splunkmatrix.outputs.combinedSplunkversions }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
@@ -1008,13 +1007,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        openssl3_splunk: [ false ]
-        include:
-          - splunk: ${{ fromJson(needs.meta.outputs.openssl3_splunk) }}
-            sc4s: ${{ fromJson(needs.meta.outputs.openssl3_sc4s) }}
-            openssl3_splunk: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1281,13 +1275,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-        openssl3_splunk: [ false ]
-        include:
-          - splunk: ${{ fromJson(needs.meta.outputs.openssl3_splunk) }}
-            sc4s: ${{ fromJson(needs.meta.outputs.openssl3_sc4s) }}
-            openssl3_splunk: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1540,14 +1529,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
-        openssl3_splunk: [ false ]
-        include:
-          - splunk: ${{ fromJson(needs.meta.outputs.openssl3_splunk) }}
-            browser: "chrome"
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1821,15 +1806,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
-        openssl3_splunk: [ false ]
-        include:
-          - splunk: ${{ fromJson(needs.meta.outputs.openssl3_splunk) }}
-            modinput-type: [ "modinput_functional" ]
-            openssl3_splunk: true
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -2101,7 +2081,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_combinedSplunkversion) }}
         os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
