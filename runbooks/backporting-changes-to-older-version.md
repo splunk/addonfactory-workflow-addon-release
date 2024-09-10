@@ -43,4 +43,10 @@ This runbook shows a real example of backporting changes correlated to `ta-autom
   - click `Publish release`
   - check if the release is available, and it points at the proper version - https://github.com/splunk/addonfactory-workflow-addon-release/tags tag `v4.16` should point to the same commit as tag `v4.16.15` 
     <img src="images/backporting/compare-tags.png" alt="tags"/>
+    Backporting changes will cause that the tag `v4` will point at the same commit as `v4.16`. To make it proper one has to either re-trigger the workflow which produced the latest tag (`v4.17.1`) or resolve that manually: 
+    ```
+    git fetch --tags -f 
+    git tag -f v4 v4.17.1 
+    git push -f --tags
+    ```
 - run the workflow for some TA using v4.16 to verify if the pipeline works as expected.
