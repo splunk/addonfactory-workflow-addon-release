@@ -1865,7 +1865,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/diag*
 
   run-upgrade-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true'  && needs.setup-workflow.outputs.execute-upgrade-labeled == 'true' }}
     needs:
       - build
       - test-inventory
