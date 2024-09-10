@@ -45,19 +45,14 @@ on:
         description: "list of versions to run upgrade tests"
         type: string
         default: "[]"
-      pre-upgrade-marker:
-        required: false
-        description: "marker for pre-upgrade tests"
-        type: string
-        default: ""
-      post-upgrade-marker:
-        required: false
-        description: "marker for post-upgrade tests"
-        type: string
-        default: ""
       splunkbase-app-id:
         required: false
         description: "Splunkbase app id"
+        type: string
+        default: ""
+      splunkbase-app-version:
+        required: false
+        description: "Splunkbase app version"
         type: string
         default: ""
     secrets:
@@ -1886,7 +1881,7 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        ta-version-to-upgrade: ${{ inputs.upgrade-tests-version-list }}
+        ta-version-from-upgrade: ${{ fromJson(inputs.upgrade-tests-version-list) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1947,7 +1942,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@my-branch # TODO: add correct branch name
+        uses: splunk/wfe-test-runner-action@feat/ADDON-73868-add-inputs-for-upgrade-tests # TODO: add correct branch name
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1961,9 +1956,8 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          pre-upgrade-marker: ${{ inputs.pre-upgrade-marker }} # TODO: add pre-upgrade marker input in `wfe-test-runner-action`
-          post-upgrade-marker: ${{ inputs.post-upgrade-marker }} # TODO: add post-upgrade marker input in `wfe-test-runner-action`
           splunkbase-app-id: ${{ inputs.splunkbase-app-id }} # TODO: add splunkbase-app-id input in `wfe-test-runner-action`
+          splunkbase-app-version: ${{ matrix.ta-version-from-upgrade }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
