@@ -40,16 +40,12 @@ on:
         type: string
         default: >-
           ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
-      upgrade-tests-version-list:
-        required: false
-        description: "list of versions to run upgrade tests"
-        type: string
-        default: "[]"
       splunkbase-app-versions:
         required: false
         description: "Splunkbase app versions upgrade tests list"
         type: string
-        default: ""
+        default: >-
+          [""]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
