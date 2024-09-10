@@ -1911,7 +1911,7 @@ jobs:
       - name: capture start time
         id: capture-start-time
         run: |
-          echo "start_time=$(date +%s)" >> "
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
