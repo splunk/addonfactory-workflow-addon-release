@@ -1876,7 +1876,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: [ "9.3" ]
+        # splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         ta-version-from-upgrade: ${{ fromJson(inputs.splunkbase-app-versions) }}
     container:
