@@ -260,6 +260,11 @@ jobs:
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
+      - name: upload fossa.debug.json.gz file
+        uses: actions/upload-artifact@v4
+        with:
+          name: fossa.debug.json.gz
+          path: fossa.debug.json.gz
       - name: job summary
         if: success() || failure()
         run: |
