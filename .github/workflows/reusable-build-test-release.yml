@@ -23,7 +23,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.0.8"
+        default: "v3.0.9"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
