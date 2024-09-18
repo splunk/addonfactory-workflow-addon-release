@@ -909,7 +909,6 @@ jobs:
       k8s-manifests-branch: ${{ steps.test-setup.outputs.k8s-manifests-branch }}
       argo-namespace: ${{ steps.test-setup.outputs.argo-namespace }}
       addon-name: ${{ steps.test-setup.outputs.addon-name }}
-      addon-folder-name: ${{ steps.test-setup.outputs.addon-folder-name }}
       job-name: ${{ steps.test-setup.outputs.job-name }}
       labels: ${{ steps.test-setup.outputs.labels }}
       addon-upload-path: ${{ steps.test-setup.outputs.addon-upload-path }}
@@ -927,7 +926,6 @@ jobs:
         shell: bash
         run: |
           sudo apt-get install -y crudini
-          ADDON_FOLDER_NAME=$(crudini --get package/default/app.conf id name)
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
@@ -951,7 +949,6 @@ jobs:
           echo "directory-path=/tmp"
           echo "s3-bucket=${{ needs.setup-workflow.outputs.s3_bucket_k8s }}"
           echo "addon-name=\"$ADDON_NAME\""
-          echo "addon-folder-name=\"$ADDON_FOLDER_NAME\""
           echo "job-name=wf-$JOB_NAME"
           echo "labels=$LABELS"
           echo "addon-upload-path=$ADDON_UPLOAD_PATH"
@@ -1058,7 +1055,7 @@ jobs:
         timeout-minutes: 10
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/add-input-addon-folder-name
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1069,7 +1066,6 @@ jobs:
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
-          addon-folder-name: ${{ needs.setup.outputs.addon-folder-name }}
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
@@ -1264,7 +1260,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/add-input-addon-folder-name
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1532,7 +1528,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/add-input-addon-folder-name
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1802,7 +1798,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/add-input-addon-folder-name
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2078,7 +2074,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/add-input-addon-folder-name
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2351,7 +2347,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@fix/add-input-addon-folder-name
+        uses: splunk/wfe-test-runner-action@v5.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
