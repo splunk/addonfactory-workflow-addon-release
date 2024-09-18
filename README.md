@@ -443,6 +443,31 @@ test_cim_output.txt
 test_check_unicode_output.txt
 ```
 
+# run-btool-check
+
+**Description:**
+
+- This stage validates the configuration of the TA using btool
+
+**Action used:** 
+- No action used
+
+**Pass/fail behaviour:** 
+
+- The stage is expected to fail only if there are errors reported by btool check.
+
+**Troubleshooting steps for failures if any:**
+
+- btool-output.txt can be used for identifying the errors reported by the btool check
+
+- User can validate the configuration by executing btool check in local env using `$SPLUNK_HOME/bin/splunk btool check | grep "Splunk_TA_example"`.
+
+**Artifacts:**
+
+```
+btool-output.txt
+```
+
 # run-knowledge-tests
 
 **Description:** 
