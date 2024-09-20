@@ -2379,7 +2379,7 @@ jobs:
     if: |
       (!cancelled() && needs.pre-publish.result == 'success' && github.event_name == 'push' && github.event.inputs.custom-version == '') ||
       (!cancelled() && needs.pre-publish.result == 'success' && github.event.inputs.custom-version != '' && needs.validate-custom-version.result == 'success')
-      # First condition for standard release process, second one for manual custom-version release process
+    # First condition for standard release process, second one for manual custom-version release process
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
 
     needs:
