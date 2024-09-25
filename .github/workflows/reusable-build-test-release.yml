@@ -2376,12 +2376,8 @@ jobs:
           exit 1
 
   publish:
-    if: |
-      (!cancelled() && needs.pre-publish.result == 'success' && github.event_name == 'push' && github.event.inputs.custom-version == '') ||
-      (!cancelled() && needs.pre-publish.result == 'success' && github.event.inputs.custom-version != '' && needs.validate-custom-version.result == 'success')
-    # First condition for standard release process, second one for manual custom-version release process
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
-
     needs:
       - pre-publish
       - validate-custom-version
