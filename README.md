@@ -17,13 +17,25 @@ Workflow defines jobs which perform security code scanning, execute different ty
 * If bugfix release is needed:
   * make a change
   * test it
+    * pull-request scenario
+    * push scenario
+    * release scenario (test-addonfactory-repository)
   * create a PR to the `main` branch
   * get all the approvals from the team
   * merge it using "squash commit" option
   * backport the change back to the `develop` branch
   * new version of the workflow is going to be released (v4.17.0 (before) -> v4.17.1 (after)) and it will automatically applied to all the repositories
 
-# Troubleshooting for different workflow stages in GitHub Actions
+# Workflow jobs
+
+## Inputs
+* marker - list of markers used to paralelize modinput tests
+* ui_marker - list of markers used to paralelize ui tests
+* custom-version - version used for release on manual workflow trigger
+* execute-tests-on-push-to-release - enable tests on release branch - default false
+* k8s-enfironment - k8s environment for testing
+* k8s-manifests-branch - k8s-manifests branch for testing
+* scripted-inputs-os-list - list of OSes used for scripted inputs tests
 
 ## General troubleshooting
 
