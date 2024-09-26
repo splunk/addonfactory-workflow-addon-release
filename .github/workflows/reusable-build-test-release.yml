@@ -2333,7 +2333,7 @@ jobs:
                 summary-scripted*
 
   pre-publish:
-    if: ${{ !cancelled() && needs.validate-custom-version.result == 'success' }}
+    if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
     # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
@@ -2376,11 +2376,8 @@ jobs:
           exit 1
 
   publish:
-    if: |
-      (!cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule') ||
-      (!cancelled() && needs.pre-publish.result == 'success' && github.event.inputs.custom-version != '' && needs.validate-custom-version.result == 'success')
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
-
     needs:
       - pre-publish
       - validate-custom-version
