@@ -1,0 +1,12 @@
+2024-09-03 13:21:53,179 - WARNING - plugin.py - pytest_configure - Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+2024-09-03 13:21:53,188 - INFO - pytest_splunk_addon_data_parser.py - _get_path_to_samples - Samples path is: package/samples
+2024-09-03 13:22:02,138 - WARNING - plugin.py - pytest_configure - Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+2024-09-03 13:22:02,145 - INFO - pytest_splunk_addon_data_parser.py - _get_path_to_samples - Samples path is: package/samples
+2024-09-03 13:22:05,387 - WARNING - plugin.py - pytest_configure - Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+2024-09-03 13:22:05,395 - INFO - pytest_splunk_addon_data_parser.py - _get_path_to_samples - Samples path is: package/samples
+2024-09-03 13:22:07,295 - WARNING - plugin.py - pytest_configure - Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+2024-09-03 13:22:07,301 - INFO - pytest_splunk_addon_data_parser.py - _get_path_to_samples - Samples path is: package/samples
+2024-09-03 13:22:09,090 - WARNING - plugin.py - pytest_configure - Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+2024-09-03 13:22:09,096 - INFO - pytest_splunk_addon_data_parser.py - _get_path_to_samples - Samples path is: package/samples
+2024-09-03 13:22:15,389 - WARNING - plugin.py - pytest_configure - Using the default value for --splunk-hec-token which is going to be deprecated. Please provide --splunk-hec-token argument when executing tests.
+2024-09-03 13:22:15,396 - INFO - pytest_splunk_addon_data_parser.py - _get_path_to_samples - Samples path is: package/samples
