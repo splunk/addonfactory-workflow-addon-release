@@ -236,7 +236,7 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v2.1
       - id: combined_Splunkmatrix
         run: |
-          splunk='{"version":"splunk-9.4-OpenSSL3-1c4ff4fc48b6", "build":"1c4ff4fc48b6", "islatest":false, "isoldest":false}'
+          splunk='{"version":"splunk-OpenSSL3-9081ea6b9138", "build":"9081ea6b9138", "islatest":false, "isoldest":false}'
           combinedSplunkversions=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq --argjson A "$splunk" '. + [$A]')
           echo "combinedSplunkversions=$(echo "$combinedSplunkversions" | jq -c .)" >> "$GITHUB_OUTPUT"
       - name: job summary
