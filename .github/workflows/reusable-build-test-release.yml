@@ -282,7 +282,7 @@ jobs:
         uses: fsfe/reuse-action@v1.1
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -357,7 +357,7 @@ jobs:
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - test-inventory
     strategy:
@@ -457,7 +457,7 @@ jobs:
           path: test-results/*
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - validate-custom-version
       - setup-workflow
@@ -759,7 +759,7 @@ jobs:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
 
   run-requirements-unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - build
       - test-inventory
@@ -870,7 +870,7 @@ jobs:
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
