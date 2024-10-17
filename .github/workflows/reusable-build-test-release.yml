@@ -2231,6 +2231,27 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
+  Modinput-tests-report:
+    needs: run-modinput-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-modinput-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-modinput*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-modinput*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-modinput*
+
   run-ucc-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
     needs:
@@ -2484,20 +2505,20 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  Modinput-tests-report:
-    needs: run-modinput-tests
+  ucc-modinput-tests-report:
+    needs: run-ucc-modinput-tests
     runs-on: ubuntu-latest
-    if: ${{ !cancelled() && needs.run-modinput-tests.result != 'skipped' }}
+    if: ${{ !cancelled() && needs.run-ucc-modinput-tests.result != 'skipped' }}
     steps:
       - name: Download all summaries
         uses: actions/download-artifact@v4
         with:
-          pattern: summary-modinput*
+          pattern: summary-ucc-modinput*
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-modinput*/job_summary.txt; do
+          for file in summary-ucc-modinput*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done
       - uses: geekyeggo/delete-artifact@v5
