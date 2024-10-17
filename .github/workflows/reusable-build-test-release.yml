@@ -335,7 +335,7 @@ jobs:
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
-      ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_tests }}
+      ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
     steps:
       - uses: actions/checkout@v4
       - id: testset
