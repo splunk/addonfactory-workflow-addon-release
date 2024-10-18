@@ -2814,6 +2814,7 @@ jobs:
       - setup
       - run-knowledge-tests
       - run-modinput-tests
+      - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
     runs-on: ubuntu-latest
