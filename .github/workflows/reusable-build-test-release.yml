@@ -8,6 +8,12 @@ on:
         type: string
         default: >-
           [""]
+      ucc-modinput-marker:
+        required: false
+        description: 'Parallel run ucc mod_input marker'
+        type: string
+        default: >-
+          [""]
       ui_marker:
         required: false
         description: 'Parallel run ui marker'
@@ -2270,7 +2276,7 @@ jobs:
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
-        marker: ${{ fromJson(inputs.marker) }}
+        marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -2332,7 +2338,7 @@ jobs:
           TEST_ARG_M=""
           EMPTY_MARKER="[]"
 
-          if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
+          if [[ "${{ inputs.ucc-modinput-marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
 
