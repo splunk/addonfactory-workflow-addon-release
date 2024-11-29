@@ -30,6 +30,7 @@ Workflow defines jobs which perform security code scanning, execute different ty
 
 ## Inputs
 * marker - list of markers used to paralelize modinput tests
+* ucc-modinput-marker - list of markers used to paralelize ucc modinput tests
 * ui_marker - list of markers used to paralelize ui tests
 * custom-version - version used for release on manual workflow trigger
 * execute-tests-on-push-to-release - enable tests on release branch - default false
@@ -262,6 +263,7 @@ ui_local::true
 knowledge::true
 unit::true
 modinput_functional::true
+ucc_modinput_functional::true
 ```
 
 build
