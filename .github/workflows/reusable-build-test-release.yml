@@ -232,7 +232,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@fix/update-sc4s-version
+        uses: splunk/addonfactory-test-matrix-action@fix/update-splunk-version
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
