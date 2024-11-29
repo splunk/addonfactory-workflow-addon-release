@@ -600,6 +600,45 @@ helmut.log
 Junit XML file
 ```
 
+# run-ucc-modinput-tests 
+
+**Description**
+
+- This stage does the setup for executing Modinput tests using [ucc modinput tests framework](https://github.com/splunk/addonfactory-ucc-test) and reports the results
+- It is possible to parallelize Modinput tests execution by using pytest markers. 
+  To do so, one must specify `ucc-modinput-marker` parameter in buid-test-release.yml as in [example](https://github.com/splunk/splunk-add-on-for-google-cloud-platform/blob/34abcf2780d8f223f292c9c2fcc5835b71a8de99/.github/workflows/build-test-release.yml#L34).
+  Markers must be created prior and each test case must be marked (check the following references: [ref1](https://github.com/splunk/splunk-add-on-for-google-cloud-platform/blob/34abcf2780d8f223f292c9c2fcc5835b71a8de99/tests/ucc_modinput_functional/markers.py), 
+[ref2](https://github.com/splunk/splunk-add-on-for-google-cloud-platform/blob/34abcf2780d8f223f292c9c2fcc5835b71a8de99/tests/ucc_modinput_functional/test_google_cloud_rh_settings.py#L19))
+
+**Action used:** 
+- No action
+
+**Pass/fail behaviour**
+
+- The stage is expected to fail only if there are any Modular input test failures defined under tests/ucc_modular_functional
+
+**Troubleshooting steps for failures if any:** 
+
+- we can validate the test-execution in local env and compare results.
+
+- The `splunk-add-on-ucc-modinput-test-functional.log` file, `test-result.xml` can be used for identifying errors.
+
+- `splunk-add-on-ucc-modinput-test-functional.log` file has detailed logs for each action for the test case we can observe the logs and troubleshoot what’s the root cause of failure
+
+- Make sure setup and teardown methods works as expected in the test-case.
+
+**Exception file:** 
+
+- `.pytest.expect` User can add failures here which can be ignored while test execution and will be marked as XFail
+
+**NOTE:** There should be valid reasons and approvals from addon and automation PMs to add failures in this file.
+
+**Artifacts:**
+```
+splunk-add-on-ucc-modinput-test-functional.log
+Junit XML file
+```
+
 pre-publish
 ===========
 
