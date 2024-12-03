@@ -2483,6 +2483,7 @@ jobs:
           reporter: java-junit
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
+        shell: bash
         run: |
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
@@ -2507,13 +2508,6 @@ jobs:
               fi
             done < <(xmllint --xpath "//testcase" "$junit_xml_file" 2>/dev/null)
             total_tests=$((passed_count + failed_count + errored_count + skipped_count))
-              # total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              # failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              # # errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              # errors=$(xmllint --xpath '//testcase[error]' "$junit_xml_file" 2>/dev/null | \
-              # xmllint --xpath '//testcase/@name' - | tr ' ' '\n' | sort | uniq | wc -l)
-              # skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              # passed=$((total_tests - failures - errors - skipped))
             echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed_count |$failed_count |$errored_count | $skipped_count |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
               echo "no XML File found, exiting"
