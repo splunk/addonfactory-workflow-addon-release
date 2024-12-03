@@ -2489,26 +2489,12 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-            # Initialize counters
-            passed_count=0
-            failed_count=0
-            errored_count=0
-            skipped_count=0
-
-            # Loop through each testcase in the XML
-            while IFS= read -r testcase; do
-              if echo "$testcase" | grep -q "<error"; then
-                errored_count=$((errored_count + 1))
-              elif echo "$testcase" | grep -q "<failure"; then
-                failed_count=$((failed_count + 1))
-              elif echo "$testcase" | grep -q "<skipped"; then
-                skipped_count=$((skipped_count + 1))
-              else
-                passed_count=$((passed_count + 1))
-              fi
-            done < <(xmllint --xpath "//testcase" "$junit_xml_file" 2>/dev/null)
-            total_tests=$((passed_count + failed_count + errored_count + skipped_count))
-            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed_count |$failed_count |$errored_count | $skipped_count |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file" 2>/dev/null)
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file" 2>/dev/null)
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file" 2>/dev/null)
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file" 2>/dev/null)
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
               echo "no XML File found, exiting"
               exit 1
