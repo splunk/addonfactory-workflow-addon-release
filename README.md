@@ -576,7 +576,7 @@ Junit XML file
 
 **Pass/fail behaviour**
 
-- The stage is expected to fail only if there are any Modular input test failures defined under tests/modular_input
+- The stage is expected to fail only if there are any Modular input test failures defined under tests/modinput_functional
 
 **Troubleshooting steps for failures if any:** 
 
@@ -617,7 +617,7 @@ Junit XML file
 
 **Pass/fail behaviour**
 
-- The stage is expected to fail only if there are any Modular input test failures defined under tests/ucc_modular_functional
+- The stage is expected to fail only if there are any Modular input test failures defined under tests/ucc_modinput_functional
 
 **Troubleshooting steps for failures if any:** 
 
