@@ -1127,7 +1127,7 @@ jobs:
           else
             echo "No retry required"
             argo wait "${{ steps.run-btool-check.outputs.workflow-name }}" -n workflows
-            argo watch "${{ steps.run-btool-check.outputs.workflow-name }}" -n workflows | grep "btool-check"
+            argo watch "${{ steps.run-btool-check.outputs.workflow-name }}" -n workflows | grep "test-btool"
           fi
       - name: check workflow status
         id: check-workflow-status
