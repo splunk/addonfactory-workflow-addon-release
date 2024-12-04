@@ -17,13 +17,26 @@ Workflow defines jobs which perform security code scanning, execute different ty
 * If bugfix release is needed:
   * make a change
   * test it
+    * pull-request scenario
+    * push scenario
+    * release scenario (test-addonfactory-repository)
   * create a PR to the `main` branch
   * get all the approvals from the team
   * merge it using "squash commit" option
   * backport the change back to the `develop` branch
   * new version of the workflow is going to be released (v4.17.0 (before) -> v4.17.1 (after)) and it will automatically applied to all the repositories
 
-# Troubleshooting for different workflow stages in GitHub Actions
+# Workflow jobs
+
+## Inputs
+* marker - list of markers used to paralelize modinput tests
+* ucc-modinput-marker - list of markers used to paralelize ucc modinput tests
+* ui_marker - list of markers used to paralelize ui tests
+* custom-version - version used for release on manual workflow trigger
+* execute-tests-on-push-to-release - enable tests on release branch - default false
+* k8s-enfironment - k8s environment for testing
+* k8s-manifests-branch - k8s-manifests branch for testing
+* scripted-inputs-os-list - list of OSes used for scripted inputs tests
 
 ## General troubleshooting
 
@@ -250,6 +263,7 @@ ui_local::true
 knowledge::true
 unit::true
 modinput_functional::true
+ucc_modinput_functional::true
 ```
 
 build
@@ -562,7 +576,7 @@ Junit XML file
 
 **Pass/fail behaviour**
 
-- The stage is expected to fail only if there are any Modular input test failures defined under tests/modular_input
+- The stage is expected to fail only if there are any Modular input test failures defined under tests/modinput_functional
 
 **Troubleshooting steps for failures if any:** 
 
@@ -585,6 +599,45 @@ Junit XML file
 **Artifacts:**
 ```
 helmut.log
+Junit XML file
+```
+
+# run-ucc-modinput-tests 
+
+**Description**
+
+- This stage does the setup for executing Modinput tests using [ucc modinput tests framework](https://github.com/splunk/addonfactory-ucc-test) and reports the results
+- It is possible to parallelize Modinput tests execution by using pytest markers. 
+  To do so, one must specify `ucc-modinput-marker` parameter in buid-test-release.yml as in [example](https://github.com/splunk/splunk-add-on-for-google-cloud-platform/blob/34abcf2780d8f223f292c9c2fcc5835b71a8de99/.github/workflows/build-test-release.yml#L34).
+  Markers must be created prior and each test case must be marked (check the following references: [ref1](https://github.com/splunk/splunk-add-on-for-google-cloud-platform/blob/34abcf2780d8f223f292c9c2fcc5835b71a8de99/tests/ucc_modinput_functional/markers.py), 
+[ref2](https://github.com/splunk/splunk-add-on-for-google-cloud-platform/blob/34abcf2780d8f223f292c9c2fcc5835b71a8de99/tests/ucc_modinput_functional/test_google_cloud_rh_settings.py#L19))
+
+**Action used:** 
+- No action
+
+**Pass/fail behaviour**
+
+- The stage is expected to fail only if there are any Modular input test failures defined under tests/ucc_modinput_functional
+
+**Troubleshooting steps for failures if any:** 
+
+- we can validate the test-execution in local env and compare results.
+
+- The `splunk-add-on-ucc-modinput-test-functional.log` file, `test-result.xml` can be used for identifying errors.
+
+- `splunk-add-on-ucc-modinput-test-functional.log` file has detailed logs for each action for the test case we can observe the logs and troubleshoot what’s the root cause of failure
+
+- Make sure setup and teardown methods works as expected in the test-case.
+
+**Exception file:** 
+
+- `.pytest.expect` User can add failures here which can be ignored while test execution and will be marked as XFail
+
+**NOTE:** There should be valid reasons and approvals from addon and automation PMs to add failures in this file.
+
+**Artifacts:**
+```
+splunk-add-on-ucc-modinput-test-functional.log
 Junit XML file
 ```
 

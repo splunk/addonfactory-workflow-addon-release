@@ -8,6 +8,12 @@ on:
         type: string
         default: >-
           [""]
+      ucc-modinput-marker:
+        required: false
+        description: 'Parallel run ucc mod_input marker'
+        type: string
+        default: >-
+          [""]
       ui_marker:
         required: false
         description: 'Parallel run ui marker'
@@ -33,7 +39,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.1.0"
+        default: "v3.2.0"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
@@ -111,6 +117,7 @@ jobs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
+      execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
@@ -141,7 +148,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_scripted_inputs" "execute_requirement_test")
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -289,7 +296,7 @@ jobs:
         uses: fsfe/reuse-action@v1.1
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -335,27 +342,18 @@ jobs:
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
-      ucc_modinput_functional: ${{ steps.modinput-version.outputs.ucc_modinput_tests }}
+      ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
     steps:
       - uses: actions/checkout@v4
       - id: testset
         name: Check available test types
         run: |
           find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
-      - id: modinput-version
-        name: Check modinput tests version
-        run: |
-          CENTAURS_MODINPUT_TESTS_CHECK_DIR="tests/modinput_functional/centaurs"
-          ucc_modinput_tests="true"
-          if [ -d "$CENTAURS_MODINPUT_TESTS_CHECK_DIR" ]; then
-            ucc_modinput_tests="false"
-          fi
-          echo "ucc_modinput_tests=$ucc_modinput_tests" >> "$GITHUB_OUTPUT"
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - test-inventory
     strategy:
@@ -404,15 +402,15 @@ jobs:
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              passed=$((total_tests - failures - errors - skipped))
-              echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
-              echo "no XML File found, exiting"
-              exit 1
+            echo "no XML File found, exiting"
+            exit 1
           fi
       - uses: actions/upload-artifact@v4
         if: success() || failure()
@@ -472,15 +470,15 @@ jobs:
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              passed=$((total_tests - failures - errors - skipped))
-              echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
-              echo "no XML File found, exiting"
-              exit 1
+            echo "no XML File found, exiting"
+            exit 1
           fi
       - uses: actions/upload-artifact@v4
         if: success() || failure()
@@ -489,7 +487,7 @@ jobs:
           path: test-results/*
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - validate-custom-version
       - setup-workflow
@@ -652,7 +650,7 @@ jobs:
         with:
           name: artifact-openapi
           path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/appserver/static/openapi.json
-        if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true' }}
+        if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v4
         with:
@@ -785,7 +783,7 @@ jobs:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
 
   run-requirements-unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - build
       - test-inventory
@@ -896,7 +894,7 @@ jobs:
       - build
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
@@ -956,7 +954,7 @@ jobs:
           echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
-        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.test-inventory.outputs.modinput_functional == 'true'}}
+        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
         id: download-openapi
         with:
           name: artifact-openapi
@@ -977,7 +975,11 @@ jobs:
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
           poetry install --only modinput
-          poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+          if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
+            poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+          else
+            poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+          fi
       - name: upload-swagger-artifacts-to-s3
         if: steps.download-openapi.conclusion != 'skipped'
         id: swaggerupload
@@ -1125,7 +1127,7 @@ jobs:
           else
             echo "No retry required"
             argo wait "${{ steps.run-btool-check.outputs.workflow-name }}" -n workflows
-            argo watch "${{ steps.run-btool-check.outputs.workflow-name }}" -n workflows | grep "btool-check"
+            argo watch "${{ steps.run-btool-check.outputs.workflow-name }}" -n workflows | grep "test-btool"
           fi
       - name: check workflow status
         id: check-workflow-status
@@ -1405,15 +1407,15 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              passed=$((total_tests - failures - errors - skipped))
-              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "no XML File found, exiting"
-              exit 1
+            echo "no XML File found, exiting"
+            exit 1
           fi
       - name: Upload-artifact-for-github-summary
         uses: actions/upload-artifact@v4
@@ -1660,15 +1662,15 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              passed=$((total_tests - failures - errors - skipped))
-              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "no XML File found, exiting"
-              exit 1
+            echo "no XML File found, exiting"
+            exit 1
           fi
       - name: Upload-artifact-for-github-summary
         uses: actions/upload-artifact@v4
@@ -1937,15 +1939,15 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              passed=$((total_tests - failures - errors - skipped))
-              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "no XML File found, exiting"
-              exit 1
+            echo "no XML File found, exiting"
+            exit 1
           fi
       - name: Upload-artifact-for-github-summary
         uses: actions/upload-artifact@v4
@@ -2212,15 +2214,15 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
-              passed=$((total_tests - failures - errors - skipped))
-              echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
-              echo "no XML File found, exiting"
-              exit 1
+            echo "no XML File found, exiting"
+            exit 1
           fi
       - name: Upload-artifact-for-github-summary
         uses: actions/upload-artifact@v4
@@ -2254,6 +2256,280 @@ jobs:
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-modinput*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+            name: |
+                summary-modinput*
+
+  run-ucc-modinput-tests:
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-ucc-modinput-labeled == 'true' }}
+    needs:
+      - build
+      - test-inventory
+      - setup
+      - meta
+      - setup-workflow
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
+        marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
+    container:
+      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+    env:
+      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
+      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
+      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
+      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
+      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
+      SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+      TEST_TYPE: "ucc_modinput_functional"
+      TEST_ARGS: ""
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Read secrets from AWS Secrets Manager into environment variables
+        id: get-argo-token
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: create job name
+        id: create-job-name
+        shell: bash
+        run: |
+          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
+          JOB_NAME=${JOB_NAME//TEST-TYPE/ucc_modinput}
+          JOB_NAME=${JOB_NAME//[_.]/-}
+          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
+      - name: create test argument
+        id: create-test-arg
+        shell: bash
+        run: |
+          TEST_ARG_M=""
+          EMPTY_MARKER="[]"
+
+          if [[ "${{ inputs.ucc-modinput-marker }}" != "$EMPTY_MARKER" ]]; then
+            TEST_ARG_M="-m"
+          fi
+
+          echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
+      - name: run-tests
+        id: run-tests
+        timeout-minutes: 340
+        continue-on-error: true
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        uses: splunk/wfe-test-runner-action@v5.0
+        with:
+          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          test-type: ${{ env.TEST_TYPE }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
+          job-name: ${{ steps.create-job-name.outputs.job-name }}
+          labels: ${{ needs.setup.outputs.labels }}
+          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
+          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
+          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
+          addon-name: ${{ needs.setup.outputs.addon-name }}
+          vendor-version: ${{ matrix.vendor-version.image }}
+          sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
+        id: update-argo-token
+        if: ${{ !cancelled() }}
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
+      - name: Retrying workflow
+        id: retry-wf
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        if: ${{ !cancelled() }}
+        run: |
+          set -o xtrace
+          set +e
+          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
+          then
+            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
+            echo "workflow-name=$WORKFLOW_NAME" >> "$GITHUB_OUTPUT"
+            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
+          else
+            echo "No retry required"
+            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
+            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
+          fi
+      - name: check if workflow completed
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set +e
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          echo "Status of workflow:" "$ARGO_STATUS"
+          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
+          do
+              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
+              argo wait "${WORKFLOW_NAME}" -n workflows || true
+              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          done
+      - name: pull artifacts from s3 bucket
+        if: ${{ !cancelled() }}
+        run: |
+          echo "pulling artifacts"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
+      - name: pull logs from s3 bucket
+        if: ${{ !cancelled() }}
+        run: |
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          echo "pulling logs"
+          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests artifacts
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/test-results
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests logs
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/argo-logs
+      - name: Test Report
+        id: test_report
+        uses: dorny/test-reporter@v1.9.1
+        if: ${{ !cancelled() }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+            echo "no XML File found, exiting"
+            exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ matrix.vendor-version.image }}-${{ matrix.marker }}-artifact
+          path: job_summary.txt
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
+
+  ucc-modinput-tests-report:
+    needs: run-ucc-modinput-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-ucc-modinput-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-ucc_modinput*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-ucc_modinput*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done
       - uses: geekyeggo/delete-artifact@v5
@@ -2530,7 +2806,7 @@ jobs:
                 summary-scripted*
 
   pre-publish:
-    if: ${{ !cancelled() && needs.validate-custom-version.result == 'success' }}
+    if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
     # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
@@ -2549,6 +2825,7 @@ jobs:
       - setup
       - run-knowledge-tests
       - run-modinput-tests
+      - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
     runs-on: ubuntu-latest
@@ -2573,11 +2850,8 @@ jobs:
           exit 1
 
   publish:
-    if: |
-      (!cancelled() && needs.pre-publish.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'schedule') ||
-      (!cancelled() && needs.pre-publish.result == 'success' && github.event.inputs.custom-version != '' && needs.validate-custom-version.result == 'success')
+    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
-
     needs:
       - pre-publish
       - validate-custom-version
