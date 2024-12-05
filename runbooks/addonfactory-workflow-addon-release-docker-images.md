@@ -8,7 +8,7 @@ Once there is new Splunk release, and [matrix](https://github.com/splunk/addonfa
 - if any is missing in [ta-automation-docker-images](https://cd.splunkdev.com/taautomation/ta-automation-docker-images/-/tree/main/dockerfiles) then add new Dockerfile
 
 #### Create images and publish them to ECR
-- figure out what version of Splunk is needed (sha) using go/fetcher
+- figure out what version of Splunk is needed (sha) using `BUILD` field from [splunk_matrix](https://github.com/splunk/addonfactory-test-matrix-action/blob/main/config/splunk_matrix.conf#L7) (alternatively use go/fetcher)
 - trigger [pipeline](https://cd.splunkdev.com/taautomation/ta-automation-docker-images/-/pipelines/new) for every OS flavor separately
 
 ## Runbook to publish unreleased Splunk image for testing
