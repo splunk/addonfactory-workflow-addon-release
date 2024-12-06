@@ -2537,7 +2537,7 @@ jobs:
       - uses: geekyeggo/delete-artifact@v5
         with:
             name: |
-                summary-modinput*
+                summary-ucc_modinput*
 
   run-scripted-input-tests-full-matrix:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
