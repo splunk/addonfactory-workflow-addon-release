@@ -1457,6 +1457,7 @@ jobs:
         with:
             name: |
                 summary-ko*
+            failOnError: false
 
   run-requirement-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
@@ -1712,6 +1713,7 @@ jobs:
         with:
             name: |
                 summary-requirement*
+            failOnError: false
 
   run-ui-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
@@ -1989,6 +1991,7 @@ jobs:
         with:
             name: |
                 summary-ui*
+            failOnError: false
 
   run-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
@@ -2264,6 +2267,7 @@ jobs:
         with:
             name: |
                 summary-modinput*
+            failOnError: false
 
   run-ucc-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-ucc-modinput-labeled == 'true' }}
@@ -2538,6 +2542,7 @@ jobs:
         with:
             name: |
                 summary-ucc_modinput*
+            failOnError: false
 
   run-scripted-input-tests-full-matrix:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
@@ -2806,6 +2811,7 @@ jobs:
         with:
             name: |
                 summary-scripted*
+            failOnError: false
 
   pre-publish:
     if: ${{ !cancelled() }}
