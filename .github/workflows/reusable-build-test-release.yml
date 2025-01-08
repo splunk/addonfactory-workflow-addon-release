@@ -120,6 +120,7 @@ jobs:
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      execute-performance-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_performance_labeled }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
@@ -148,7 +149,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test")
+          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test", "execute_performance")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -345,6 +346,7 @@ jobs:
       requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
       ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
+      performance: ${{ steps.testset.outputs.performance_tests }}
     steps:
       - uses: actions/checkout@v4
       - id: testset
@@ -1189,7 +1191,54 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
-
+  run-performance-tests:
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.performance == 'true' && needs.setup-workflow.outputs.execute-performance-labeled == 'true' }}
+    needs:
+      - build
+      - test-inventory
+      - setup
+      - meta
+      - setup-workflow
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
+    container:
+      image: docker.repo.splunkdev.net/ta-automation/ta-compatibility-pipeline-worker:0.0.4
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Check if build exists on Artifactory
+        id: check-build-artifactory
+        run: |
+          BUILD_NAME="${{ needs.build.outputs.buildname }}"
+          ARTIFACTORY_SEARCH_URL=""
+          local aql_query="items.find({\"repo\":\"generic-test\",\"type\":\"file\",\"name\":\"${BUILD_NAME}\",\"path\":{\"\$match\":\"apps/splunk_addons/*\"}})"
+          response=$(curl -s -w "%{http_code}" -X POST -u "$ARTIFACTORY_AUTHORIZATION" -H "Content-Type: text/plain" --data "$aql_query" "$ARTIFACTORY_SEARCH_URL")
+          http_body=$(echo "$response" | sed '$ d')  # All lines except the last
+          http_code=$(echo "$response" | tail -n1)   # Last line is the HTTP status code
+          results_count=$(echo "$http_body" | jq '.results | length')
+        
+          if [[ "$http_code" -eq 200 && "$results_count" -gt 0 ]]; then
+            echo "build_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload build to artifactory
+        id: upload-build-artifactory
+        if: ${{ steps.check-build-artifactory.outputs.build_exists == 'true' }}
+        run: |
+          BUILD_NAME="${{ needs.build.outputs.buildname }"
+          ADDON_ID="${BUILD_NAME%-*}"
+          S3_BUCKET_NAME=${{ needs.setup-workflow.outputs.s3_bucket_k8s }}
+          echo "Downloading build from S3"
+          aws s3 cp "s3://$S3_BUCKET_NAME/ta-apps/$BUILD_NAME" .
+          echo "Uploading build to Artifactory"
+          artifact-ci publish generic "$BUILD_NAME" "generic-test/apps/splunk_addons/$ADDON_ID/$BUILD_NAME" -o%
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
     needs:
