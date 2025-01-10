@@ -258,7 +258,6 @@ test-inventory
 **Output:**
 
 ```
-requirement_test::true
 ui_local::true
 knowledge::true
 unit::true
@@ -431,31 +430,6 @@ appinspect-api-html-report-self-service
 **Artifacts:**
 
 - Junit Test result xml file
-
-# run-requirements-unit-tests
-**Description**
-
-- This action provides unit tests for Splunk TA's requirement logs. test_lib contains tests for XML format checking, schema validating and CIM model mapping.
-
-**Action used** https://github.com/splunk/addonfactory-workflow-requirement-files-unit-tests
-
-**Pass/fail behaviour:**
-
-- The stage is expected to fail only if there are any test-case failures observed related to logs, CIM fields related issue or XML file does not matches the schema defined https://github.com/splunk/requirement-files-unit-tests/blob/main/test_lib/schema.xsd .
-
-**Troubleshooting steps for failures if any**
-
-- Check for failure logs and update the log/XML files accordingly to match the schema defined in the repo.
-
-**Artifacts:**
-
-```
-test_validation_output.txt
-test_transport_params_output.txt
-test_format_output.txt
-test_cim_output.txt
-test_check_unicode_output.txt
-```
 
 # run-btool-check
 
@@ -663,8 +637,7 @@ pre-publish
 
 **Troubleshooting steps for failures if any**
 
-- In the logs it outputs a json with the info of stages and their pass/fail status. <br />
-<img src="images/requirement-tests/stage-logs.png" alt="stage-logs" style="width:200px;"/> 
+- In the logs it outputs a json with the info of stages and their pass/fail status. <br /> 
 
 **Artifacts:**
 - No additional artifacts
