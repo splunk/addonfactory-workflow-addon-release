@@ -2635,7 +2635,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/ADDON-73868-add-inputs-for-upgrade-tests # TODO: add correct branch name
+        uses: splunk/wfe-test-runner-action@v5.1.0
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
