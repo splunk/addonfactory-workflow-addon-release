@@ -39,7 +39,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.2.0"
+        default: "v3.3.0"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
