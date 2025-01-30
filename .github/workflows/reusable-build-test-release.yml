@@ -120,6 +120,7 @@ jobs:
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
       execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      fast-fail: ${{ steps.configure-tests-on-labels.outputs.fast-fail }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
@@ -204,6 +205,15 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
+
+          # Fast fail if label fast-fail is present
+          FAST_FAIL="false"
+          if ${{ contains(github.event.pull_request.labels.*.name, 'fast-fail') }}; then
+            FAST_FAIL="true"
+          fi
+          echo "fast-fail=${FAST_FAIL}" >> "$GITHUB_OUTPUT"
+          echo "fast-fail: ${FAST_FAIL}"
+
 
   validate-pr-title:
     name: Validate PR title
@@ -1059,7 +1069,7 @@ jobs:
         timeout-minutes: 10
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fail
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1073,6 +1083,8 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
+
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1264,7 +1276,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fail
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1278,6 +1290,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1532,7 +1545,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fail
         with:
           splunk: ${{ matrix.splunk.version }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1546,6 +1559,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
       - name: calculate timeout
         id: calculate-timeout
         run: |
@@ -1802,7 +1816,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fail
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1816,6 +1830,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
           test-browser: ${{ env.TEST_BROWSER }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -2078,7 +2093,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fail
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2092,6 +2107,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2352,7 +2368,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fail
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2366,6 +2382,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2625,7 +2642,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@feat/fast-fails
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2640,6 +2657,7 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          fast-fail: ${{ needs.setup-workflow.outputs.fast-fail }}
       - name: calculate timeout
         id: calculate-timeout
         run: |
