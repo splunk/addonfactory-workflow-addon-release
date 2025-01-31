@@ -7,7 +7,7 @@
 - [ ] `README.md` has been updated or is not required
 - [ ] push trigger tests
 - [ ] manual release test
-- [ ] automated releaes test
+- [ ] automated releases test
 - [ ] pull request trigger tests
 - [ ] schedule trigger tests
 - [ ] workflow errors/warnings reviewed and addressed
