@@ -122,6 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
+      execute-escu-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
@@ -156,7 +157,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test" "execute_upgrade")
+          TESTSET=("execute_knowledge" "execute_escu" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test" "execute_upgrade")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -372,6 +373,40 @@ jobs:
         name: Check available test types
         run: |
           find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+
+  run-escu-tests:
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true' }}
+    needs:
+      - setup-workflow
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python Dependencies and ContentCTL
+        run: |
+          python -m pip install --upgrade pip
+          pip install contentctl==5.0.0
+
+      - name: Run ESCU Tests
+        run: |
+          echo "running escu tests"
+          git clone https://github.com/splunk/security_content.git
+          cd security_content
+          contentctl test --verbose --container-settings.no-leave-running mode:selected --mode.files  detections/network/tor_traffic.yml
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
