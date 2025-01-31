@@ -123,6 +123,7 @@ jobs:
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
+      execute-escu-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_escu_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
@@ -157,7 +158,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
+          TESTSET=("execute_knowledge" "execute_spl2" "execute_escu" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -389,6 +390,109 @@ jobs:
         run: |
           find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+
+  run-escu-tests:
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true' }}
+    needs:
+      - build
+      - setup-workflow
+      - setup
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python Dependencies and ContentCTL
+        run: |
+          python -m pip install --upgrade pip
+          pip install contentctl==5.0.0
+          git clone https://github.com/splunk/security_content.git
+
+
+      - name: Download TA Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: package-splunkbase
+          path: ta_build
+
+      - name: Get the build path
+        run: |
+          TA_BUILD=$(ls ta_build)
+          TA_BUILD_PATH="${{ github.workspace }}/ta_build/$TA_BUILD"
+          echo "TA_BUILD_PATH=$TA_BUILD_PATH" >> $GITHUB_ENV
+
+      - name: Run Python Script
+        id: filter-detection-files
+        shell: python
+        run: |
+          import yaml
+          import os
+          import configparser 
+
+          # Parse props.conf and collect all the sourcetypes in a list.
+          config = configparser.ConfigParser(strict=False)
+          config.read("package/default/props.conf")
+          sourcetypes = config.sections()
+
+          # Load the YAML content
+          with open("security_content/contentctl.yml", "r") as file:
+              data = yaml.safe_load(file)
+
+              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM",  'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'title': ${{ needs.setup.outputs.addon-name }}, 'version': "default", 'appid': ${{ needs.setup.outputs.addon-name }}, 'hardcoded_path': "${{ env.TA_BUILD_PATH }}"}]
+
+          # Write the modified data to the contentctl.yml file
+          with open("security_content/contentctl.yml", "w") as file:
+              yaml.dump(data,file,sort_keys=False)
+
+          # Filter out the detections based on the collected sourcetypes
+          base_dir = "security_content/detections"
+          detection_files = ""
+
+          for root, dirs, files in os.walk(base_dir):
+              for file in files:
+                  file_path = os.path.join(root, file)
+
+                  try:
+                      with open(file_path, "r") as file:
+                          file_content = yaml.safe_load(file)
+                          if file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes:
+                              detection_files += file_path.replace("security_content/", "") + " "
+                              
+
+                  except Exception as e:
+                      continue
+
+          # Save detection_files as an output variable
+          with open(os.getenv('GITHUB_OUTPUT'), 'w') as output_file:
+              output_file.write(f"DETECTION_FILES={detection_files}")
+
+          print(f"Filtered Detection files = {detection_files}")
+
+      - name: Run ESCU Tests
+        run: |
+
+          cd security_content
+          echo "Content of contentctl.yml file"
+          cat contentctl.yml
+
+          echo "contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}"
+
+          contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -977,7 +1081,7 @@ jobs:
         id: setup-poetry
         shell: bash
         run: |
-          python3.7 -m pip install poetry==1.5.1 
+          python3.7 -m pip install poetry==1.5.1
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
