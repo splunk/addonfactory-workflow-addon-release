@@ -1015,9 +1015,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           poetry install --only dev
-          libs_archive=libs_$(basename "$BUILD_NAME" .spl)
-          tar -cvf "$libs_archive" $(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages")
-          aws s3 sync "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive/" --only-show-errors
+          libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
+          echo "$libs_archive"
+          cp -r $(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages") libs/
+          tar -czf "$libs_archive" libs
+          ls -la
+          pwd
+          aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
         if: steps.download-openapi.conclusion != 'skipped'
         id: swaggerupload
