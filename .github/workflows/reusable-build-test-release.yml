@@ -1016,7 +1016,7 @@ jobs:
         run: |
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          poetry install --only dev
+          poetry install --with dev
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
           echo "$libs_archive"
           cp -r $(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages") libs/
