@@ -79,7 +79,7 @@ on:
         description: GPG signature username
         required: true
       SA_GH_USER_EMAIL:
-        description:  GPG signature user email
+        description: GPG signature user email
         required: true
       SA_GPG_PRIVATE_KEY:
         description: GPG signature private key
@@ -96,7 +96,7 @@ on:
 permissions:
   contents: read
   packages: read
-concurrency: 
+concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 jobs:
@@ -117,11 +117,12 @@ jobs:
             echo "The provided version already exists. Please provide a unique version."
             exit 1
           fi
-          
+
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
+      execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
@@ -156,7 +157,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test" "execute_upgrade")
+          TESTSET=("execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test" "execute_upgrade")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -358,6 +359,7 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
+      spl2: ${{ steps.testset.outputs.spl2 }}
       unit: ${{ steps.testset.outputs.unit }}
       knowledge: ${{ steps.testset.outputs.knowledge }}
       ui: ${{ steps.testset.outputs.ui }}
@@ -371,7 +373,8 @@ jobs:
       - id: testset
         name: Check available test types
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -418,7 +421,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name : Job summary
+      - name: Job summary
         continue-on-error: true
         run: |
           sudo apt-get update
@@ -487,7 +490,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name : Job summary
+      - name: Job summary
         continue-on-error: true
         run: |
           sudo apt-get update
@@ -1012,7 +1015,7 @@ jobs:
             poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           fi
       - name: upload-libs-to-s3
-        id: upload-libs-to-s3      
+        id: upload-libs-to-s3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -1230,6 +1233,70 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
+
+  login-to-spl2-ecr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: 'false'
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+      docker_username: ${{ steps.login-ecr.outputs.docker_username_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
+      docker_password: ${{ steps.login-ecr.outputs.docker_password_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
+
+
+  run-spl2-tests:
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2-labeled == 'true' && needs.test-inventory.outputs.spl2 == 'true'}}
+    needs:
+      - login-to-spl2-ecr
+      - test-inventory
+      - setup-workflow
+    runs-on: ubuntu-latest
+    container:
+      image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/dm/spl2-processor-cli:0.0.1
+      credentials:
+        username: ${{ needs.login-to-spl2-ecr.outputs.docker_username }}
+        password: ${{ needs.login-to-spl2-ecr.outputs.docker_password }}
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
+      - name: Run spl2 tests
+        run: |
+          echo "Running SPL2 Tests"
+          cp -R /spl2-processor-cli/* .
+          pytest -s --junitxml test-results/report.xml --log-file=spl2_tests.log --pyargs spl2_testing_framework.cli_based_spl2_tests
+      - name: Test Report
+        id: test_report
+        uses: dorny/test-reporter@v1.9.1
+        if: ${{ !cancelled() }}
+        with:
+          name: spl2 test report
+          path: "test-results/*.xml"
+          reporter: java-junit
 
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
@@ -1497,8 +1564,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ko*
+          name: |
+            summary-ko*
 
   run-requirement-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
@@ -1753,8 +1820,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-requirement*
+          name: |
+            summary-requirement*
 
   run-ui-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
@@ -2031,8 +2098,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ui*
+          name: |
+            summary-ui*
 
   run-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
@@ -2114,7 +2181,7 @@ jobs:
           if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
-      
+          
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
@@ -2307,8 +2374,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-modinput*
+          name: |
+            summary-modinput*
 
   run-ucc-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-ucc-modinput-labeled == 'true' }}
@@ -2582,9 +2649,9 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ucc_modinput*
-  
+          name: |
+            summary-ucc_modinput*
+
   run-upgrade-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' }}
     needs:
@@ -2845,8 +2912,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-upgrade*
+          name: |
+            summary-upgrade*
 
   run-scripted-input-tests-full-matrix:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
@@ -3114,8 +3181,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-scripted*
+          name: |
+            summary-scripted*
 
   pre-publish:
     if: ${{ !cancelled() }}
