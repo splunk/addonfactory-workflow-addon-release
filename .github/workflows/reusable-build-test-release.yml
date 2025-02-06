@@ -1014,11 +1014,15 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --only dev
-          libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
+          libs_archive=venv_$(basename "$BUILD_NAME" .spl).tgz
           echo "$libs_archive"
-          cp -r $(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages") libs/
-          tar -czf "$libs_archive" libs
+          mkdir -p venv/bin && mkdir -p venv/lib
+          cp -r "$(poetry env info --path)"/lib/. venv/lib/
+          cp -r "$(poetry env info --path)"/bin/. venv/bin/
+          tar -czf "$libs_archive" venv
           ls -la
           pwd
           aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
