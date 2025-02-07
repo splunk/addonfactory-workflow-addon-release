@@ -978,6 +978,10 @@ jobs:
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
+
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
