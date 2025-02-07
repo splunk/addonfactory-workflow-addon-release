@@ -989,7 +989,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.7
-      - id: setup-poetry
+      - name: setup-poetry
+        id: setup-poetry
         shell: bash
         run: |
           python3.7 -m pip install poetry==1.5.1 
