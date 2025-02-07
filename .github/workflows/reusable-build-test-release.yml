@@ -1020,11 +1020,8 @@ jobs:
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --with dev
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
-          echo "$libs_archive"
-          cp -r $(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages") libs/
+          cp -r "$(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages")" libs/
           tar -czf "$libs_archive" libs
-          ls -la
-          pwd
           aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
         if: steps.download-openapi.conclusion != 'skipped'
