@@ -1009,7 +1009,8 @@ jobs:
           else
             poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           fi
-      - id: upload-libs-to-s3
+      - name: upload-libs-to-s3
+        id: upload-libs-to-s3      
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
