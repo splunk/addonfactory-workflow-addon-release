@@ -245,6 +245,7 @@ jobs:
   meta:
     runs-on: ubuntu-latest
     outputs:
+      matrix_Splunk: ${{ steps.determine_splunk.outputs.matrixSplunk }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
@@ -260,6 +261,13 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v3.0
+      - id: determine_splunk
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "matrix_Splunk=$(echo '${{ fromJson(steps.matrix.outputs.latestSplunk) }}')" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix_Splunk=$(echo '${{ fromJson(steps.matrix.outputs.supportedSplunk) }}')" >> "$GITHUB_OUTPUT"
+          fi
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
@@ -1046,7 +1054,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -1243,7 +1251,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -1512,9 +1520,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -1768,7 +1775,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
@@ -2046,7 +2053,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
@@ -2322,7 +2329,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
@@ -2597,7 +2604,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         ta-version-from-upgrade: ${{ fromJson(inputs.upgrade-tests-ta-versions) }}
     container:
@@ -2860,7 +2867,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ github.event_name == 'schedule' && fromJson(needs.meta.outputs.matrix_latestSplunk) || fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
