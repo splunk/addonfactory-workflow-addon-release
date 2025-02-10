@@ -39,7 +39,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.2.0"
+        default: "v3.3.2"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
@@ -79,7 +79,7 @@ on:
         description: GPG signature username
         required: true
       SA_GH_USER_EMAIL:
-        description:  GPG signature user email
+        description: GPG signature user email
         required: true
       SA_GPG_PRIVATE_KEY:
         description: GPG signature private key
@@ -96,7 +96,7 @@ on:
 permissions:
   contents: read
   packages: read
-concurrency: 
+concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 jobs:
@@ -117,11 +117,12 @@ jobs:
             echo "The provided version already exists. Please provide a unique version."
             exit 1
           fi
-          
+
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
+      execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
@@ -155,7 +156,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
+          TESTSET=("execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -244,6 +245,7 @@ jobs:
   meta:
     runs-on: ubuntu-latest
     outputs:
+      matrix_Splunk: ${{ steps.determine_splunk.outputs.matrixSplunk }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
@@ -259,6 +261,13 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v3.0
+      - id: determine_splunk
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+          fi
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
@@ -357,6 +366,7 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
+      spl2: ${{ steps.testset.outputs.spl2 }}
       unit: ${{ steps.testset.outputs.unit }}
       knowledge: ${{ steps.testset.outputs.knowledge }}
       ui: ${{ steps.testset.outputs.ui }}
@@ -369,7 +379,8 @@ jobs:
       - id: testset
         name: Check available test types
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -416,9 +427,10 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name : Job summary
+      - name: Job summary
         continue-on-error: true
         run: |
+          sudo apt-get update
           sudo apt-get install -y libxml2-utils      
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
@@ -484,9 +496,10 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name : Job summary
+      - name: Job summary
         continue-on-error: true
         run: |
+          sudo apt-get update
           sudo apt-get install -y libxml2-utils
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
@@ -827,7 +840,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.8
+        uses: splunk/appinspect-cli-action@v2.9
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -950,26 +963,43 @@ jobs:
           name: artifact-openapi
           path: ${{ github.workspace }}
       - name: Setup python
-        if: steps.download-openapi.conclusion != 'skipped'
         uses: actions/setup-python@v5
         with:
           python-version: 3.7
+      - name: setup-poetry
+        id: setup-poetry
+        shell: bash
+        run: |
+          python3.7 -m pip install poetry==1.5.1 
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          python3.7 -m pip install poetry==1.5.1 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           else
             poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           fi
+      - name: upload-libs-to-s3
+        id: upload-libs-to-s3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          poetry install --with dev
+          libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
+          cp -r "$(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages")" libs/
+          tar -czf "$libs_archive" libs
+          aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
         if: steps.download-openapi.conclusion != 'skipped'
         id: swaggerupload
@@ -993,7 +1023,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -1047,7 +1077,7 @@ jobs:
         timeout-minutes: 10
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1178,6 +1208,70 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
 
+  login-to-spl2-ecr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: 'false'
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+      docker_username: ${{ steps.login-ecr.outputs.docker_username_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
+      docker_password: ${{ steps.login-ecr.outputs.docker_password_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
+
+
+  run-spl2-tests:
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2-labeled == 'true' && needs.test-inventory.outputs.spl2 == 'true'}}
+    needs:
+      - login-to-spl2-ecr
+      - test-inventory
+      - setup-workflow
+    runs-on: ubuntu-latest
+    container:
+      image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/dm/spl2-processor-cli:0.0.1
+      credentials:
+        username: ${{ needs.login-to-spl2-ecr.outputs.docker_username }}
+        password: ${{ needs.login-to-spl2-ecr.outputs.docker_password }}
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
+      - name: Run spl2 tests
+        run: |
+          echo "Running SPL2 Tests"
+          cp -R /spl2-processor-cli/* .
+          pytest -s --junitxml test-results/report.xml --log-file=spl2_tests.log --pyargs spl2_testing_framework.cli_based_spl2_tests
+      - name: Test Report
+        id: test_report
+        uses: dorny/test-reporter@v1.9.1
+        if: ${{ !cancelled() }}
+        with:
+          name: spl2 test report
+          path: "test-results/*.xml"
+          reporter: java-junit
+
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
     needs:
@@ -1190,7 +1284,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -1252,7 +1346,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1393,6 +1487,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
@@ -1443,8 +1538,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ko*
+          name: |
+            summary-ko*
 
   run-ui-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
@@ -1458,7 +1553,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
@@ -1535,7 +1630,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1670,6 +1765,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
@@ -1720,8 +1816,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ui*
+          name: |
+            summary-ui*
 
   run-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
@@ -1735,7 +1831,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
@@ -1803,7 +1899,7 @@ jobs:
           if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
-      
+          
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
@@ -1811,7 +1907,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1945,6 +2041,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
@@ -1995,8 +2092,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-modinput*
+          name: |
+            summary-modinput*
 
   run-ucc-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-ucc-modinput-labeled == 'true' }}
@@ -2010,7 +2107,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
@@ -2085,7 +2182,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2219,6 +2316,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
@@ -2269,9 +2367,9 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ucc_modinput*
-  
+          name: |
+            summary-ucc_modinput*
+
   run-upgrade-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' }}
     needs:
@@ -2284,7 +2382,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         ta-version-from-upgrade: ${{ fromJson(inputs.upgrade-tests-ta-versions) }}
     container:
@@ -2347,7 +2445,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/ADDON-73868-add-inputs-for-upgrade-tests # TODO: add correct branch name
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2532,8 +2630,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-upgrade*
+          name: |
+            summary-upgrade*
 
   run-scripted-input-tests-full-matrix:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
@@ -2547,7 +2645,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -2621,7 +2719,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2750,6 +2848,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
@@ -2800,8 +2899,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-scripted*
+          name: |
+            summary-scripted*
 
   pre-publish:
     if: ${{ !cancelled() }}
