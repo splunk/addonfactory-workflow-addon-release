@@ -993,7 +993,6 @@ jobs:
           name: artifact-openapi
           path: ${{ github.workspace }}
       - name: Setup python
-        if: steps.download-openapi.conclusion != 'skipped'
         uses: actions/setup-python@v5
         with:
           python-version: 3.7
