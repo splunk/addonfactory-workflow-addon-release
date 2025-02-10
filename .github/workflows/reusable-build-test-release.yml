@@ -264,9 +264,9 @@ jobs:
       - id: determine_splunk
         run: |
           if [ "${{ github.event_name }}" == "schedule" ]; then
-            echo "matrix_Splunk=${{ steps.matrix.outputs.latestSplunk }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
-            echo "matrix_Splunk=${{ steps.matrix.outputs.supportedSplunk }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
           fi
       - name: job summary
         run: |
