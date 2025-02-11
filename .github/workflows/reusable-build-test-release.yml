@@ -407,7 +407,7 @@ jobs:
       - setup-workflow
       - setup
 
-    runs-on: ubuntu-latest
+    runs-on: large-ubuntu-22.04-32core
     strategy:
       fail-fast: false
       matrix:
@@ -429,7 +429,7 @@ jobs:
       - name: Install Python Dependencies and ContentCTL
         run: |
           python -m pip install --upgrade pip
-          pip install contentctl==5.0.0
+          pip install contentctl
           git clone https://github.com/splunk/security_content.git
 
 
@@ -452,6 +452,26 @@ jobs:
           import yaml
           import os
           import configparser 
+          import re
+
+          GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
+
+          # Parse app.conf get the appid of the TA.
+          config = configparser.ConfigParser(strict=False)
+          config.read("package/default/app.conf")
+          APP_ID = config.get("id", "name")
+          APP_LABEL = config.get("ui", "label")
+
+          # Read the file and remove trailing backslashes
+          with open("package/default/props.conf", "r") as f:
+              content = f.read()
+
+          # Remove trailing backslashes followed by a newline
+          updated_content = re.sub(r"\\\n", "", content)
+
+          # Write the cleaned content to a new file
+          with open("package/default/props.conf", "w") as f:
+              f.write(updated_content)
 
           # Parse props.conf and collect all the sourcetypes in a list.
           config = configparser.ConfigParser(strict=False)
@@ -462,7 +482,12 @@ jobs:
           with open("security_content/contentctl.yml", "r") as file:
               data = yaml.safe_load(file)
 
-              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM",  'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'title': ${{ needs.setup.outputs.addon-name }}, 'version': "default", 'appid': ${{ needs.setup.outputs.addon-name }}, 'hardcoded_path': "${{ env.TA_BUILD_PATH }}"}]
+              for app in data["apps"]:
+                  if app['appid'] == APP_ID or GITHUB_REPOSITORY in app['hardcoded_path'] or app["title"] == APP_LABEL:
+                      app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
+                  elif app['appid'] == "PALO_ALTO_NETWORKS_ADD_ON_FOR_SPLUNK" and APP_ID == "Splunk_TA_paloalto_networks":
+                      app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
+
 
           # Write the modified data to the contentctl.yml file
           with open("security_content/contentctl.yml", "w") as file:
@@ -499,10 +524,18 @@ jobs:
           echo "Content of contentctl.yml file"
           cat contentctl.yml
 
-          echo "contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}"
+          echo "contentctl test --container-settings.num-containers 12 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}"
 
-          contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
-
+          contentctl test --container-settings.num-containers 12 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: escu_test_summary_results
+          path: |
+            security_content/test_results/summary.yml
+            security_content/dist/DA-ESS-ContentUpdate-latest.tar.gz
+        continue-on-error: true
+      
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
