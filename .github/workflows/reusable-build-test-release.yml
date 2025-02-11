@@ -39,13 +39,20 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "fix/v3.2.0-add-indexes.conf"
+        default: "v3.3.2"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
         type: string
         default: >-
           ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
+      upgrade-tests-ta-versions:
+        required: false
+        description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. If not provided,
+          the latest TA version will be used. Example: ['7.6.0', '7.7.0']"
+        type: string
+        default: >-
+          ["latest"]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -72,7 +79,7 @@ on:
         description: GPG signature username
         required: true
       SA_GH_USER_EMAIL:
-        description:  GPG signature user email
+        description: GPG signature user email
         required: true
       SA_GPG_PRIVATE_KEY:
         description: GPG signature private key
@@ -89,7 +96,7 @@ on:
 permissions:
   contents: read
   packages: read
-concurrency: 
+concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 jobs:
@@ -110,16 +117,18 @@ jobs:
             echo "The provided version already exists. Please provide a unique version."
             exit 1
           fi
-          
+
   setup-workflow:
     runs-on: ubuntu-latest
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
+      execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
       execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
-      execute-requirement-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_requirement_test_labeled }}
+      execute-upgrade-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_upgrade_test_labeled }}
+      exit-first: ${{ steps.configure-tests-on-labels.outputs.exit-first }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
@@ -148,7 +157,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_requirement_test")
+          TESTSET=("execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
           for test_type in "${TESTSET[@]}"; do
             EXECUTE_LABELED["$test_type"]="false"
           done
@@ -164,7 +173,10 @@ jobs:
               done
             elif ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
               for test_type in "${TESTSET[@]}"; do
-                EXECUTE_LABELED["$test_type"]="true"
+                # Exclude upgrade tests on PRs to main 
+                if [[ "$test_type" != "execute_upgrade" ]]; then
+                  EXECUTE_LABELED["$test_type"]="true"
+                fi
               done
             else
               for test_type in "${TESTSET[@]}"; do
@@ -178,19 +190,28 @@ jobs:
             if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} ||
             ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
               for test_type in "${TESTSET[@]}"; do
-                EXECUTE_LABELED["$test_type"]="true"
+                # Exclude upgrade tests on push to main
+                if [[ "$test_type" != "execute_upgrade" ]]; then
+                  EXECUTE_LABELED["$test_type"]="true"
+                fi
               done
             fi
             ;;
           "schedule")
             for test_type in "${TESTSET[@]}"; do
-              EXECUTE_LABELED["$test_type"]="true"
+              # Exclude upgrade tests in scheduled runs
+              if [[ "$test_type" != "execute_upgrade" ]]; then
+                EXECUTE_LABELED["$test_type"]="true"
+              fi
             done
             ;;
           "workflow_dispatch")
             if ${{ inputs.custom-version != '' }} ; then
               for test_type in "${TESTSET[@]}"; do
-                EXECUTE_LABELED["$test_type"]="true"
+                # Exclude upgrade tests in custom releases
+                if [[ "$test_type" != "execute_upgrade" ]]; then
+                  EXECUTE_LABELED["$test_type"]="true"
+                fi
               done
             fi
             ;;
@@ -204,6 +225,13 @@ jobs:
             echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
           done
+          # exit first fail if label exit-first is present
+          EXIT_FIRST=""
+          if ${{ contains(github.event.pull_request.labels.*.name, 'exit-first') }}; then
+            EXIT_FIRST="-x"
+          fi
+          echo "exit-first=${EXIT_FIRST}" >> "$GITHUB_OUTPUT"
+          echo "exit-first: ${EXIT_FIRST}"
 
   validate-pr-title:
     name: Validate PR title
@@ -225,6 +253,7 @@ jobs:
   meta:
     runs-on: ubuntu-latest
     outputs:
+      matrix_Splunk: ${{ steps.determine_splunk.outputs.matrixSplunk }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
@@ -239,7 +268,14 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v2.1
+        uses: splunk/addonfactory-test-matrix-action@v3.0
+      - id: determine_splunk
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+          fi
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
@@ -322,7 +358,7 @@ jobs:
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
       - name: Secret Scanning Trufflehog
-        uses: trufflesecurity/trufflehog@v3.85.0
+        uses: trufflesecurity/trufflehog@v3.88.5
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
@@ -338,19 +374,21 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
+      spl2: ${{ steps.testset.outputs.spl2 }}
       unit: ${{ steps.testset.outputs.unit }}
       knowledge: ${{ steps.testset.outputs.knowledge }}
       ui: ${{ steps.testset.outputs.ui }}
       modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
-      requirement_test: ${{ steps.testset.outputs.requirement_test }}
       scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
       ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
+      upgrade: ${{ steps.testset.outputs.upgrade }}
     steps:
       - uses: actions/checkout@v4
       - id: testset
         name: Check available test types
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' |  while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -397,7 +435,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name : Job summary
+      - name: Job summary
         continue-on-error: true
         run: |
           sudo apt-get update
@@ -466,7 +504,7 @@ jobs:
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
         run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name : Job summary
+      - name: Job summary
         continue-on-error: true
         run: |
           sudo apt-get update
@@ -786,37 +824,6 @@ jobs:
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
 
-  run-requirements-unit-tests:
-    runs-on: ubuntu-22.04
-    needs:
-      - build
-      - test-inventory
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' }}
-    permissions:
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Python 3
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.7
-      - name: run-tests
-        uses: splunk/addonfactory-workflow-requirement-files-unit-tests@v1.4
-        with:
-          input-files: tests/requirement_test/logs
-      - name: Archive production artifacts
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            test_*.txt
-
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
     needs: build
@@ -841,7 +848,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.8
+        uses: splunk/appinspect-cli-action@v2.9
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -964,26 +971,43 @@ jobs:
           name: artifact-openapi
           path: ${{ github.workspace }}
       - name: Setup python
-        if: steps.download-openapi.conclusion != 'skipped'
         uses: actions/setup-python@v5
         with:
           python-version: 3.7
+      - name: setup-poetry
+        id: setup-poetry
+        shell: bash
+        run: |
+          python3.7 -m pip install poetry==1.5.1 
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          python3.7 -m pip install poetry==1.5.1 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           else
             poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           fi
+      - name: upload-libs-to-s3
+        id: upload-libs-to-s3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          poetry install --with dev
+          libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
+          cp -r "$(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages")" libs/
+          tar -czf "$libs_archive" libs
+          aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
         if: steps.download-openapi.conclusion != 'skipped'
         id: swaggerupload
@@ -1007,7 +1031,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -1061,11 +1085,11 @@ jobs:
         timeout-minutes: 10
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ""
+          test-args: ${{ needs.setup-workflow.outputs.exit-first }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1192,6 +1216,70 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
 
+  login-to-spl2-ecr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: 'false'
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+      docker_username: ${{ steps.login-ecr.outputs.docker_username_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
+      docker_password: ${{ steps.login-ecr.outputs.docker_password_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
+
+
+  run-spl2-tests:
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2-labeled == 'true' && needs.test-inventory.outputs.spl2 == 'true'}}
+    needs:
+      - login-to-spl2-ecr
+      - test-inventory
+      - setup-workflow
+    runs-on: ubuntu-latest
+    container:
+      image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/dm/spl2-processor-cli:0.0.1
+      credentials:
+        username: ${{ needs.login-to-spl2-ecr.outputs.docker_username }}
+        password: ${{ needs.login-to-spl2-ecr.outputs.docker_password }}
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
+      - name: Run spl2 tests
+        run: |
+          echo "Running SPL2 Tests"
+          cp -R /spl2-processor-cli/* .
+          pytest -s --junitxml test-results/report.xml --log-file=spl2_tests.log --pyargs spl2_testing_framework.cli_based_spl2_tests
+      - name: Test Report
+        id: test_report
+        uses: dorny/test-reporter@v1.9.1
+        if: ${{ !cancelled() }}
+        with:
+          name: spl2 test report
+          path: "test-results/*.xml"
+          reporter: java-junit
+
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
     needs:
@@ -1204,7 +1292,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -1266,11 +1354,11 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ""
+          test-args: ${{ needs.setup-workflow.outputs.exit-first }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1458,264 +1546,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ko*
-
-  run-requirement-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.requirement_test == 'true' && needs.setup-workflow.outputs.execute-requirement-labeled == 'true' }}
-    needs:
-      - build
-      - test-inventory
-      - setup
-      - meta
-      - setup-workflow
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
-        sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
-
-    container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
-    env:
-      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
-      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
-      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
-      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
-      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
-      TEST_TYPE: "requirement_test"
-      TEST_ARGS: ""
-    permissions:
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
-        id: configure-git
-        run: |
-          git --version
-          git_path="$(pwd)"
-          echo "$git_path"
-          git config --global --add safe.directory "$git_path"
-      - name: capture start time
-        id: capture-start-time
-        run: |
-          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: Read secrets from AWS Secrets Manager into environment variables
-        id: get-argo-token
-        run: |
-          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
-          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
-      - name: create job name
-        id: create-job-name
-        shell: bash
-        run: |
-          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
-          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME//[_.]/-}
-          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
-          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
-      - name: run-tests
-        id: run-tests
-        timeout-minutes: 340
-        continue-on-error: true
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
-        with:
-          splunk: ${{ matrix.splunk.version }}
-          test-type: ${{ env.TEST_TYPE }}
-          test-args: ""
-          job-name: ${{ steps.create-job-name.outputs.job-name }}
-          labels: ${{ needs.setup.outputs.labels }}
-          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
-          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
-          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
-          addon-name: ${{ needs.setup.outputs.addon-name }}
-          sc4s-version: ${{ matrix.sc4s.version }}
-          sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
-          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-      - name: calculate timeout
-        id: calculate-timeout
-        run: |
-          start_time=${{ steps.capture-start-time.outputs.start_time }}
-          current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
-          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
-      - name: Check if pod was deleted
-        id: is-pod-deleted
-        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
-        if: ${{ !cancelled() }}
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        run: |
-          set -o xtrace
-          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
-            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Cancel workflow
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
-        run: |
-          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
-          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
-          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
-          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
-          else
-            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
-            exit 1
-          fi
-      - name: Retrying workflow
-        id: retry-wf
-        shell: bash
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        if: ${{ !cancelled() }}
-        run: |
-          set -o xtrace
-          set +e
-          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
-          then
-            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
-            echo "workflow-name=$WORKFLOW_NAME" >> "$GITHUB_OUTPUT"
-            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
-          else
-            echo "No retry required"
-            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
-            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
-          fi
-      - name: check if workflow completed
-        env:
-          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        shell: bash
-        if: ${{ !cancelled() }}
-        run: |
-          set +e
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          echo "Status of workflow:" "$ARGO_STATUS"
-          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
-          do
-              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
-              argo wait "${WORKFLOW_NAME}" -n workflows || true
-              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
-          done
-      - name: pull artifacts from s3 bucket
-        if: ${{ !cancelled() }}
-        run: |
-          echo "pulling artifacts"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
-      - name: pull logs from s3 bucket
-        if: ${{ !cancelled() }}
-        run: |
-          # shellcheck disable=SC2157
-          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
-            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
-          else
-            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
-          fi
-          echo "pulling logs"
-          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/workflows/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests artifacts
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/test-results
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests logs
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/argo-logs
-      - name: Test Report
-        id: test_report
-        uses: dorny/test-reporter@v1.9.1
-        if: ${{ !cancelled() }}
-        with:
-          name: splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} test report
-          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
-          reporter: java-junit
-      - name: Parse JUnit XML
-        if: ${{ !cancelled() }}
-        run: |
-          apt-get update
-          apt-get install -y libxml2-utils
-          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
-          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
-          if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
-            passed=$((total_tests - failures - errors - skipped))
-            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
-          else
-            echo "no XML File found, exiting"
-            exit 1
-          fi
-      - name: Upload-artifact-for-github-summary
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: summary-requirement-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
-          path: job_summary.txt
-      - name: pull diag from s3 bucket
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        run: |
-          echo "pulling diag"
-          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
-        with:
-          name: archive splunk ${{ matrix.splunk.version }} ${{ env.TEST_TYPE }} tests diag
-          path: |
-            ${{ needs.setup.outputs.directory-path }}/diag*
-
-  Requirement-input-tests-report:
-    needs: run-requirement-tests
-    runs-on: ubuntu-latest
-    if: ${{ !cancelled() && needs.run-requirement-tests.result != 'skipped' }}
-    steps:
-      - name: Download all summaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: summary-requirement*
-      - name: Combine summaries into a table
-        run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
-          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-requirement*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
-      - uses: geekyeggo/delete-artifact@v5
-        with:
-            name: |
-                summary-requirement*
+          name: |
+            summary-ko*
 
   run-ui-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
@@ -1729,7 +1561,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         browser: [ "chrome" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
@@ -1743,7 +1575,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ui"
-      TEST_ARGS: "--browser ${{ matrix.browser }}"
+      TEST_ARGS: "--browser ${{ matrix.browser }} ${{ needs.setup-workflow.outputs.exit-first }}"
       TEST_BROWSER: ${{ matrix.browser }}
     permissions:
       actions: read
@@ -1806,11 +1638,11 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }} ${{ needs.setup-workflow.outputs.exit-first }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -1992,8 +1824,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ui*
+          name: |
+            summary-ui*
 
   run-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
@@ -2007,7 +1839,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
@@ -2075,7 +1907,7 @@ jobs:
           if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
-      
+          
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
@@ -2083,11 +1915,11 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }} ${{ needs.setup-workflow.outputs.exit-first }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -2268,8 +2100,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-modinput*
+          name: |
+            summary-modinput*
 
   run-ucc-modinput-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-ucc-modinput-labeled == 'true' }}
@@ -2283,7 +2115,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
@@ -2358,11 +2190,11 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }}
+          test-args: ${{ env.TEST_ARGS }} ${{ steps.create-test-arg.outputs.test-arg }} ${{ matrix.marker }} ${{ needs.setup-workflow.outputs.exit-first }}
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -2543,8 +2375,272 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-ucc_modinput*
+          name: |
+            summary-ucc_modinput*
+
+  run-upgrade-tests:
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' }}
+    needs:
+      - build
+      - test-inventory
+      - setup
+      - meta
+      - setup-workflow
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
+        vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
+        ta-version-from-upgrade: ${{ fromJson(inputs.upgrade-tests-ta-versions) }}
+    container:
+      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+    env:
+      ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
+      ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
+      ARGO_SECURE: ${{ needs.setup.outputs.argo-secure }}
+      ARGO_BASE_HREF: ${{ needs.setup.outputs.argo-href }}
+      ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
+      SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+      TEST_TYPE: "upgrade"
+      TEST_ARGS: ""
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+        id: configure-git
+        run: |
+          git --version
+          git_path="$(pwd)"
+          echo "$git_path"
+          git config --global --add safe.directory "$git_path"
+      - name: capture start time
+        id: capture-start-time
+        run: |
+          echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Read secrets from AWS Secrets Manager into environment variables
+        id: get-argo-token
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: create job name
+        id: create-job-name
+        shell: bash
+        run: |
+          RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
+          JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
+          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
+          JOB_NAME=${JOB_NAME//[_.]/-}
+          JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
+      - name: run-tests
+        id: run-tests
+        timeout-minutes: 340
+        continue-on-error: true
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        uses: splunk/wfe-test-runner-action@v5.1
+        with:
+          splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
+          test-type: ${{ env.TEST_TYPE }}
+          test-args: ${{ env.TEST_ARGS }}
+          job-name: ${{ steps.create-job-name.outputs.job-name }}
+          labels: ${{ needs.setup.outputs.labels }}
+          workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
+          workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
+          addon-url: ${{ needs.setup.outputs.addon-upload-path }}
+          addon-name: ${{ needs.setup.outputs.addon-name }}
+          vendor-version: ${{ matrix.vendor-version.image }}
+          sc4s-version: "No"
+          k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          ta-upgrade-version: ${{ matrix.ta-version-from-upgrade }}
+      - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
+        id: update-argo-token
+        if: ${{ !cancelled() }}
+        run: |
+          ARGO_TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ needs.setup-workflow.outputs.argo_token_secret_id_k8s }}" | jq -r '.SecretString')
+          echo "argo-token=$ARGO_TOKEN" >> "$GITHUB_OUTPUT"
+      - name: calculate timeout
+        id: calculate-timeout
+        run: |
+          start_time=${{ steps.capture-start-time.outputs.start_time }}
+          current_time=$(date +%s)
+          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
+      - name: Check if pod was deleted
+        id: is-pod-deleted
+        timeout-minutes: ${{ fromJson(steps.calculate-timeout.outputs.remaining_time_minutes) }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        run: |
+          set -o xtrace
+          if argo watch ${{ steps.run-tests.outputs.workflow-name }} -n workflows | grep "pod deleted"; then
+            echo "retry-workflow=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Cancel workflow
+        env:
+          ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
+        if: ${{ cancelled() || steps.is-pod-deleted.outcome != 'success' }}
+        run: |
+          cancel_response=$(argo submit -v -o json --from wftmpl/${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} -l workflows.argoproj.io/workflow-template=${{ needs.setup.outputs.argo-cancel-workflow-tmpl-name }} --argo-base-href '' -p workflow-to-cancel=${{ steps.run-tests.outputs.workflow-name }})
+          cancel_workflow_name=$( echo "$cancel_response" |jq -r '.metadata.name' )
+          cancel_logs=$(argo logs --follow "$cancel_workflow_name" -n workflows)
+          if echo "$cancel_logs" | grep -q "workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"; then
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} stopped"
+          else
+            echo "Workflow ${{ steps.run-tests.outputs.workflow-name }} didn't stop"
+            exit 1
+          fi
+      - name: Retrying workflow
+        id: retry-wf
+        shell: bash
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        if: ${{ !cancelled() }}
+        run: |
+          set -o xtrace
+          set +e
+          if [[ "${{ steps.is-pod-deleted.outputs.retry-workflow }}" == "true" ]]
+          then
+            WORKFLOW_NAME=$(argo resubmit -v -o json -n workflows "${{ steps.run-tests.outputs.workflow-name }}" | jq -r .metadata.name)
+            echo "workflow-name=$WORKFLOW_NAME" >> "$GITHUB_OUTPUT"
+            argo logs --follow "${WORKFLOW_NAME}" -n workflows || echo "... there was an error fetching logs, the workflow is still in progress. please wait for the workflow to complete ..."
+          else
+            echo "No retry required"
+            argo wait "${{ steps.run-tests.outputs.workflow-name }}" -n workflows
+            argo watch "${{ steps.run-tests.outputs.workflow-name }}" -n workflows | grep "test-addon"
+          fi
+      - name: check if workflow completed
+        env:
+          ARGO_TOKEN: ${{ steps.update-argo-token.outputs.argo-token }}
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set +e
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          echo "Status of workflow:" "$ARGO_STATUS"
+          while [ "$ARGO_STATUS" == "Running"  ] || [ "$ARGO_STATUS" == "Pending" ]
+          do
+              echo "... argo Workflow ${WORKFLOW_NAME} is running, waiting for it to complete."
+              argo wait "${WORKFLOW_NAME}" -n workflows || true
+              ARGO_STATUS=$(argo get "${WORKFLOW_NAME}" -n workflows -o json | jq -r '.status.phase')
+          done
+      - name: pull artifacts from s3 bucket
+        if: ${{ !cancelled() }}
+        run: |
+          echo "pulling artifacts"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/artifacts-${{ steps.create-job-name.outputs.job-name }}/${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+          tar -xf ${{ needs.setup.outputs.directory-path }}/${{ steps.create-job-name.outputs.job-name }}.tgz -C ${{ needs.setup.outputs.directory-path }}
+      - name: pull logs from s3 bucket
+        if: ${{ !cancelled() }}
+        run: |
+          # shellcheck disable=SC2157
+          if [ -z "${{ steps.retry-wf.outputs.workflow-name }}" ]; then
+            WORKFLOW_NAME=${{ steps.run-tests.outputs.workflow-name }}
+          else
+            WORKFLOW_NAME="${{ steps.retry-wf.outputs.workflow-name }}"
+          fi
+          echo "pulling logs"
+          mkdir -p ${{ needs.setup.outputs.directory-path }}/argo-logs
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/${WORKFLOW_NAME}/ ${{ needs.setup.outputs.directory-path }}/argo-logs/ --recursive
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.ta-version-from-upgrade }} tests artifacts
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/test-results
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.ta-version-from-upgrade }} tests logs
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/argo-logs
+      - name: Test Report
+        id: test_report
+        uses: dorny/test-reporter@v1.9.1
+        if: ${{ !cancelled() }}
+        with:
+          name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
+          path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
+          reporter: java-junit
+      - name: Parse JUnit XML
+        if: ${{ !cancelled() }}
+        run: |
+          sudo apt-get update
+          apt-get install -y libxml2-utils
+          junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
+          junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
+          if [ -n "$junit_xml_file" ]; then
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.ta-version-from-upgrade }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
+          else
+            echo "no XML File found, exiting"
+            exit 1
+          fi
+      - name: Upload-artifact-for-github-summary
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: summary-${{ env.TEST_TYPE }}-${{ matrix.splunk.version }}-${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}-${{ matrix.vendor-version.image }}-${{ matrix.ta-version-from-upgrade }}-artifact
+          path: job_summary.txt
+      - name: pull diag from s3 bucket
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        run: |
+          echo "pulling diag"
+          aws s3 cp s3://${{ needs.setup.outputs.s3-bucket }}/diag-${{ steps.create-job-name.outputs.job-name }}/diag-${{ steps.create-job-name.outputs.job-name }}.tgz ${{ needs.setup.outputs.directory-path }}/
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() && steps.test_report.outputs.conclusion == 'failure' }}
+        with:
+          name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} tests diag
+          path: |
+            ${{ needs.setup.outputs.directory-path }}/diag*
+
+  upgrade-tests-report:
+    needs: run-upgrade-tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && needs.run-upgrade-tests.result != 'skipped' }}
+    steps:
+      - name: Download all summaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: summary-upgrade*
+      - name: Combine summaries into a table
+        run: |
+          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
+          for file in summary-upgrade*/job_summary.txt; do
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            summary-upgrade*
 
   run-scripted-input-tests-full-matrix:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
@@ -2558,7 +2654,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_supportedSplunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
@@ -2632,11 +2728,11 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.0
+        uses: splunk/wfe-test-runner-action@v5.1
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
-          test-args: "--hostname=spl --os-name=${{ steps.os-name-version.outputs.os-name }} --os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input"
+          test-args: "--hostname=spl --os-name=${{ steps.os-name-version.outputs.os-name }} --os-version=${{ steps.os-name-version.outputs.os-version }} -m script_input ${{ needs.setup-workflow.outputs.exit-first }}"
           job-name: ${{ steps.create-job-name.outputs.job-name }}
           labels: ${{ needs.setup.outputs.labels }}
           workflow-tmpl-name: ${{ needs.setup.outputs.argo-workflow-tmpl-name }}
@@ -2812,8 +2908,8 @@ jobs:
           done
       - uses: geekyeggo/delete-artifact@v5
         with:
-            name: |
-                summary-scripted*
+          name: |
+            summary-scripted*
 
   pre-publish:
     if: ${{ !cancelled() }}
