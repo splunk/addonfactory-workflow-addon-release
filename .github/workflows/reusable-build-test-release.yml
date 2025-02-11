@@ -443,6 +443,19 @@ jobs:
           import yaml
           import os
           import configparser 
+          import re
+          import json
+
+          # Read the file and remove trailing backslashes
+          with open("package/default/props.conf", "r") as f:
+              content = f.read()
+
+          # Remove trailing backslashes followed by a newline
+          updated_content = re.sub(r"\\\n", "", content)
+
+          # Write the cleaned content to a new file
+          with open("package/default/props.conf", "w") as f:
+              f.write(updated_content)
 
           # Parse props.conf and collect all the sourcetypes in a list.
           config = configparser.ConfigParser(strict=False)
@@ -453,7 +466,7 @@ jobs:
           with open("security_content/contentctl.yml", "r") as file:
               data = yaml.safe_load(file)
 
-              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM",  'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'title': ${{ needs.setup.outputs.addon-name }}, 'version': "default", 'appid': ${{ needs.setup.outputs.addon-name }}, 'hardcoded_path': "${{ env.TA_BUILD_PATH }}"}]
+              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM", 'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'title': ${{ needs.setup.outputs.addon-name }}, 'version': "default", 'appid': ${{ needs.setup.outputs.addon-name }}, 'hardcoded_path': "${{ env.TA_BUILD_PATH }}"}]
 
           # Write the modified data to the contentctl.yml file
           with open("security_content/contentctl.yml", "w") as file:
@@ -461,7 +474,7 @@ jobs:
 
           # Filter out the detections based on the collected sourcetypes
           base_dir = "security_content/detections"
-          detection_files = ""
+          detection_files = []
 
           for root, dirs, files in os.walk(base_dir):
               for file in files:
@@ -471,29 +484,60 @@ jobs:
                       with open(file_path, "r") as file:
                           file_content = yaml.safe_load(file)
                           if file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes:
-                              detection_files += file_path.replace("security_content/", "") + " "
+                              detection_files.append(file_path.replace("security_content/", ""))
                               
 
                   except Exception as e:
                       continue
 
           # Save detection_files as an output variable
-          with open(os.getenv('GITHUB_OUTPUT'), 'w') as output_file:
-              output_file.write(f"DETECTION_FILES={detection_files}")
+          with open('tests.json', 'w') as output_file:
+              output_file.write(json.dumps(detection_files))
 
           print(f"Filtered Detection files = {detection_files}")
 
-      - name: Run ESCU Tests
+      - name: Split Tests
         run: |
+          TOTAL_TESTS=$(jq '. | length' tests.json)
+          echo $TOTAL_TESTS
 
-          cd security_content
-          echo "Content of contentctl.yml file"
-          cat contentctl.yml
+          CHUNK_SIZE=$(( (TOTAL_TESTS + 3) / 4 ))  # Split into 4 groups
+          echo $CHUNK_SIZE
 
-          echo "contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}"
+          for i in {0..3}; do
+            START=$(( i * CHUNK_SIZE ))
+            END=$(( START + CHUNK_SIZE - 1 ))
 
-          contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
+            echo "Running chunk $i from index $START to $END"
 
+            jq ".[$START:$END]" tests.json > "selected_tests_$i.json"
+
+            # Run tests in parallel using background processes
+            echo "contentctl test --container-settings.num-containers 4 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files $(jq -r '.[]' selected_tests_$i.json)"
+        
+          done
+
+          wait
+          
+      # - name: Run ESCU Tests
+      #   run: |
+
+      #     cd security_content
+      #     echo "Content of contentctl.yml file"
+      #     cat contentctl.yml
+
+      #     echo "contentctl test --container-settings.num-containers 4 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}"
+
+      #     contentctl test --container-settings.num-containers 4 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
+      
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: escu_test_summary_results_${{ matrix.chunk }}
+      #     path: |
+      #       security_content/test_results/summary.yml
+      #       security_content/dist/DA-ESS-ContentUpdate-latest.tar.gz
+      #   continue-on-error: true
+      
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
