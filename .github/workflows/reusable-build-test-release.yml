@@ -832,7 +832,6 @@ jobs:
           - "developer_guidance"
           - "future"
           - "self-service"
-          - "splunk_appinspect"
           - "manual"
     steps:
       - uses: actions/checkout@v4
