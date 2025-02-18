@@ -391,7 +391,7 @@ jobs:
           find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
 
-  run-escu-tests:
+  escu-tests-preparation:
     if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true' }}
     needs:
       - build
@@ -399,6 +399,9 @@ jobs:
       - setup
 
     runs-on: ubuntu-latest
+    outputs:
+      num_chunks: ${{ steps.split-tests.outputs.num_chunks }}
+      chunk_list: ${{ steps.split-tests.outputs.chunk_list }}
     strategy:
       fail-fast: false
       matrix:
@@ -417,12 +420,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Python Dependencies and ContentCTL
+      - name: Install Python Dependency and Clone Repository
         run: |
           python -m pip install --upgrade pip
-          pip install contentctl==5.0.0
+          pip install pyyaml
           git clone https://github.com/splunk/security_content.git
-
 
       - name: Download TA Build Artifact
         uses: actions/download-artifact@v4
@@ -430,14 +432,13 @@ jobs:
           name: package-splunkbase
           path: ta_build
 
-      - name: Get the build path
+      - name: Get The Build Path
         run: |
           TA_BUILD=$(ls ta_build)
           TA_BUILD_PATH="${{ github.workspace }}/ta_build/$TA_BUILD"
           echo "TA_BUILD_PATH=$TA_BUILD_PATH" >> $GITHUB_ENV
 
       - name: Run Python Script
-        id: filter-detection-files
         shell: python
         run: |
           import yaml
@@ -466,7 +467,7 @@ jobs:
           with open("security_content/contentctl.yml", "r") as file:
               data = yaml.safe_load(file)
 
-              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM", 'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'title': ${{ needs.setup.outputs.addon-name }}, 'version': "default", 'appid': ${{ needs.setup.outputs.addon-name }}, 'hardcoded_path': "${{ env.TA_BUILD_PATH }}"}]
+              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM", 'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'uid': 6652, 'title': "Add-on for Linux Sysmon", 'version': "1.0.0", 'appid': "Splunk_TA_linux_sysmon", 'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-add-on-for-sysmon-for-linux_100.tgz"}]
 
           # Write the modified data to the contentctl.yml file
           with open("security_content/contentctl.yml", "w") as file:
@@ -496,47 +497,106 @@ jobs:
 
           print(f"Filtered Detection files = {detection_files}")
 
-      - name: Split Tests
+      - name: Split ESCU Tests For Parallel Execution
+        id: split-tests
         run: |
           TOTAL_TESTS=$(jq '. | length' tests.json)
-          echo $TOTAL_TESTS
+          CHUNK_SIZE=100
+          NUM_CHUNKS=$(( (TOTAL_TESTS + CHUNK_SIZE - 1) / CHUNK_SIZE ))
 
-          CHUNK_SIZE=$(( (TOTAL_TESTS + 3) / 4 ))  # Split into 4 groups
-          echo $CHUNK_SIZE
+          echo "Total tests: $TOTAL_TESTS"
+          echo "Dividing into $NUM_CHUNKS chunks of max $CHUNK_SIZE tests each."
 
-          for i in {0..3}; do
+          CHUNK_LIST=$(seq 0 $((NUM_CHUNKS - 1)) | jq -c -s '.')
+          echo "chunk_list=$CHUNK_LIST" >> $GITHUB_OUTPUT
+          echo "num_chunks=$NUM_CHUNKS" >> $GITHUB_OUTPUT
+
+          for i in $(seq 0 $((NUM_CHUNKS - 1))); do
             START=$(( i * CHUNK_SIZE ))
-            END=$(( START + CHUNK_SIZE - 1 ))
-
-            echo "Running chunk $i from index $START to $END"
-
+            END=$(( START + CHUNK_SIZE ))
             jq ".[$START:$END]" tests.json > "selected_tests_$i.json"
-
-            # Run tests in parallel using background processes
-            echo "contentctl test --container-settings.num-containers 4 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files $(jq -r '.[]' selected_tests_$i.json)"
-        
+            echo "Chunk $i contains:"
+            cat "selected_tests_$i.json"
           done
 
-          wait
-          
-      # - name: Run ESCU Tests
-      #   run: |
+      - name: Save security_content Repo As Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: security_content
+          path: security_content
 
-      #     cd security_content
-      #     echo "Content of contentctl.yml file"
-      #     cat contentctl.yml
+      - name: Upload the split ESCU tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: split-tests
+          path: selected_tests_*.json
 
-      #     echo "contentctl test --container-settings.num-containers 4 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}"
+  run-escu-tests:
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true' && needs.escu-tests-preparation.outputs.num_chunks > 0}}
+    needs:
+      - build
+      - setup-workflow
+      - setup
+      - escu-tests-preparation
 
-      #     contentctl test --container-settings.num-containers 4 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+        chunk: ${{ fromJson(needs.escu-tests-preparation.outputs.chunk_list) }}  # Uses only needed chunks
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install ContentCTL Tool
+        run: |
+          python -m pip install --upgrade pip
+          pip install contentctl
+
+      - name: Download security_content Repo From Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security_content
+          path: security_content
+
+      - name: Download TA Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: package-splunkbase
+          path: ta_build 
+
+      - name: Download Split ESCU Tests
+        uses: actions/download-artifact@v4
+        with:
+          name: split-tests
+
+      - name: Run ESCU Tests
+        run: |
+          TEST_FILE="${{ github.workspace }}/selected_tests_${{ matrix.chunk }}.json"
+          echo "Running tests from $TEST_FILE"
+
+          cd security_content
+          echo "Content of contentctl.yml file"
+          cat contentctl.yml
+
+          echo "contentctl test --container-settings.num-containers 2 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files $(jq -r '.[]' $TEST_FILE | paste -sd " ")"
+
+          contentctl test --container-settings.num-containers 2 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files $(jq -r '.[]' $TEST_FILE | paste -sd " ")
+
+        continue-on-error: true
       
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: escu_test_summary_results_${{ matrix.chunk }}
-      #     path: |
-      #       security_content/test_results/summary.yml
-      #       security_content/dist/DA-ESS-ContentUpdate-latest.tar.gz
-      #   continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: escu_test_summary_results_${{ matrix.chunk }}
+          path: |
+            security_content/test_results/summary.yml
+            security_content/dist/DA-ESS-ContentUpdate-latest.tar.gz
+        continue-on-error: true
       
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
