@@ -1215,35 +1215,14 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
 
-  login-to-spl2-ecr:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-        with:
-          mask-password: 'false'
-    outputs:
-      registry: ${{ steps.login-ecr.outputs.registry }}
-      docker_username: ${{ steps.login-ecr.outputs.docker_username_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
-      docker_password: ${{ steps.login-ecr.outputs.docker_password_956110764581_dkr_ecr_us_west_2_amazonaws_com }}
-
-
   run-spl2-tests:
     if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2-labeled == 'true' && needs.test-inventory.outputs.spl2 == 'true'}}
     needs:
-      - login-to-spl2-ecr
       - test-inventory
       - setup-workflow
     runs-on: ubuntu-latest
     container:
-      image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/dm/spl2-processor-cli:0.0.1
+      image: ghcr.io/splunk/splunk/spl2-testing-base:latest
       credentials:
         username: ${{ needs.login-to-spl2-ecr.outputs.docker_username }}
         password: ${{ needs.login-to-spl2-ecr.outputs.docker_password }}
