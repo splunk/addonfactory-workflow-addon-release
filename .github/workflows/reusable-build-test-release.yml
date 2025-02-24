@@ -400,11 +400,7 @@ jobs:
 
     runs-on: ubuntu-latest
     outputs:
-      num_chunks: ${{ steps.filter-detections.outputs.num_chunks }}
-      chunk_list: ${{ steps.filter-detections.outputs.chunk_list }}
-      filtered_detections: ${{ steps.filter-detections.outputs.filtered_detections }}
-    strategy:
-      fail-fast: false
+      matrix: ${{ steps.filter-detections.outputs.matrix }}
     permissions:
       actions: read
       deployments: read
@@ -440,30 +436,32 @@ jobs:
         id: filter-detections
         shell: python
         run: |
-          import yaml
-          import os
-          import configparser 
-          import re
+          import configparser
           import json
-
-          GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
-
+          import os
+          import re
+          
+          import yaml
+          
+          GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "NOT_FOUND")
+          
           # Parse app.conf get the appid of the TA.
           config = configparser.ConfigParser(strict=False)
           config.read("package/default/app.conf")
           APP_ID = config.get("id", "name")
-
+          APP_LABEL = config.get("ui", "label")
+          
           # Read the file and remove trailing backslashes
           with open("package/default/props.conf", "r") as f:
-              content = f.read()
-
+            content = f.read()
+          
           # Remove trailing backslashes followed by a newline
           updated_content = re.sub(r"\\\n", "", content)
 
           # Write the cleaned content to a new file
           with open("package/default/props.conf", "w") as f:
-              f.write(updated_content)
-
+            f.write(updated_content)
+          
           # Parse props.conf and collect all the sourcetypes in a list.
           config = configparser.ConfigParser(strict=False)
           config.read("package/default/props.conf")
@@ -471,50 +469,43 @@ jobs:
 
           # Load the YAML content
           with open("security_content/contentctl.yml", "r") as file:
-              data = yaml.safe_load(file)
-
-              for app in data["apps"]:
-                  if app['appid'] == APP_ID or GITHUB_REPOSITORY in app['hardcoded_path']:
-                      app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
-                  elif app['appid'] == "PALO_ALTO_NETWORKS_ADD_ON_FOR_SPLUNK" and APP_ID == "Splunk_TA_paloalto_networks":
-                      app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
-
+            data = yaml.safe_load(file)
+            
+            found = False
+            for app in data["apps"]:
+              if app['appid'] == APP_ID or GITHUB_REPOSITORY in app['hardcoded_path'] or APP_LABEL in app['title']:
+                app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
+                found = True
+            if not found:
+              exit(404)
+          
           # Write the modified data to the contentctl.yml file
           with open("security_content/contentctl.yml", "w") as file:
-              yaml.dump(data,file,sort_keys=False)
+            yaml.dump(data, file, sort_keys=False)
 
           # Filter out the detections based on the collected sourcetypes
           base_dir = "security_content/detections"
           detection_files = []
-
+      
           for root, dirs, files in os.walk(base_dir):
-              for file in files:
-                  file_path = os.path.join(root, file)
+            for file in files:
+              file_path = os.path.join(root, file)
+              
+              try:
+                with open(file_path, "r") as a_file:
+                  file_content = yaml.safe_load(a_file)
+                  if "deprecated" not in file_path and (file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes):
+                    detection_files.append(file_path.replace("security_content/", ""))
+              except Exception as e:
+                continue
+            
+            CHUNK_SIZE = 40
+            
+            # Generate chunk indices
+            filtered_detections = [" ".join(map(str, detection_files[i:i + CHUNK_SIZE])) for i in range(0, len(detection_files), CHUNK_SIZE)]
 
-                  try:
-                      with open(file_path, "r") as file:
-                          file_content = yaml.safe_load(file)
-                          if file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes:
-                              detection_files.append(file_path.replace("security_content/", ""))
-                              
-
-                  except Exception as e:
-                      continue
-
-          TOTAL_TESTS = len(detection_files)
-          CHUNK_SIZE = 50
-          NUM_CHUNKS = (TOTAL_TESTS + CHUNK_SIZE - 1) // CHUNK_SIZE 
-
-          # Generate chunk indices
-          chunk_list = list(range(NUM_CHUNKS))
-
-          # Store the chunks as a list of lists
-          filtered_detections = [detection_files[i * CHUNK_SIZE : (i + 1) * CHUNK_SIZE] for i in range(NUM_CHUNKS)]
-          
-          with open(os.getenv('GITHUB_OUTPUT'), 'w') as output_file:
-              output_file.write(f"chunk_list={json.dumps(chunk_list)}\n")
-              output_file.write(f"num_chunks={NUM_CHUNKS}\n")
-              output_file.write(f"filtered_detections={json.dumps(filtered_detections)}\n")
+          with open(os.getenv('GITHUB_OUTPUT'), 'a') as output_file:
+            output_file.write(f"matrix={json.dumps(filtered_detections)}\n")
 
       - name: Save security_content Repo As Artifact
         uses: actions/upload-artifact@v4
@@ -523,15 +514,16 @@ jobs:
           path: security_content
 
   run-escu-tests:
-    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true' && needs.escu-tests-preparation.outputs.num_chunks > 0}}
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true' }}
     needs:
       - escu-tests-preparation
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        chunk: ${{ fromJson(needs.escu-tests-preparation.outputs.chunk_list) }}  # Uses only needed chunks
+        chunk: ${{ fromJson(needs.escu-tests-preparation.outputs.matrix) }}
+    outputs:
+      summary: ${{ toJson(steps.run-tests.outputs) }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -556,52 +548,22 @@ jobs:
           name: package-splunkbase
           path: ta_build
 
-      - name: Get the detections for chunk ${{ matrix.chunk }}
-        id : split-tests
-        shell: python
-        env:
-          filtered_detections: ${{ needs.escu-tests-preparation.outputs.filtered_detections }}
-          MATRIX_CHUNK: ${{ matrix.chunk }}
-        run: |
-
-          import os
-          import json
-
-          # Read GitHub output from environment variable
-          filtered_detections = os.getenv('filtered_detections', '[]')
-          chunk_index = int(os.getenv('MATRIX_CHUNK'))
-
-          # Parse as JSON
-          try:
-              detections_list = json.loads(filtered_detections)
-              with open(os.getenv('GITHUB_ENV'), 'a') as output_file:
-                output_file.write(f"Detections={json.dumps(detections_list[chunk_index])}\n")
-          except json.JSONDecodeError as e:
-              print("Failed to parse JSON:", str(e))
-
       - name: Run ESCU Tests
+        id: run-tests
         run: |
-
           cd security_content
           cat contentctl.yml
 
-          echo $Detections
+          echo ${{ matrix.chunk }}
+          echo "contentctl test --post-test-behavior never_pause --disable-tqdm mode:selected --mode.files ${{ matrix.chunk }}"
+          contentctl test --post-test-behavior never_pause --disable-tqdm mode:selected --mode.files ${{ matrix.chunk }}
 
-          Detections=$(echo $Detections | jq -r '.[]' | tr '\n' ' ')
-
-          echo "contentctl test --container-settings.num-containers 2 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files $Detections"
-
-          contentctl test --container-settings.num-containers 2 --post-test-behavior never_pause --container-settings.no-leave-running mode:selected --mode.files $Detections
-
-        continue-on-error: true
-      
-      - uses: actions/upload-artifact@v4
-        with:
-          name: escu_test_temp_results_${{ matrix.chunk }}
-          path: |
-            security_content/test_results/summary.yml
-            security_content/dist/DA-ESS-ContentUpdate-latest.tar.gz
-        continue-on-error: true
+          if [ ! -f "test_results/summary.yml" ]; then
+            echo "File test_results/summary.yml not found!" >&2
+            exit 1
+          fi
+          YAML_CONTENT=$(base64 -w 0 "test_results/summary.yml")
+          echo "summary_${{ strategy.job-index }}=$YAML_CONTENT" >> "$GITHUB_OUTPUT"
 
   escu-upload-artifact:
     if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-escu-labeled == 'true'}}
@@ -609,33 +571,66 @@ jobs:
       - run-escu-tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: collected-artifacts/
-
-      - name: Verify Collected Artifacts
-        run: ls -R collected-artifacts/
-
-      - name: Merge Artifacts
+      - name: Merge Summaries
+        shell: python
         run: |
-          mkdir -p escu_test_summary_results
-          cp -r collected-artifacts/escu_test_temp_results_* escu_test_summary_results/
-          ls escu_test_summary_results/
+            import base64
+            import json
+            import os
+            import yaml
+    
+            summaries = '''
+                        ${{ needs.run-escu-tests.outputs.summary }}
+                        '''
+
+            if not summaries:
+              print("No YAML data received.")
+              exit(1)
+          
+            print(summaries)
+    
+            yaml_results = json.loads(summaries)
+            
+            merged_yaml = {}
+          
+            # Decode each YAML file and merge it
+            for _, encoded_yaml in yaml_results.items():
+              yaml_content = base64.b64decode(encoded_yaml).decode()
+              yaml_data = yaml.safe_load(yaml_content)  # Parse YAML
+              
+              # TODO Merge YAML contents
+              if not merged_yaml:
+                merged_yaml = yaml_data
+              else:
+                merged_yaml['tested_detections'].extend(yaml_data['tested_detections'])
+                merged_yaml['skipped_detections'].extend(yaml_data['skipped_detections'])
+                merged_yaml['untested_detections'].extend(yaml_data['untested_detections'])
+                merged_yaml['percent_complete'] = merged_yaml['percent_complete'] + "|" + yaml_data['percent_complete']
+                merged_yaml['summary']['enable_integration_testing'] = merged_yaml['summary']['enable_integration_testing'] or yaml_data['summary']['enable_integration_testing']
+                merged_yaml['summary']['mode'] = merged_yaml['summary']['mode'] + "|" + yaml_data['summary']['mode']
+                merged_yaml['summary']['success'] = merged_yaml['summary']['enable_integration_testing'] and yaml_data['summary']['success']
+                merged_yaml['summary']['success_rate'] = merged_yaml['summary']['success_rate'] + "|" + yaml_data['summary']['success_rate']
+                merged_yaml['summary']['total_deprecated'] = merged_yaml['summary']['total_deprecated'] +  yaml_data['summary']['total_deprecated']
+                merged_yaml['summary']['total_detections'] = merged_yaml['summary']['total_detections'] +  yaml_data['summary']['total_detections']
+                merged_yaml['summary']['total_experimental'] = merged_yaml['summary']['total_experimental'] +  yaml_data['summary']['total_experimental']
+                merged_yaml['summary']['total_manual'] = merged_yaml['summary']['total_manual'] +  yaml_data['summary']['total_manual']
+                merged_yaml['summary']['total_pass'] = merged_yaml['summary']['total_pass'] +  yaml_data['summary']['total_pass']
+                merged_yaml['summary']['total_production'] = merged_yaml['summary']['total_production'] +  yaml_data['summary']['total_production']
+                merged_yaml['summary']['total_skipped'] = merged_yaml['summary']['total_skipped'] +  yaml_data['summary']['total_skipped']
+                merged_yaml['summary']['total_tested_detections'] = merged_yaml['summary']['total_tested_detections'] +  yaml_data['summary']['total_tested_detections']
+                merged_yaml['summary']['total_untested'] = merged_yaml['summary']['total_untested'] +  yaml_data['summary']['total_untested']
+            
+            with open("merged.yaml", "w") as f:
+              yaml.dump(merged_yaml, f)
+              
+              print("Merged YAML saved as 'merged.yaml'.")
 
       - name: Upload Merged Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: escu_test_summary_results
-          path: escu_test_summary_results/
+          name: summary.yaml
+          path: merged.yaml
 
-      # - name: Delete Temporary Artifacts
-      #   uses: geekyeggo/delete-artifact@v2
-      #   with:
-      #     name: escu_test_temp_results_* 
       
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
