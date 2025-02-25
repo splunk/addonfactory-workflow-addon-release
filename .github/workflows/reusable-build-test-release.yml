@@ -1243,9 +1243,8 @@ jobs:
           git config --global --add safe.directory "$git_path"
       - name: Run spl2 tests
         run: |
-          echo "Running SPL2 Tests"
-          cp -R /spl2-processor-cli/* .
-          pytest -s --junitxml test-results/report.xml --log-file=spl2_tests.log --pyargs spl2_testing_framework.cli_based_spl2_tests
+          echo "Running SPL2 CLI Tests"
+          spl2_tests_run cli --junitxml test-results/report.xml --log-file=spl2_tests.log --verbose
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
