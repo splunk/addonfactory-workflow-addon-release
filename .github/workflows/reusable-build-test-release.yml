@@ -978,17 +978,17 @@ jobs:
         shell: bash
         run: |
           python3.7 -m pip install poetry==1.5.1 
+          export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
@@ -1002,7 +1002,11 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
+          poetry --version
           poetry install --with dev
+          echo "poetry env info --path"
+          poetry env info --path
+          ls -la $(poetry env info --path)
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
           cp -r "$(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages")" libs/
           tar -czf "$libs_archive" libs
