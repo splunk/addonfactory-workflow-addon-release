@@ -2892,6 +2892,8 @@ jobs:
     # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
     name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' &&  'pre-publish' ||  'pre-publish-not_main_pr' }}
+    outputs: 
+      run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
       - validate-custom-version
       - meta
@@ -2921,17 +2923,14 @@ jobs:
           if [[ "$RUN_PUBLISH" != *'false'* ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are met."
           else
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are not met."
           fi
-      - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled') }}
-        run: |
-          echo "Expand check step to see which job has failed pre-publish step."
-          exit 1
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish == 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
     needs:
       - pre-publish
