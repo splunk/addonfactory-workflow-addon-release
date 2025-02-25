@@ -268,7 +268,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v3.0
+        uses: splunk/addonfactory-test-matrix-action@fix/matrix-with-splunk10
       - id: determine_splunk
         run: |
           if [ "${{ github.event_name }}" == "schedule" ]; then
