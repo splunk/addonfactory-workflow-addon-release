@@ -2563,7 +2563,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
-          sudo apt-get update
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
