@@ -51,7 +51,7 @@ on:
         description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
         type: string
         default: >-
-          []
+          [""]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
