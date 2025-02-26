@@ -48,11 +48,10 @@ on:
           ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
       upgrade-tests-ta-versions:
         required: false
-        description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. If not provided,
-          the latest TA version will be used. Example: ['7.6.0', '7.7.0']"
+        description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
         type: string
         default: >-
-          ["latest"]
+          [""]
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -2354,7 +2353,7 @@ jobs:
             summary-ucc_modinput*
 
   run-upgrade-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' && needs.setup-workflow.outputs.execute-upgrade-labeled == 'true' }}
     needs:
       - build
       - test-inventory
