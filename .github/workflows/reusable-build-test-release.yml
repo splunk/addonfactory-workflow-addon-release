@@ -987,17 +987,17 @@ jobs:
         shell: bash
         run: |
           python3.7 -m pip install poetry==1.5.1 
+          export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
@@ -2897,9 +2897,11 @@ jobs:
   pre-publish:
     if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
-    # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
+    # It is necessary to avoid confusion caused by github actions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
     name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' &&  'pre-publish' ||  'pre-publish-not_main_pr' }}
+    outputs: 
+      run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
       - validate-custom-version
       - meta
@@ -2929,17 +2931,14 @@ jobs:
           if [[ "$RUN_PUBLISH" != *'false'* ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are met."
           else
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are not met."
           fi
-      - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled') }}
-        run: |
-          echo "Expand check step to see which job has failed pre-publish step."
-          exit 1
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish == 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
     needs:
       - pre-publish
