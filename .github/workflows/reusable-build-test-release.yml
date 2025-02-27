@@ -52,6 +52,11 @@ on:
         type: string
         default: >-
           [""]
+      wfe-run-on-splunk-latest:
+        required: false
+        description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
+        type: string
+        default: ""
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -269,15 +274,20 @@ jobs:
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v3.0
       - id: determine_splunk
+        env:
+          wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
         run: |
-          if [ "${{ github.event_name }}" == "schedule" ]; then
+          if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
+            wfe_run_on_splunk_latest="${{  github.event_name == 'schedule' || !((github.base_ref == 'main' || github.ref_name == 'main') || ((github.base_ref == 'develop' || github.ref_name == 'develop')  && github.event_name == 'push')) }}"
+          fi
+          if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
             echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
           fi
       - name: job summary
         run: |
-          splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
+          splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
