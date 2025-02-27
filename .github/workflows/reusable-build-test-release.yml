@@ -126,7 +126,7 @@ jobs:
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
-      execute-upgrade-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_upgrade_test_labeled }}
+      execute-upgrade-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_upgrade_labeled }}
       exit-first: ${{ steps.configure-tests-on-labels.outputs.exit-first }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
