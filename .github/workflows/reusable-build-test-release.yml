@@ -406,13 +406,7 @@ jobs:
       - build
       - setup-workflow
       - setup
-
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.11"
+    runs-on: large-ubuntu-22.04-32core
     permissions:
       actions: read
       deployments: read
@@ -421,16 +415,24 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout TA
+        uses: actions/checkout@v4
+
+      - name: Checkout Security Content
+        uses: actions/checkout@v4
+        with:
+          repository: splunk/security_content
+          path: security_content
+          ref: refs/heads/develop
+
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Python Dependencies and ContentCTL
+          python-version: "3.11"
+      
+      - name: Install dependencies
         run: |
-          pip install contentctl
-          git clone https://github.com/splunk/security_content.git
-
+          python -m pip install --upgrade pip
+          pip install contentctl pyyaml
 
       - name: Download TA Build Artifact
         uses: actions/download-artifact@v4
@@ -444,7 +446,7 @@ jobs:
           TA_BUILD_PATH="${{ github.workspace }}/ta_build/$TA_BUILD"
           echo "TA_BUILD_PATH=$TA_BUILD_PATH" >> $GITHUB_ENV
 
-      - name: Run Python Script
+      - name: Filter ESCU Detections and swap TA to actual build
         id: filter-detection-files
         shell: python
         run: |
@@ -460,6 +462,8 @@ jobs:
           config.read("package/default/app.conf")
           APP_ID = config.get("id", "name")
           APP_LABEL = config.get("ui", "label")
+          
+          print(f"APP_ID = {APP_ID}, APP_LABEL = {APP_LABEL}")
 
           # Read the file and remove trailing backslashes
           with open("package/default/props.conf", "r") as f:
@@ -480,18 +484,15 @@ jobs:
           # Load the YAML content
           with open("security_content/contentctl.yml", "r") as file:
               data = yaml.safe_load(file)
-
-              found = False
-
+              
+              app_found = False
               for app in data["apps"]:
-                  if app['appid'] == APP_ID or GITHUB_REPOSITORY in app['hardcoded_path'] or app["title"] == APP_LABEL:
+                  if app['appid'] == APP_ID or APP_ID in app['hardcoded_path'] or GITHUB_REPOSITORY in app['hardcoded_path'] or app["title"] == APP_LABEL or (app['appid'] == "PALO_ALTO_NETWORKS_ADD_ON_FOR_SPLUNK" and APP_ID == "Splunk_TA_paloalto_networks"):
                       app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
-                      found = True
-                  elif app['appid'] == "PALO_ALTO_NETWORKS_ADD_ON_FOR_SPLUNK" and APP_ID == "Splunk_TA_paloalto_networks":
-                      app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
-                      found = True
-
-              if not found:
+                      app_found = True
+              
+              if not app_found:
+                  print(f"App not found in contentctl.yml file. Exiting.")
                   exit(127)
 
 
@@ -506,14 +507,11 @@ jobs:
           for root, dirs, files in os.walk(base_dir):
               for file in files:
                   file_path = os.path.join(root, file)
-
                   try:
-                      with open(file_path, "r") as file:
-                          file_content = yaml.safe_load(file)
+                      with open(file_path, "r") as yaml_file:
+                          file_content = yaml.safe_load(yaml_file)
                           if "deprecated" not in file_path and (file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes):
                               detection_files += file_path.replace("security_content/", "") + " "
-                              
-
                   except Exception as e:
                       continue
 
@@ -525,19 +523,16 @@ jobs:
 
       - name: Run ESCU Tests
         run: |
-
           cd security_content
-          echo "Content of contentctl.yml file"
+          echo "Content of contentctl.yml file: "
           cat contentctl.yml
-
           contentctl test --container-settings.num-containers 8 --post-test-behavior never_pause --disable-tqdm mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
       
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: escu_test_summary_results
-          path: |
-            security_content/test_results/summary.yml
+          path: security_content/test_results/summary.yml
       
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
