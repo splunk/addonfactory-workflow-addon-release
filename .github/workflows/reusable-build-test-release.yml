@@ -881,7 +881,7 @@ jobs:
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
-      ( github.base_ref == 'main' || github.ref_name == 'main' || startsWith(github.ref_name, 'release/') )
+      ( github.base_ref == 'main' || github.ref_name == 'main' || startsWith(github.base_ref, 'release/') || startsWith(github.ref_name, 'release/') )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
