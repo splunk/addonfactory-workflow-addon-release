@@ -934,7 +934,6 @@ jobs:
         id: test-setup
         shell: bash
         run: |
-          sudo apt-get install -y crudini
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
