@@ -905,7 +905,6 @@ jobs:
       - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-22.04
-    container: ghcr.io/splunk/workflow-engine-ta-test-base:2.0.1-beta
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
@@ -934,6 +933,7 @@ jobs:
         id: test-setup
         shell: bash
         run: |
+          sudo apt-get install -y crudini
           ADDON_NAME=$(crudini --get package/default/app.conf id name | tr '[:lower:]' '[:upper:]')
           if [[ -n $(echo "${ADDON_NAME}" | awk -F 'SPLUNK_TA_' '{print $2}') ]];
           then
