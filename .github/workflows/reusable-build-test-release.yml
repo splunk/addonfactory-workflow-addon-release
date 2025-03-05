@@ -48,11 +48,15 @@ on:
           ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
       upgrade-tests-ta-versions:
         required: false
-        description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. If not provided,
-          the latest TA version will be used. Example: ['7.6.0', '7.7.0']"
+        description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
         type: string
         default: >-
-          ["latest"]
+          [""]
+      wfe-run-on-splunk-latest:
+        required: false
+        description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
+        type: string
+        default: "false"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -127,7 +131,7 @@ jobs:
       execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
       execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
       execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
-      execute-upgrade-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_upgrade_test_labeled }}
+      execute-upgrade-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_upgrade_labeled }}
       exit-first: ${{ steps.configure-tests-on-labels.outputs.exit-first }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
@@ -270,15 +274,20 @@ jobs:
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v3.0
       - id: determine_splunk
+        env:
+          wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
         run: |
-          if [ "${{ github.event_name }}" == "schedule" ]; then
+          if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
+            wfe_run_on_splunk_latest="${{  github.event_name == 'schedule' || !((github.base_ref == 'main' || github.ref_name == 'main') || ((github.base_ref == 'develop' || github.ref_name == 'develop')  && github.event_name == 'push')) }}"
+          fi
+          if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
             echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
           fi
       - name: job summary
         run: |
-          splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
+          splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
@@ -978,17 +987,17 @@ jobs:
         shell: bash
         run: |
           python3.7 -m pip install poetry==1.5.1 
+          export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
@@ -1244,8 +1253,7 @@ jobs:
       - name: Run spl2 tests
         run: |
           echo "Running SPL2 Tests"
-          cp -R /spl2-processor-cli/* .
-          pytest -s --junitxml test-results/report.xml --log-file=spl2_tests.log --pyargs spl2_testing_framework.cli_based_spl2_tests
+          spl2_tests_run cli -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
@@ -2354,7 +2362,7 @@ jobs:
             summary-ucc_modinput*
 
   run-upgrade-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' && needs.setup-workflow.outputs.execute-upgrade-labeled == 'true' }}
     needs:
       - build
       - test-inventory
@@ -2563,7 +2571,7 @@ jobs:
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
-          sudo apt-get update
+          apt-get update
           apt-get install -y libxml2-utils
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
@@ -2889,9 +2897,11 @@ jobs:
   pre-publish:
     if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
-    # It is necessary to avoid confusion caused by githubactions considering pre-publish for both push to develop branch
+    # It is necessary to avoid confusion caused by github actions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
     name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' &&  'pre-publish' ||  'pre-publish-not_main_pr' }}
+    outputs: 
+      run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
       - validate-custom-version
       - meta
@@ -2921,17 +2931,14 @@ jobs:
           if [[ "$RUN_PUBLISH" != *'false'* ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are met."
           else
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are not met."
           fi
-      - name: exit without publish
-        if: ${{ steps.check.outputs.run-publish == 'false' || ( github.event.action == 'labeled') }}
-        run: |
-          echo "Expand check step to see which job has failed pre-publish step."
-          exit 1
 
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.result == 'success' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish == 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
     needs:
       - pre-publish
