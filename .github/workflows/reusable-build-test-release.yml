@@ -56,7 +56,7 @@ on:
         required: false
         description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
         type: string
-        default: ""
+        default: "false"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
