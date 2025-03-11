@@ -281,6 +281,29 @@ jobs:
           echo "exit-first=${EXIT_FIRST}" >> "$GITHUB_OUTPUT"
           echo "exit-first: ${EXIT_FIRST}"
   
+  test-inventory:
+    runs-on: ubuntu-latest
+    needs: 
+      - check-docs-changes
+    # Map a step output to a job output
+    outputs:
+      spl2: ${{ steps.testset.outputs.spl2 }}
+      unit: ${{ steps.testset.outputs.unit }}
+      knowledge: ${{ steps.testset.outputs.knowledge }}
+      ui: ${{ steps.testset.outputs.ui }}
+      modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
+      scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
+      ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
+      upgrade: ${{ steps.testset.outputs.upgrade }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: testset
+        name: Check available test types
+        run: |
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; [ ${{ needs.check-docs-changes.outputs.docs-only }} == 'false' ] && echo "$TESTSET::true" || echo "$TESTSET::false"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; [ ${{ needs.check-docs-changes.outputs.docs-only }} == 'false' ] && echo "$TESTSET::true" || echo "$TESTSET::false"; done
+
+
   pre-publish:
     if: ${{ !cancelled() }}
     # The following line will rename 'pre-publish' to 'pre-publish-not_main_pr' when PR is created towards main branch
