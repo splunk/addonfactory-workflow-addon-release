@@ -133,9 +133,10 @@ jobs:
       - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
         id: check
         run: |
+          set -o xtrace
           # List all files modified in the commit or PR
-          # git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }}
-          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.ref }})
+          # changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
 
           echo "DEBUG:: $changed_files"
 
