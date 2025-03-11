@@ -130,12 +130,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Fetch all refs
+        run: git fetch --prune --unshallow
+
+      - name: Debug SHA values
+        run: |
+          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
+          echo "Head SHA: ${{ github.sha }}"
+
       - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
         id: check
         run: |
           set -o xtrace
           # List all files modified in the commit or PR
-          changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.ref }})
+          changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
           # changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
 
           echo "DEBUG:: $changed_files"
