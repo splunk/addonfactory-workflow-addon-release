@@ -469,6 +469,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Debugging the value of needs.test-inventory.outputs.unit
+        run: echo "unit value is ${{ needs.test-inventory.outputs.unit }}"
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
@@ -538,6 +540,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Debugging the value of needs.test-inventory.outputs.unit
+        run: echo "unit value is ${{ needs.test-inventory.outputs.unit }}"
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
