@@ -882,8 +882,10 @@ jobs:
 
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
-    needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    needs: 
+      - build
+      - check-docs-changes
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.check-docs-changes.outputs.docs-only == 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -924,10 +926,13 @@ jobs:
 
   appinspect-api:
     name: appinspect api ${{ matrix.tags }}
-    needs: build
+    needs:
+      - build
+      - check-docs-changes
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
+      needs.check-docs-changes.outputs.docs-only == 'false' &&
       ( github.base_ref == 'main' || github.ref_name == 'main' || startsWith(github.base_ref, 'release/') || startsWith(github.ref_name, 'release/') )
     runs-on: ubuntu-latest
     strategy:
@@ -959,7 +964,8 @@ jobs:
       - setup-workflow
       - build
       - test-inventory
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
+      - check-docs-changes
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.check-docs-changes.outputs.docs-only == 'false'  }}
     runs-on: ubuntu-22.04
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
