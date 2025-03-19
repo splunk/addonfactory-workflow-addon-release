@@ -128,15 +128,10 @@ jobs:
       docs-only: ${{ steps.check.outputs.docs-only }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Fetch all refs
         run: git fetch --prune --unshallow
-
-      - name: Debug SHA values
-        run: |
-          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
-          echo "Head SHA: ${{ github.sha }}"
 
       - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
         id: check
@@ -146,17 +141,12 @@ jobs:
           changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
           # changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
 
-          echo "DEBUG:: $changed_files"
-
           # Check if any of the changed files are not in docs/*, mkdocs.yml, or .github/workflows/docs.yml
           if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml)'; then
-            echo "DEBUG:: Files outside docs changed"
-            echo "docs-only=false" >> $GITHUB_ENV
-            echo "::set-output name=docs-only::false"
+            echo "docs-only=false" >> "$GITHUB_OUTPUT"
           else
-          echo "DEBUG:: Files outside docs not changed"
-            echo "docs-only=true" >> $GITHUB_ENV
-            echo "::set-output name=docs-only::true"
+            echo "Only documentation changes found."
+            echo "docs-only=true" >> "$GITHUB_OUTPUT"
           fi
 
   setup-workflow:
@@ -194,7 +184,6 @@ jobs:
               echo "argo_token_secret_id=ta-github-workflow-automation-token"
             } >> "$GITHUB_OUTPUT"
           fi
-      
 
       - name: configure tests based on labels
         id: configure-tests-on-labels
@@ -212,14 +201,12 @@ jobs:
             if ${{ needs.check-docs-changes.outputs.docs-only == 'true' }}; then
               echo -e "\033[1;33m⚠️ Skipping tests as there are only documentation related changes ⚠️\033[0m"
             elif ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
-              echo "executing 1"
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
                 fi
               done
             elif ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
-              echo "executing 2"
               for test_type in "${TESTSET[@]}"; do
                 # Exclude upgrade tests on PRs to main 
                 if [[ "$test_type" != "execute_upgrade" ]]; then
@@ -280,7 +267,6 @@ jobs:
           fi
           echo "exit-first=${EXIT_FIRST}" >> "$GITHUB_OUTPUT"
           echo "exit-first: ${EXIT_FIRST}"
-
 
   validate-pr-title:
     name: Validate PR title
@@ -469,8 +455,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Debugging the value of needs.test-inventory.outputs.unit
-        run: echo "unit value is ${{ needs.test-inventory.outputs.unit }}"
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
@@ -540,8 +524,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Debugging the value of needs.test-inventory.outputs.unit
-        run: echo "unit value is ${{ needs.test-inventory.outputs.unit }}"
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
@@ -2957,6 +2939,7 @@ jobs:
     outputs: 
       run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
+      - check-docs-changes
       - validate-custom-version
       - meta
       - compliance-copyrights
@@ -2982,7 +2965,7 @@ jobs:
         shell: bash
         run: |
           RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
-          if [[ "$RUN_PUBLISH" != *'false'* ]]
+          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are met."
