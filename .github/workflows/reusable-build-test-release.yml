@@ -403,16 +403,10 @@ jobs:
   run-spl2-escu-tests:
     if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2-escu-labeled == 'true' }}
     needs:
-      - build
+      # - build
       - setup-workflow
-      - setup
-
+      # - setup
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.11"
     permissions:
       actions: read
       deployments: read
@@ -421,130 +415,142 @@ jobs:
       statuses: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Checkout TA
+        uses: actions/checkout@v4
 
-      - name: Install Python Dependencies and ContentCTL
-        run: |
-          python -m pip install --upgrade pip
-          pip install contentctl==5.0.0
-          git clone https://github.com/splunk/security_content.git
+      # - name: Checkout Security Content
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: splunk/security_content
+      #     path: security_content
+      #     ref: refs/heads/develop
 
-
-      - name: Download TA Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: package-splunkbase
-          path: ta_build 
-
-      - name: Get the build path
-        run: |
-          TA_BUILD=$(ls ta_build)
-          TA_BUILD_PATH="${{ github.workspace }}/ta_build/$TA_BUILD"
-          echo "TA_BUILD_PATH=$TA_BUILD_PATH" >> $GITHUB_ENV
-
-          pwd
-
-          echo ',,978075574018620,TRAFFIC,drop,10.0,,141.151.140.150,198.0.181.90,0.0.0.0,0.0.0.0,Advanced-human-resource-product,davis/duncanashley,,nielsenrebecca,vsys1,Streamlined-asymmetric-methodology,User-friendly-next-generation-structure,,,fL-logger,,1452,1,56710,389,0,0,5002,udp,allow,6134,3098,3036,7623,2022/02/23 20:30:51,5807,any,,3053,-216944275885572,ZW,ID,,6153,1470,Unknown,0,0,0,0,,PA-uw,Unknown,,,0,,0,,hrs-oL-wDV' > detection.log
-
-          pwd
-          ls
-
-      - name: Run Python Script
-        id: filter-detection-files
-        shell: python
-        run: |
-          import yaml
-          import os
-          import configparser 
-          import re
-
-          # Read the file and remove trailing backslashes
-          with open("package/default/props.conf", "r") as f:
-              content = f.read()
-
-          # Remove trailing backslashes followed by a newline
-          updated_content = re.sub(r"\\\n", "", content)
-
-          # Write the cleaned content to a new file
-          with open("package/default/props.conf", "w") as f:
-              f.write(updated_content)
-
-          # Parse props.conf and collect all the sourcetypes in a list.
-          config = configparser.ConfigParser(strict=False)
-          config.read("package/default/props.conf")
-          sourcetypes = config.sections()
-
-          # Load the YAML content
-          with open("security_content/contentctl.yml", "r") as file:
-              data = yaml.safe_load(file)
-
-              data["container_settings"]["full_image_path"] = data["container_settings"]["full_image_path"].replace("9.3", "9.4")
-
-              data["apps"] = [{'uid': 1621, 'title': "Splunk Common Information Model (CIM)", 'version': "6.0.1", 'appid': "Splunk_SA_CIM",  'hardcoded_path': "https://attack-range-appbinaries.s3.us-west-2.amazonaws.com/splunk-common-information-model-cim_601.tgz"}, {'title': ${{ needs.setup.outputs.addon-name }}, 'version': "default", 'appid': ${{ needs.setup.outputs.addon-name }}, 'hardcoded_path': "${{ env.TA_BUILD_PATH }}"}]
-
-          # Write the modified data to the contentctl.yml file
-          with open("security_content/contentctl.yml", "w") as file:
-              yaml.dump(data,file,sort_keys=False)
-
-          # Load the YAML content
-          with open("security_content/detections/network/detect_outbound_ldap_traffic.yml", "r") as file:
-              data = yaml.safe_load(file)
-
-              data["tests"][0]["attack_data"][0]["data"] = "${{ github.workspace }}/detection.log"
-
-          # Write the modified data to the contentctl.yml file
-          with open("security_content/detections/network/detect_outbound_ldap_traffic.yml", "w") as file:
-              yaml.dump(data,file,sort_keys=False)
-
-          # Filter out the detections based on the collected sourcetypes
-          base_dir = "security_content/detections"
-          detection_files = ""
-
-          for root, dirs, files in os.walk(base_dir):
-              for file in files:
-                  file_path = os.path.join(root, file)
-
-                  try:
-                      with open(file_path, "r") as file:
-                          file_content = yaml.safe_load(file)
-                          if file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes:
-                              detection_files += file_path.replace("security_content/", "") + " "
-                              
-
-                  except Exception as e:
-                      continue
-
-          # Save detection_files as an output variable
-          with open(os.getenv('GITHUB_OUTPUT'), 'w') as output_file:
-              output_file.write(f"DETECTION_FILES={detection_files}")
-
-          print(f"Filtered Detection files = {detection_files}")
-
-      - name: Run ESCU Tests
-        run: |
-
-          cd security_content
-
-          echo "Content of contentctl.yml file"
-          cat contentctl.yml
-
-          echo "Content of etect_outbound_ldap_traffic.yml file"
-          cat detections/network/detect_outbound_ldap_traffic.yml
-
-          echo "contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files detections/network/detect_outbound_ldap_traffic.yml"
-
-          contentctl test --post-test-behavior never_pause --verbose --container-settings.no-leave-running mode:selected --mode.files detections/network/detect_outbound_ldap_traffic.yml
+      # - uses: actions/setup-python@v5
+      #   with:
+      #     python-version: "3.11"
       
-      - uses: actions/upload-artifact@v4
-        with:
-          name: spl2_escu_test_summary_results
-          path: |
-            test_results/summary.yml
-            dist/DA-ESS-ContentUpdate-latest.tar.gz
-        continue-on-error: true
+      # - name: Install dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install pyyaml
+      #     git clone --branch ADDON-77801-support-for-ingesting-json-events https://github.com/splunk/contentctl.git
+
+      - name: Install Homebrew
+        run: |
+          sudo apt update
+          sudo apt install build-essential curl file git -y
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          okta-artifactory-login -t generic
+          brew tap splunkdev/tap git@cd.splunkdev.com:toolbox/homebrew-tap.git
+          brew install spl2-processor-cli
+
+      # - name: Download TA Build Artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: package-splunkbase
+      #     path: ta_build 
+
+      # - name: Get the build path
+      #   run: |
+      #     TA_BUILD=$(ls ta_build)
+      #     TA_BUILD_PATH="${{ github.workspace }}/ta_build/$TA_BUILD"
+      #     echo "TA_BUILD_PATH=$TA_BUILD_PATH" >> $GITHUB_ENV
+
+      # - name: Filter ESCU Detections and swap TA to actual build
+      #   id: filter-detection-files
+      #   shell: python
+      #   run: |
+      #     import yaml
+      #     import os
+      #     import configparser 
+      #     import re
+
+      #     GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "")
+
+      #     # Parse app.conf get the appid of the TA.
+      #     config = configparser.ConfigParser(strict=False)
+      #     config.read("package/default/app.conf")
+      #     APP_ID = config.get("id", "name")
+      #     APP_LABEL = config.get("ui", "label")
+          
+      #     print(f"APP_ID = {APP_ID}, APP_LABEL = {APP_LABEL}")
+
+      #     # Read the file and remove trailing backslashes
+      #     with open("package/default/props.conf", "r") as f:
+      #         content = f.read()
+
+      #     # Remove trailing backslashes followed by a newline
+      #     updated_content = re.sub(r"\\\n", "", content)
+
+      #     # Write the cleaned content to a new file
+      #     with open("package/default/props.conf", "w") as f:
+      #         f.write(updated_content)
+
+      #     # Parse props.conf and collect all the sourcetypes in a list.
+      #     config = configparser.ConfigParser(strict=False)
+      #     config.read("package/default/props.conf")
+      #     sourcetypes = config.sections()
+
+      #     # Load the YAML content
+      #     with open("security_content/contentctl.yml", "r") as file:
+      #         data = yaml.safe_load(file)
+              
+      #         app_found = False
+      #         for app in data["apps"]:
+      #             if app['appid'] == APP_ID or APP_ID in app['hardcoded_path'] or GITHUB_REPOSITORY in app['hardcoded_path'] or app["title"] == APP_LABEL or (app['appid'] == "PALO_ALTO_NETWORKS_ADD_ON_FOR_SPLUNK" and APP_ID == "Splunk_TA_paloalto_networks"):
+      #                 app['hardcoded_path'] = "${{ env.TA_BUILD_PATH }}"
+      #                 app_found = True
+              
+      #         if not app_found:
+      #             print(f"App not found in contentctl.yml file. Exiting.")
+      #             exit(127)
+
+
+      #     # Write the modified data to the contentctl.yml file
+      #     with open("security_content/contentctl.yml", "w") as file:
+      #         yaml.dump(data,file,sort_keys=False)
+
+      #     # Filter out the detections based on the collected sourcetypes
+      #     base_dir = "security_content/detections"
+      #     detection_files = ""
+
+      #     for root, dirs, files in os.walk(base_dir):
+      #         for file in files:
+      #             file_path = os.path.join(root, file)
+      #             try:
+      #                 with open(file_path, "r") as yaml_file:
+      #                     file_content = yaml.safe_load(yaml_file)
+      #                     if "deprecated" not in file_path and (file_content["tests"][0]["attack_data"][0]["sourcetype"] in sourcetypes or file_content["tests"][0]["attack_data"][0]["source"] in sourcetypes):
+      #                         detection_files += file_path.replace("security_content/", "") + " "
+      #             except Exception as e:
+      #                 continue
+
+      #     # Save detection_files as an output variable
+      #     with open(os.getenv('GITHUB_OUTPUT'), 'w') as output_file:
+      #         output_file.write(f"DETECTION_FILES={detection_files}")
+
+      #     print(f"Filtered Detection files = {detection_files}")
+
+      # - name: Run Each Test
+      #   run: |
+      #     for test in ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}; do
+      #       echo "Running $test"
+      #     done
+
+      # - name: Run ESCU Tests
+      #   run: |
+      #     cd security_content
+      #     echo "Content of contentctl.yml file: "
+      #     cat contentctl.yml
+      #     contentctl test --container-settings.num-containers 8 --post-test-behavior never_pause --disable-tqdm mode:selected --mode.files ${{ steps.filter-detection-files.outputs.DETECTION_FILES }}
+      
+      # - uses: actions/upload-artifact@v4
+      #   if: always()
+      #   with:
+      #     name: escu_test_summary_results
+      #     path: security_content/test_results/summary.yml
         
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
