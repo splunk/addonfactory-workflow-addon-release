@@ -1,3 +1,37 @@
+<!-- TOC -->
+* [Reusable workflow](#reusable-workflow)
+  * [TA Developer Git workflow best practices](#ta-developer-git-workflow-best-practices)
+    * [Git Branches](#git-branches)
+    * [Default flow. Independent work](#default-flow-independent-work)
+    * [Default flow. Dependent on develop](#default-flow-dependent-on-develop)
+    * [Backporting to old releases](#backporting-to-old-releases)
+  * [[Internal] Development flow](#internal-development-flow)
+* [Spec reusable-build-test-release](#spec-reusable-build-test-release)
+  * [Workflow Inputs](#workflow-inputs)
+  * [General troubleshooting](#general-troubleshooting)
+  * [[Job] setup-workflow](#job-setup-workflow)
+  * [[Job] meta](#job-meta)
+  * [[Job] fossa-scan](#job-fossa-scan)
+  * [[Job] fossa-test](#job-fossa-test)
+  * [[Job] compliance-copyrights](#job-compliance-copyrights)
+  * [[Job] lint](#job-lint)
+  * [[Job] security-detect-secrets](#job-security-detect-secrets)
+  * [[Job] security-sast-semgrep](#job-security-sast-semgrep)
+  * [[Job] test-inventory](#job-test-inventory)
+  * [[Job] build](#job-build)
+  * [[Job] AppInspect](#job-appinspect)
+  * [[Job] AppInspect API](#job-appinspect-api)
+  * [[Job] setup](#job-setup)
+  * [[Job] test-unit-python3](#job-test-unit-python3)
+  * [[Job] run-btool-check](#job-run-btool-check)
+  * [[Job] run-knowledge-tests](#job-run-knowledge-tests)
+  * [[Job] run-ui-tests](#job-run-ui-tests-)
+  * [[Job] run-modinput-tests](#job-run-modinput-tests-)
+  * [[Job] run-ucc-modinput-tests](#job-run-ucc-modinput-tests-)
+  * [[Job] pre-publish](#job-pre-publish)
+  * [[Job] publish](#job-publish)
+  * [Vendor Addon Matrix tests](#vendor-addon-matrix-tests)
+<!-- TOC -->
 # Reusable workflow
 
 This repository stores reusable `build-test-release` workflow, which is used to build, test and release Splunk add-ons.
@@ -6,7 +40,113 @@ Workflow is used by add-ons created and managed by [addonfactory repository temp
 
 Workflow defines jobs which perform security code scanning, execute different types of tests, build add-on package and make a GitHub release.
 
-## Development flow
+## TA Developer Git workflow best practices
+
+* Always prefer Fast Forward to Merge commit. Preference towards linear history.
+* Never squash merge multiple independent features. i.e. never squash merge develop -> main. 
+
+### Git Branches
+* `main` - Latest released TA commit. Events:
+  * `merge` triggers TA build release (GitHub tag and release artifacts)
+* `develop` - Next version `Work in Progress`. Can be created / removed at will, tracks `main`
+  * `merge` triggers TA `Beta` build release (GitHub tag and release artifacts)
+* `release/{VERSION}` - Custom release scenario. **Example:** 2 releases in process, i.e. backport and next patch/minor/major.
+
+
+### Default flow. Independent work
+```mermaid
+gitGraph
+    checkout main
+    commit id: "A" tag: "v1.0.0"
+    commit id: "B" tag: "v1.1.0"
+
+    branch develop
+    checkout develop
+    commit id: "chore: pipeline-update"
+    commit id: "feat: feat-C" tag: "v1.2.0-Beta-1"
+
+    checkout main
+    branch feat/my-feat-D
+    checkout feat/my-feat-D
+    commit id: "feat: feat-D"
+
+    checkout develop
+    merge feat/my-feat-D tag: "v1.2.0-Beta-2"
+  
+    checkout main
+    commit id: "docs: docs-update"
+
+    checkout develop
+    merge main
+    
+    checkout main
+    merge develop tag: "v1.2.0"
+    
+```
+
+### Default flow. Dependent on develop
+When the feature is justifiably dependent on `develop`, for example: adding UI tests to an existing feature.
+```mermaid
+gitGraph
+    checkout main
+    commit id: "A" tag: "v1.0.0"
+    commit id: "B" tag: "v1.1.0"
+
+    branch develop
+    checkout develop
+    commit id: "chore: pipeline-update"
+    commit id: "feat: feat-C" tag: "v1.2.0-Beta-1"
+
+    branch test/my-feat-C-ui-tests
+    checkout test/my-feat-C-ui-tests
+    commit id: "test: my-feat-C-ui-tests"
+
+    checkout develop
+    merge test/my-feat-C-ui-tests
+  
+    checkout main
+    commit id: "docs: docs-update"
+    commit id: "fix: important fix" tag: "v1.1.1"
+
+    checkout develop
+    merge main
+    
+    checkout main
+    merge develop tag: "v1.2.0"
+```
+
+### Backporting to old releases
+Bugfix needing a backport patch release `1.1.1` and releasing next `2.1.0`. For example there is a business reason to provide support for `1.1.0`
+```mermaid
+
+gitGraph
+    checkout main
+    commit id: "A" tag: "v1.1.0"
+    branch release/v1.1.1 order: 4
+    checkout main
+    commit id: "B" tag: "v2.0.0"
+    branch develop
+
+    checkout develop
+
+
+    checkout main
+    branch fix/important-fix
+    checkout fix/important-fix
+    commit id: "fix: important fix"
+
+    checkout develop
+    merge fix/important-fix tag: "v2.1.0-Beta-1"
+    
+    checkout main
+    merge develop tag: "v2.1.0"
+    
+    checkout release/v1.1.1
+    cherry-pick id: "fix: important fix" tag: "v1.1.1"
+```
+
+
+## [Internal] Development flow
 
 * All the changes should first go to the `develop` branch (using "squash commit"), `main` branch should contain stable code
 * Official releases are made from `main` branch (when it's time to rollout new template changes):
@@ -26,9 +166,8 @@ Workflow defines jobs which perform security code scanning, execute different ty
   * backport the change back to the `develop` branch
   * new version of the workflow is going to be released (v4.17.0 (before) -> v4.17.1 (after)) and it will automatically applied to all the repositories
 
-# Workflow jobs
-
-## Inputs
+# Spec reusable-build-test-release
+## Workflow Inputs
 * marker - list of markers used to paralelize modinput tests
 * ucc-modinput-marker - list of markers used to paralelize ucc modinput tests
 * ui_marker - list of markers used to paralelize ui tests
@@ -44,7 +183,7 @@ Workflow defines jobs which perform security code scanning, execute different ty
 * Check if there is any similar issue reported to GitHub repo for the action by other users.
 * If you are not sure what to do, please use `go/addon/help`.
 
-## setup-workflow
+## [Job] setup-workflow
 
 Job that is scanning PR and based on PR body or included labels defining tests to be executed.
 
@@ -61,15 +200,13 @@ Job that is scanning PR and based on PR body or included labels defining tests t
   * add to PR one or multiple labels, available choices can be found [here](https://github.com/splunk/addonfactory-workflow-addon-release/blob/4f3fa4d779b6ec7649f0dc6b973eb4d68e5fcc48/.github/workflows/reusable-build-test-release.yml#L153)
   * there is no need to add labels when PR's target branch is `main`
 
-meta stage
-=======================
+## [Job] meta
 
 **Description:** 
 
 - Determines which Splunk and SC4S versions to run tests with.
 
-fossa-scan
-=======================
+## [Job] fossa-scan
 
 **Description:**
 
@@ -92,8 +229,7 @@ fossa-scan
 THIRDPARTY
 ```
 
-fossa-test
-=======================
+## [Job] fossa-test
 
 **Description:**
 
@@ -112,8 +248,7 @@ fossa-test
 - No additional Artifacts.
 
 
-compliance-copyrights
-=====================
+## [Job] compliance-copyrights
 
 **Description**
 
@@ -149,8 +284,7 @@ i.e <img src="images/compliance-copyrights/license.png" alt="license" style="wid
 - No additional Artifacts.
 
 
-lint 
-=======================
+## [Job] lint
 
 **Description:** 
 
@@ -175,8 +309,7 @@ lint
 - No additional artifacts, failure details are available in the logs.
 
 
-security-detect-secrets
-=======================
+## [Job] security-detect-secrets
 
 **Description:**
 
@@ -207,8 +340,7 @@ security-detect-secrets
 - No additional artifacts, the commit info and secrets details are available in the logs.
 
 
-security-sast-semgrep
-=======================
+## [Job] security-sast-semgrep
 
 **Description:**
 
@@ -248,8 +380,7 @@ security-sast-semgrep
 
 - Findings can be observed in the console logs of the stage and also at Semgrep link for which is provided in the end.
 
-test-inventory
-=======================
+## [Job] test-inventory
 
 **Description**
 
@@ -265,8 +396,7 @@ modinput_functional::true
 ucc_modinput_functional::true
 ```
 
-build
-=======================
+## [Job] build
 
 **Description**
 
@@ -300,8 +430,7 @@ installation-update.json
 - package-splunkbase includes Splunkbase equivalent package code
 
 
-AppInspect
-=======================
+## [Job] AppInspect
 
 **Description**
 
@@ -357,8 +486,7 @@ appinspect_splunk_appinspect_checks.json
 ```
 
 
-AppInspect API
-=======================
+## [Job] AppInspect API
 
 **Description**
 
@@ -403,7 +531,7 @@ appinspect-api-html-report-self-service
 ```
 
 
-# setup
+## [Job] setup
 
 **Description:** 
 
@@ -411,7 +539,7 @@ appinspect-api-html-report-self-service
 
 **Action used:** NA
 
-# test-unit-python3
+## [Job] test-unit-python3
 
 **Description:**
 
@@ -431,7 +559,7 @@ appinspect-api-html-report-self-service
 
 - Junit Test result xml file
 
-# run-btool-check
+## [Job] run-btool-check
 
 **Description:**
 
@@ -456,7 +584,7 @@ appinspect-api-html-report-self-service
 btool-output.txt
 ```
 
-# run-knowledge-tests
+## [Job] run-knowledge-tests
 
 **Description:** 
 
@@ -493,7 +621,7 @@ pytest_splunk_addon.log
 cim-compliance-report
 ```
 
-# run-ui-tests 
+## [Job] run-ui-tests 
 
 **Description**
 
@@ -535,7 +663,7 @@ Screenshots for failed tests under assets folder
 Junit XML file
 ```
 
-# run-modinput-tests 
+## [Job] run-modinput-tests 
 
 **Description**
 
@@ -576,7 +704,7 @@ helmut.log
 Junit XML file
 ```
 
-# run-ucc-modinput-tests 
+## [Job] run-ucc-modinput-tests 
 
 **Description**
 
@@ -615,8 +743,7 @@ splunk-add-on-ucc-modinput-test-functional.log
 Junit XML file
 ```
 
-pre-publish
-===========
+## [Job] pre-publish
 
 **Description:**
 
@@ -643,8 +770,8 @@ pre-publish
 - No additional artifacts
 
 
-publish
-=======
+## [Job] publish
+
 **Description**
 - This stage only executes for main and develop branch.
 
@@ -677,8 +804,7 @@ source_code.zip
 source_code.tar.gz
 ```
 
-Vendor Addon Matrix tests
-=========================
+## Vendor Addon Matrix tests
 
 - For addons like Tomcat, JMX, Nginx where multiple versions are supported for the Vendor platform currently only a single version of Vendor platform was configured while testing which is now parameterised to support test execution against different version of vendor platforms in Github Actions.
 
