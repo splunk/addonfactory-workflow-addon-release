@@ -122,8 +122,37 @@ jobs:
             exit 1
           fi
 
+  check-docs-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.check.outputs.docs-only }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch all refs
+        run: git fetch --prune --unshallow
+
+      - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
+        id: check
+        run: |
+          set -o xtrace
+          # List all files modified in the commit or PR
+          changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+          # changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+
+          # Check if any of the changed files are not in docs/*, mkdocs.yml, or .github/workflows/docs.yml
+          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml)'; then
+            echo "docs-only=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only documentation changes found."
+            echo "docs-only=true" >> "$GITHUB_OUTPUT"
+          fi
+
   setup-workflow:
     runs-on: ubuntu-latest
+    needs: 
+      - check-docs-changes
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
@@ -169,7 +198,9 @@ jobs:
           case "${{ github.event_name }}" in
           "pull_request")
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+            if ${{ needs.check-docs-changes.outputs.docs-only == 'true' }}; then
+              echo -e "\033[1;33m⚠️ Skipping tests as there are only documentation related changes ⚠️\033[0m"
+            elif ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
@@ -381,6 +412,8 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
+    needs: 
+      - check-docs-changes
     # Map a step output to a job output
     outputs:
       spl2: ${{ steps.testset.outputs.spl2 }}
@@ -396,8 +429,8 @@ jobs:
       - id: testset
         name: Check available test types
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
-          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -540,6 +573,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     needs:
+      - check-docs-changes
       - validate-custom-version
       - setup-workflow
       - test-inventory
@@ -550,7 +584,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') }}
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -728,6 +762,7 @@ jobs:
   build-3_9:
     runs-on: ubuntu-latest
     needs:
+      - check-docs-changes
       - validate-custom-version
       - setup-workflow
       - test-inventory
@@ -741,7 +776,8 @@ jobs:
     if: |
       always() &&
       (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped') &&
-      (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped')
+      (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && 
+      (needs.check-docs-changes.outputs.docs-only == 'false')
     permissions:
       contents: write
       packages: read
@@ -2903,6 +2939,7 @@ jobs:
     outputs: 
       run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
+      - check-docs-changes
       - validate-custom-version
       - meta
       - compliance-copyrights
@@ -2928,7 +2965,7 @@ jobs:
         shell: bash
         run: |
           RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
-          if [[ "$RUN_PUBLISH" != *'false'* ]]
+          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are met."
