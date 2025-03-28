@@ -323,7 +323,9 @@ jobs:
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   
   validate-docs-change:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  
+    container:
+      image: python:3.9
     steps:
       - uses: actions/checkout@v4
         with:
@@ -332,29 +334,10 @@ jobs:
       - name: Installing requirements
         run: |
           pip install pip -U
-          pip install mkdocs==1.6.1 mkdocs-material==9.6.9
+          pip install mkdocs==1.6.1 mkdocs-material==9.6.9 poetry
       - name: validate
         run: |
-          set -o xtrace
-          if [ -f "mkdocs.yml" ]; then
-            # Run mkdocs serve in the background and redirect output to /tmp/log
-            nohup mkdocs serve &> /tmp/log &
-            pid=$!
-            sleep 5
-
-            # Send SIGTERM to the mkdocs serve process and signal it to terminate
-            kill -TERM $pid
-          else
-            echo "mkdocs.yaml not found. Skipping mkdocs serve."
-            exit 0
-          fi
-
-      - name: check logs
-        if: failure()
-        run: |
-          echo -e "\033[33m⚠️ mkdocs serve exited with an error. Here are logs from mkdocs serve \033[0m"
-          set -o xtrace
-          cat /tmp/log
+          poetry run mkdocs build --strict
 
   fossa-scan:
     runs-on: ubuntu-latest
