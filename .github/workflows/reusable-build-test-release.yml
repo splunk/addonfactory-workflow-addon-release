@@ -173,6 +173,26 @@ jobs:
 
           echo "Check run ID: $check_run_id"
           echo "check_run_id=$check_run_id" >> $GITHUB_ENV
+      - name: Send Details to AWS SQS
+        id: send_to_sqs
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          queue_url="https://sqs.${AWS_DEFAULT_REGION}.amazonaws.com/${AWS_ACCOUNT_ID}/gh-taco-queue.fifo"
+          message_body=$(jq -n \
+            --arg sha "${{ github.sha }}" \
+            --arg workflow_id "${{ github.run_id }}" \
+            --arg repo "${{ github.repository }}" \
+            '{commit_sha: $sha, workflow_id: $workflow_id, repository: $repo}')
+          
+          aws sqs send-message \
+            --queue-url "$queue_url" \
+            --message-body "$message_body" \
+            --message-group-id "github-actions-group"
       - name: waiting step
         run: |
           check_name="TACO tests"
