@@ -97,6 +97,9 @@ on:
       SPL_COM_PASSWORD:
         description: password to splunk.com
         required: true
+      GITLAB_API_TOKEN:
+        description: GitLab API token
+        required: true
 permissions:
   contents: read
   packages: read
@@ -129,6 +132,7 @@ jobs:
     runs-on: self-hosted
     env:
       GITHUB_TOKEN: ${{ github.token }}
+      GITLAB_API_TOKEN: ${{ secrets.GITLAB_API_TOKEN }}
     steps:
       - name: Create commit status
         id: create_status
@@ -152,8 +156,6 @@ jobs:
       - name: Get Check Run ID
         id: get_check
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           check_name="TACO tests"
           repo="${{ github.repository }}"
@@ -173,6 +175,27 @@ jobs:
 
           echo "Check run ID: $check_run_id"
           echo "check_run_id=$check_run_id" >> $GITHUB_ENV
+      - name: Trigger TACO GitLab Pipeline
+        id: trigger_taco
+        shell: bash
+        run: |
+          repo_owner_name="${{ github.repository }}"
+          repo_name=${repo_owner_name#splunk/}
+          sha="${{ github.sha }}"
+          curl --request POST \
+            --form "token=$GITLAB_API_TOKEN" \
+            --form ref=test/gh-runner \
+            --form "variables[ADD_ON]=$repo_name" \
+            --form "variables[ADD_ON_VERSION]=$sha" \
+            --form "variables[SPLUNK_ENTERPRISE_VERSION]=latest" \
+            --form "variables[ENTERPRISE_ARCHITECTURE]=true" \
+            --form "variables[AUTO_CONFIRM]=true" \
+            --form "variables[KNOWLEDGE_TESTS]=true" \
+            --form "variables[ARGO_ENVIRONMENT]=prod" \
+            --form "variables[LOG_LEVEL]=debug" \
+            --form "variables[RETAIN_SPLUNK_STACK]=0" \
+            --form "variables[TRIGGER]=github" \
+            "https://cd.splunkdev.com/api/v4/projects/211670/trigger/pipeline"
       - name: Send Details to AWS SQS
         id: send_to_sqs
         shell: bash
