@@ -334,7 +334,7 @@ jobs:
           FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
           echo "url=$FOSSA_REPORT_URL"
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
-          fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
+          fossa report attribution --format text --timeout 900 > /tmp/THIRDPARTY
           exit "$exit_code"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
