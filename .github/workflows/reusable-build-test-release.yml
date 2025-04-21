@@ -326,6 +326,8 @@ jobs:
     runs-on: ubuntu-latest  
     container:
       image: python:3.9
+    outputs:
+      status: ${{ steps.validate.outputs.status }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -336,8 +338,26 @@ jobs:
           pip install pip -U
           pip install mkdocs==1.6.1 mkdocs-material==9.6.9 poetry
       - name: validate
+        id: validate
         run: |
-          poetry run mkdocs build --strict
+          if poetry run mkdocs build --strict; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "status :: success"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "status :: failure"
+          fi
+
+  enforce-docs-checks:
+    runs-on: ubuntu-latest  
+    needs: validate-docs-change
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    steps:
+      - name: Fail if validate-docs-change failed
+        run: |
+          if [ "${{ needs.validate-docs-change.outputs.status }}" == "failure" ]; then
+            exit 1
+          fi
 
   fossa-scan:
     runs-on: ubuntu-latest
