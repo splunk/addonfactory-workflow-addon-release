@@ -2994,6 +2994,7 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
+      - enforce-docs-checks
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -3010,6 +3011,11 @@ jobs:
           else
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
+          fi
+          if [[ ${{ github.base_ref == 'main' }} && "${{ needs.enforce-docs-checks.result }}" != "success" ]]
+          then
+            echo " There are documentation changes that break mkdocs deploy. please check validate-docs-change step."
+            exit 1
           fi
 
   publish:
