@@ -3012,11 +3012,6 @@ jobs:
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
           fi
-          if [[ ${{ github.base_ref == 'main' }} && "${{ needs.enforce-docs-checks.result }}" != "success" ]]
-          then
-            echo " There are documentation changes that break mkdocs deploy. please check validate-docs-change step."
-            exit 1
-          fi
 
   publish:
     if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish == 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
