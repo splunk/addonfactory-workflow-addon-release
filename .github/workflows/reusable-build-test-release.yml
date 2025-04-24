@@ -1238,7 +1238,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: [{"version":"9.4.0", "iscloud":"false","fips":"false"},{"version":"latest","iscloud":"true","fips":"false"}, {"version":"latest","iscloud":"false","fips":"true"}]
+        splunk:
+          - version: "9.4.0"
+            iscloud: "false"
+            fips: "false"
+          - version: "latest"
+            iscloud: "true"
+            fips: "false"
+          - version: "latest"
+            iscloud: "false"
+            fips: "true"
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     env:
       GITHUB_TOKEN: ${{ github.token }}
@@ -1302,7 +1311,14 @@ jobs:
             sha="${{ github.event.pull_request.head.sha }}"
           else
             sha="${{ github.sha }}"
-          fi           
+          fi
+          if [[ ${{ matrix.splunk.iscloud }} == "true" ]]; then
+            run_cloud="true"
+            run_enterprise="false"
+          else
+            run_cloud="false"
+            run_enterprise="true"
+          fi
           curl --request POST \
             --form "token=$GITLAB_API_TOKEN" \
             --form ref=test/gh-runner \
@@ -1310,14 +1326,17 @@ jobs:
             --form "variables[GH_CHECK_NAME]=${{ steps.create_status.outputs.check_name }}" \
             --form "variables[ADD_ON]=$repo_name" \
             --form "variables[ADD_ON_VERSION]=$sha" \
-            --form "variables[SPLUNK_ENTERPRISE_VERSION]=latest" \
-            --form "variables[ENTERPRISE_ARCHITECTURE]=true" \
+            --form "variables[SPLUNK_ENTERPRISE_VERSION]=${{ matrix.splunk.version }}" \
+            --form "variables[SPLUNK_CLOUD_VERSION]=${{ matrix.splunk.version }}" \
+            --form "variables[ENTERPRISE_ARCHITECTURE]=$run_enterprise" \
+            --form "variables[CLOUD_NOAH_ARCHITECTURE]=$run_cloud" \
             --form "variables[AUTO_CONFIRM]=true" \
             --form "variables[KNOWLEDGE_TESTS]=true" \
             --form "variables[ARGO_ENVIRONMENT]=prod" \
             --form "variables[LOG_LEVEL]=debug" \
             --form "variables[RETAIN_SPLUNK_STACK]=0" \
             --form "variables[TRIGGER]=github" \
+            --form "variables[ENABLE_FIPS]=${{ matrix.splunk.fips }}" \
             "https://cd.splunkdev.com/api/v4/projects/211670/trigger/pipeline"
       - name: waiting step
         run: |
@@ -1340,6 +1359,9 @@ jobs:
             if [[ "$status" == "success" ]]; then
               echo "TACO tests success!"
               exit 0
+            elif [[ "$status" == "failure" ]]; then
+              echo "TACO tests failed!"
+              exit 1
             fi
             sleep 30
           done
