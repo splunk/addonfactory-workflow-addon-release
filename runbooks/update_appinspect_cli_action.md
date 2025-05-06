@@ -22,10 +22,8 @@ Once Splunk AppInspect team releases AppInspect CLI - we need to make sure that 
 
 - create a PR in this repository with a new version of the action ([example PR](https://github.com/splunk/addonfactory-workflow-addon-release/pull/247))
     - make sure that PR is towards `main` branch
+    - make sure the tile of the PR follows the format: "fix: update AppInspect CLI action to v.X.Y"
     - make sure that the pipeline is green
-    - determine which version of `appinspect-cli-action` needs to be released based on the PR
-      - if it is a bug fix or dependecnies update - "fix" in the title of the PR
-      - if it is a feature release - "feat" in the title of the PR
     - attach a link to a test run of reusable workflow
     - get review from the team
     - "Squash and merge" the PR
