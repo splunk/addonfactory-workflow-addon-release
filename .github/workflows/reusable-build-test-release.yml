@@ -423,6 +423,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Setup addon
+        env:
+          PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
           if [ -f "poetry.lock" ]
           then
@@ -435,6 +437,9 @@ jobs:
           if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
+          export POETRY_REPOSITORIES_SPLUNK_PYTEST_SPLUNK_ADDON=https://github.com/splunk/pytest-splunk-addon.git
+          export POETRY_HTTP_BASIC_SPLUNK_PYTEST_SPLUNK_ADDON_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_PYTEST_SPLUNK_ADDON_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
           poetry install --with dev
       - name: Create directories
         run: |
