@@ -848,6 +848,9 @@ jobs:
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
+          export POETRY_REPOSITORIES_SPLUNK_PYTEST_SPLUNK_ADDON_URL=https://github.com/splunk/pytest-splunk-addon.git
+          export POETRY_HTTP_BASIC_SPLUNK_PYTEST_SPLUNK_ADDON_USERNAME=${{ secrets.SA_GH_USER_NAME }}
+          export POETRY_HTTP_BASIC_SPLUNK_PYTEST_SPLUNK_ADDON_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
