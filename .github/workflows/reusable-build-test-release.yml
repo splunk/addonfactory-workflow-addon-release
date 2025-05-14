@@ -334,9 +334,21 @@ jobs:
           submodules: false
           persist-credentials: false
       - name: Installing requirements
+        shell: bash
         run: |
           pip install pip -U
           pip install mkdocs==1.6.1 mkdocs-material==9.6.9 poetry
+          if [[ -f ".github/workflows/docs.yml" ]]; then
+            PIP_COMMAND=$(awk '/run: pip install/ {print substr($0, index($0,$5))}' .github/workflows/docs.yml)
+            if [ -z "$PIP_COMMAND" ]; then
+              echo "No pip install command found in .github/workflows/docs.yml!"
+            else
+              echo "Installing dependencies: $PIP_COMMAND"
+              pip install $PIP_COMMAND
+          fi
+          else
+            echo ".github/workflows/docs.yml file not found. No dependencies installed for mkdocs"
+          fi
       - name: validate
         id: validate
         run: |
