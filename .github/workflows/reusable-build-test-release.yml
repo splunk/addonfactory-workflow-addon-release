@@ -337,17 +337,35 @@ jobs:
         shell: bash
         run: |
           pip install pip -U
-          pip install mkdocs==1.6.1 mkdocs-material==9.6.9 poetry
+          pip install poetry
+          DOCS_FILE=""
           if [[ -f ".github/workflows/docs.yml" ]]; then
-            PIP_COMMAND=$(awk '/run: pip install/ {print substr($0, index($0,$5))}' .github/workflows/docs.yml)
+            DOCS_FILE=".github/workflows/docs.yml"
+          elif [[ -f ".github/workflows/docs.yaml" ]]; then
+            DOCS_FILE=".github/workflows/docs.yaml"
+          fi
+          echo "docs yaml file found at: $DOCS_FILE"
+          if [[ -f "$DOCS_FILE" ]]; then
+            PIP_COMMAND=$(awk '{
+              for (i = 1; i <= NF; i++) {
+                  if ($i ~ /^pip[0-9.]*$/ && $(i+1) == "install") {
+                  for (j = i+2; j <= NF; j++) {
+                      printf "%s ", $j
+                  }
+                }
+              }
+              }' $DOCS_FILE)
             if [ -z "$PIP_COMMAND" ]; then
-              echo "No pip install command found in .github/workflows/docs.yml!"
+              echo "No pip install command found in $DOCS_FILE!"
             else
               echo "Installing dependencies: $PIP_COMMAND"
+              # shellcheck disable=SC2086
               pip install $PIP_COMMAND
           fi
           else
-            echo ".github/workflows/docs.yml file not found. No dependencies installed for mkdocs"
+            echo "$DOCS_FILE file not found. No dependencies installed for mkdocs"
+            echo "Installing default pip install mkdocs==1.6.1 mkdocs-material==9.6.9"
+            pip install mkdocs==1.6.1 mkdocs-material==9.6.9
           fi
       - name: validate
         id: validate
