@@ -1036,9 +1036,9 @@ jobs:
         run: |
           poetry install --only modinput
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
-            poetry run ucc-test-modinput -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+            poetry run ucc-test-modinput gen -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           else
-            poetry run ucc-test-modinput -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+            poetry run ucc-test-modinput gen -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           fi
       - name: upload-libs-to-s3
         id: upload-libs-to-s3
