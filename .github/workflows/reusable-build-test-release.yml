@@ -45,7 +45,7 @@ on:
         description: "list of OS used for scripted input tests"
         type: string
         default: >-
-          ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
+          ["ubuntu:16.04", "ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8", "redhat:9.5"]
       upgrade-tests-ta-versions:
         required: false
         description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
