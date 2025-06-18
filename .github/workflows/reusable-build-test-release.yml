@@ -133,7 +133,7 @@ jobs:
       - name: Fetch all refs
         run: git fetch --prune --unshallow
 
-      - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
+      - name: Check if the changes are only in docs/*, mkdocs.yml, .github/workflows/build-test-release.yml, or .github/workflows/docs.yml
         id: check
         run: |
           set -o xtrace
@@ -142,7 +142,7 @@ jobs:
           # changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
 
           # Check if any of the changed files are not in docs/*, mkdocs.yml, or .github/workflows/docs.yml
-          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml)'; then
+          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml|.github/workflows/build-test-release.yml)'; then
             echo "docs-only=false" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation changes found."
@@ -429,9 +429,8 @@ jobs:
       - id: testset
         name: Check available test types
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done
-          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
-
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
