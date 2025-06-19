@@ -188,6 +188,7 @@ jobs:
       - name: configure tests based on labels
         id: configure-tests-on-labels
         run: |
+          echo "Just making logger to make sure changes are reflected"
           set +e
           declare -A EXECUTE_LABELED
           TESTSET=("execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
@@ -198,9 +199,7 @@ jobs:
           case "${{ github.event_name }}" in
           "pull_request")
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            if ${{ needs.check-docs-changes.outputs.docs-only == 'true' }}; then
-              echo -e "\033[1;33m⚠️ Skipping tests as there are only documentation related changes ⚠️\033[0m"
-            elif ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+            if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
