@@ -39,7 +39,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.4.1"
+        default: "v3.5.0"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
@@ -139,7 +139,6 @@ jobs:
           set -o xtrace
           # List all files modified in the commit or PR
           changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
-          # changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
 
           # Check if any of the changed files are not in docs/*, mkdocs.yml, or .github/workflows/docs.yml
           if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml)'; then
@@ -198,9 +197,7 @@ jobs:
           case "${{ github.event_name }}" in
           "pull_request")
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            if ${{ needs.check-docs-changes.outputs.docs-only == 'true' }}; then
-              echo -e "\033[1;33m⚠️ Skipping tests as there are only documentation related changes ⚠️\033[0m"
-            elif ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+            if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
