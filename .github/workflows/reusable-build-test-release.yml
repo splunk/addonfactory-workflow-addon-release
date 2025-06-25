@@ -133,15 +133,15 @@ jobs:
       - name: Fetch all refs
         run: git fetch --prune --unshallow
 
-      - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
+      - name: Check if the changes are only in docs/*, mkdocs.yml, .github/workflows/docs.yml or .github/workflows/validate-deploy-docs.yaml
         id: check
         run: |
           set -o xtrace
           # List all files modified in the commit or PR
           changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
 
-          # Check if any of the changed files are not in docs/*, mkdocs.yml, or .github/workflows/docs.yml
-          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml)'; then
+          # Check if any of the changed files are not in docs/*, mkdocs.yml, .github/workflows/docs.yml or .github/workflows/validate-deploy-docs.yaml
+          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml|.github/workflows/validate-deploy-docs.yaml)'; then
             echo "docs-only=false" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation changes found."
