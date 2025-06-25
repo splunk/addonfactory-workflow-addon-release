@@ -133,7 +133,7 @@ jobs:
       - name: Fetch all refs
         run: git fetch --prune --unshallow
 
-      - name: Check if the changes are only in docs/*, mkdocs.yml, .github/workflows/docs.yml or .github/workflows/validate-deploy-docs.yaml
+      - name: Check if the changes are only in docs/*, mkdocs.yml or .github/workflows/validate-deploy-docs.yaml
         id: check
         run: |
           set -o xtrace
