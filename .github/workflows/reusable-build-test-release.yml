@@ -39,13 +39,13 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.3.4"
+        default: "v3.5.0"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
         type: string
         default: >-
-          ["ubuntu:14.04", "ubuntu:16.04","ubuntu:18.04","ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8"]
+          ["ubuntu:16.04", "ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8", "redhat:9.5"]
       upgrade-tests-ta-versions:
         required: false
         description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
@@ -122,8 +122,36 @@ jobs:
             exit 1
           fi
 
+  check-docs-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.check.outputs.docs-only }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch all refs
+        run: git fetch --prune --unshallow
+
+      - name: Check if the changes are only in docs/*, mkdocs.yml, or .github/workflows/docs.yml
+        id: check
+        run: |
+          set -o xtrace
+          # List all files modified in the commit or PR
+          changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+
+          # Check if any of the changed files are not in docs/*, mkdocs.yml, or .github/workflows/docs.yml
+          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml)'; then
+            echo "docs-only=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only documentation changes found."
+            echo "docs-only=true" >> "$GITHUB_OUTPUT"
+          fi
+
   setup-workflow:
     runs-on: ubuntu-latest
+    needs: 
+      - check-docs-changes
     outputs:
       execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
       execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
@@ -381,6 +409,8 @@ jobs:
 
   test-inventory:
     runs-on: ubuntu-latest
+    needs: 
+      - check-docs-changes
     # Map a step output to a job output
     outputs:
       spl2: ${{ steps.testset.outputs.spl2 }}
@@ -396,8 +426,8 @@ jobs:
       - id: testset
         name: Check available test types
         run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
-          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=true" >> "$GITHUB_OUTPUT"; echo "$TESTSET::true"; done
+          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done
+          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
     name: test-unit-python3-${{ matrix.python-version }}
@@ -540,6 +570,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     needs:
+      - check-docs-changes
       - validate-custom-version
       - setup-workflow
       - test-inventory
@@ -550,7 +581,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') }}
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -728,6 +759,7 @@ jobs:
   build-3_9:
     runs-on: ubuntu-latest
     needs:
+      - check-docs-changes
       - validate-custom-version
       - setup-workflow
       - test-inventory
@@ -741,7 +773,8 @@ jobs:
     if: |
       always() &&
       (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped') &&
-      (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped')
+      (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && 
+      (needs.check-docs-changes.outputs.docs-only == 'false')
     permissions:
       contents: write
       packages: read
@@ -856,7 +889,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.9
+        uses: splunk/appinspect-cli-action@v2.10
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -881,7 +914,7 @@ jobs:
     if: |
       !cancelled() &&
       needs.build.result == 'success' &&
-      ( github.base_ref == 'main' || github.ref_name == 'main' )
+      ( github.base_ref == 'main' || github.ref_name == 'main' || startsWith(github.base_ref, 'release/') || startsWith(github.ref_name, 'release/') )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -2903,6 +2936,7 @@ jobs:
     outputs: 
       run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
+      - check-docs-changes
       - validate-custom-version
       - meta
       - compliance-copyrights
@@ -2928,7 +2962,7 @@ jobs:
         shell: bash
         run: |
           RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
-          if [[ "$RUN_PUBLISH" != *'false'* ]]
+          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are met."
