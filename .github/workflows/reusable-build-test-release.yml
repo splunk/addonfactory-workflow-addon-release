@@ -141,7 +141,7 @@ jobs:
           changed_files=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
 
           # Check if any of the changed files are not in docs/*, mkdocs.yml, .github/workflows/docs.yml or .github/workflows/validate-deploy-docs.yaml
-          if echo "$changed_files" | grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml|.github/workflows/validate-deploy-docs.yaml|.github/workflows/build-test-release.yml)'; then
+          if grep -vqE '^(docs/|mkdocs.yml|.github/workflows/docs.yml|.github/workflows/validate-deploy-docs.yaml|.github/workflows/build-test-release.yml)'<<< $(echo "$changed_files"); then
             echo "docs-only=false" >> "$GITHUB_OUTPUT"
           else
             echo "Only documentation changes found."
