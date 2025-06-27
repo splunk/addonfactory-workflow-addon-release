@@ -197,9 +197,7 @@ jobs:
           case "${{ github.event_name }}" in
           "pull_request")
             labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            if ${{ needs.check-docs-changes.outputs.docs-only == 'true' }}; then
-              echo -e "\033[1;33m⚠️ Skipping tests as there are only documentation related changes ⚠️\033[0m"
-            elif ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+            if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
               for test_type in "${TESTSET[@]}"; do
                 if [[ "$labels" =~ $test_type ]]; then
                   EXECUTE_LABELED["$test_type"]="true"
@@ -320,44 +318,6 @@ jobs:
           splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
-  
-  validate-docs-change:
-    runs-on: ubuntu-latest  
-    container:
-      image: python:3.9
-    outputs:
-      status: ${{ steps.validate.outputs.status }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-          persist-credentials: false
-      - name: Installing requirements
-        run: |
-          pip install pip -U
-          pip install mkdocs==1.6.1 mkdocs-material==9.6.9 poetry
-      - name: validate
-        id: validate
-        run: |
-          if poetry run mkdocs build --strict; then
-            echo "status=success" >> "$GITHUB_OUTPUT"
-            echo "status :: success"
-          else
-            echo "status=failure" >> "$GITHUB_OUTPUT"
-            echo "status :: failure"
-          fi
-
-  enforce-docs-checks:
-    runs-on: ubuntu-latest  
-    needs: validate-docs-change
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
-    steps:
-      - name: Fail if validate-docs-change failed
-        run: |
-          if [ "${{ needs.validate-docs-change.outputs.status }}" == "failure" ]; then
-            exit 1
-          fi
-
   fossa-scan:
     runs-on: ubuntu-latest
     steps:
@@ -2993,7 +2953,6 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
-      - enforce-docs-checks
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -3010,11 +2969,6 @@ jobs:
           else
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
-          fi
-          if ${{ github.base_ref == 'main' }} && ${{ needs.enforce-docs-checks.result != 'success' }};
-          then
-            echo " There are documentation changes that break mkdocs deploy. please check validate-docs-change step."
-            exit 1
           fi
 
   publish:
