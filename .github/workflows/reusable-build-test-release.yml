@@ -300,7 +300,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v3.0
+        uses: splunk/addonfactory-test-matrix-action@fix/update-splunk-version
       - id: determine_splunk
         env:
           wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
