@@ -126,6 +126,18 @@ jobs:
             exit 1
           fi
 
+  check-slim-exists:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          if grep -q 'splunk-packaging-toolkit' poetry.lock; then
+            echo "\"splunk-packaging-toolkit\" is no longer needed to be present as a dev dependency, it can be removed. To remove it, run - \"poetry remove --group dev splunk-packaging-toolkit\"."
+            exit 1
+          else
+            exit 0
+          fi
+
   check-docs-changes:
     runs-on: ubuntu-latest
     outputs:
