@@ -534,7 +534,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python3.7 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -633,7 +633,6 @@ jobs:
         id: slim
         run: |
           pip install splunk-packaging-toolkit
-          pip install semantic-version==2.6.0
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
           if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
@@ -950,7 +949,7 @@ jobs:
         id: setup-poetry
         shell: bash
         run: |
-          python3.7 -m pip install poetry==1.5.1 
+          python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
