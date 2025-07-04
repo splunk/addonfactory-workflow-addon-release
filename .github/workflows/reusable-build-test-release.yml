@@ -57,6 +57,10 @@ on:
         description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
         type: string
         default: "false"
+      dev-python-version:
+        required: false
+        type: string
+        default: "3.9"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -291,7 +295,6 @@ jobs:
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
-      ta_python_version: ${{ steps.python-version.outputs.ta_python_version }}
     permissions:
       contents: write
       packages: read
@@ -302,15 +305,6 @@ jobs:
           persist-credentials: false
       - id: matrix
         uses: splunk/addonfactory-test-matrix-action@v3.0
-      - name: Determine latest minor Python version from pyproject.toml
-        id: python-version
-        run: |
-          version_line=$(grep -E 'python *= *' pyproject.toml | head -1)
-          versions=$(echo "$version_line" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | sort -V)
-          latest=$(echo "$versions" | tail -1)
-          latest_minor=$(echo "$latest" | awk -F. '{print $1"."$2}')
-          echo "ta_python_version=$latest_minor" >> "$GITHUB_OUTPUT"
-        shell: bash
       - id: determine_splunk
         env:
           wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
@@ -380,13 +374,11 @@ jobs:
 
   lint:
     runs-on: ubuntu-22.04
-    needs: 
-      - meta
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ needs.meta.outputs.ta_python_version }}
+          python-version: ${{ inputs.dev-python-version }}
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
@@ -442,7 +434,7 @@ jobs:
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
-    name: test-unit-python3-${{ needs.meta.outputs.ta_python_version }}
+    name: test-unit-python3-${{ inputs.dev-python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-22.04
     needs:
@@ -460,13 +452,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ needs.meta.outputs.ta_python_version }}
+          python-version: ${{ inputs.dev-python-version }}
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            python${{ needs.meta.outputs.ta_python_version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -504,7 +496,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: test-results-unit-python_${{ needs.meta.outputs.ta_python_version }}
+          name: test-results-unit-python_${{ inputs.dev-python-version }}
           path: test-results/*
 
   build:
@@ -536,7 +528,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ needs.meta.outputs.ta_python_version }}
+          python-version: ${{ inputs.dev-python-version }}
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
@@ -725,7 +717,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ needs.meta.outputs.ta_python_version }}
+          python-version: ${{ inputs.dev-python-version }}
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
@@ -953,7 +945,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ needs.meta.outputs.ta_python_version }}
+          python-version: ${{ inputs.dev-python-version }}
       - name: setup-poetry
         id: setup-poetry
         shell: bash
@@ -1024,7 +1016,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "btool"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1262,7 +1254,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1536,7 +1528,7 @@ jobs:
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }} ${{ needs.setup-workflow.outputs.exit-first }}"
       TEST_BROWSER: ${{ matrix.browser }}
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1815,7 +1807,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2092,7 +2084,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ucc_modinput_functional"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2369,7 +2361,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "upgrade"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2633,7 +2625,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
-      PYTHON_VERSION: ${{ needs.meta.outputs.ta_python_version }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
