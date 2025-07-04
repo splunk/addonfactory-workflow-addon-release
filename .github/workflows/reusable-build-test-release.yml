@@ -34,7 +34,7 @@ on:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
         type: string
-        default: "production"
+        default: "staging"
       k8s-manifests-branch:
         required: false
         description: "branch for k8s manifests to run the tests on"
@@ -164,6 +164,7 @@ jobs:
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
+      ta_python_version: ${{ steps.python-version.outputs.latest_minor_python }}
     steps:
       - name: set k8s environment
         id: k8s-environment
@@ -183,6 +184,16 @@ jobs:
               echo "argo_token_secret_id=ta-github-workflow-automation-token"
             } >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Determine latest minor Python version from pyproject.toml
+        id: python-version
+        run: |
+          version_line=$(grep -E 'python *= *' pyproject.toml | head -1)
+          versions=$(echo "$version_line" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | sort -V)
+          latest=$(echo "$versions" | tail -1)
+          latest_minor=$(echo "$latest" | awk -F. '{print $1"."$2}')
+          echo "ta_python_version=$latest_minor" >> "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: configure tests based on labels
         id: configure-tests-on-labels
@@ -370,11 +381,13 @@ jobs:
 
   lint:
     runs-on: ubuntu-22.04
+    needs: 
+      - setup-workflow
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: ${{ needs.setup-workflow.outputs.ta_python_version }}
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
@@ -435,11 +448,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - test-inventory
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.7"
+      - setup-workflow
     permissions:
       actions: read
       deployments: read
@@ -451,13 +460,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ needs.setup-workflow.outputs.ta_python_version }}
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ needs.setup-workflow.outputs.ta_python_version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -479,75 +488,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils      
-          junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
-
-          if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
-            passed=$((total_tests - failures - errors - skipped))
-            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "no XML File found, exiting"
-            exit 1
-          fi
-      - uses: actions/upload-artifact@v4
-        if: success() || failure()
-        with:
-          name: test-results-unit-python_${{ matrix.python-version }}
-          path: test-results/*
-
-  run-unit-tests-3_9:
-    name: test-unit-python3-${{ matrix.python-version }}
-    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
-    runs-on: ubuntu-latest
-    needs:
-      - test-inventory
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.9"
-    permissions:
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Setup addon
-        run: |
-          if [ -f "poetry.lock" ]
-          then
-            mkdir -p package/lib || true
-            python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry lock --check
-            poetry export --without-hashes -o package/lib/requirements.txt
-            poetry export --without-hashes --with dev -o requirements_dev.txt
-          fi
-          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          poetry install --with dev
-      - name: Create directories
-        run: |
-          mkdir -p /opt/splunk/var/log/splunk
-          chmod -R 777 /opt/splunk/var/log/splunk
-      - name: Copy pytest ini
-        run: cp tests/unit/pytest-ci.ini pytest.ini
-      - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name: Job summary
-        continue-on-error: true
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
           if [ -n "$junit_xml_file" ]; then
@@ -596,7 +536,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.7
+          python-version: ${{ needs.setup-workflow.outputs.ta_python_version }}
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
@@ -768,11 +708,9 @@ jobs:
       - lint
       - review_secrets
       - semgrep
-      - run-unit-tests-3_9
       - fossa-scan
     if: |
       always() &&
-      (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped') &&
       (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && 
       (needs.check-docs-changes.outputs.docs-only == 'false')
     permissions:
@@ -787,7 +725,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: ${{ needs.setup-workflow.outputs.ta_python_version }}
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
@@ -1014,7 +952,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.7
+          python-version: ${{ needs.setup-workflow.outputs.ta_python_version }}
       - name: setup-poetry
         id: setup-poetry
         shell: bash
@@ -1126,7 +1064,7 @@ jobs:
         timeout-minutes: 10
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1140,6 +1078,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1321,6 +1260,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ needs.setup-workflow.outputs.ta_python_version }}
     permissions:
       actions: read
       deployments: read
@@ -1370,7 +1310,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1384,6 +1324,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1593,6 +1534,7 @@ jobs:
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }} ${{ needs.setup-workflow.outputs.exit-first }}"
       TEST_BROWSER: ${{ matrix.browser }}
+      PYTHON_VERSION: ${{ needs.setup-workflow.outputs.ta_python_version }}
     permissions:
       actions: read
       deployments: read
@@ -1654,7 +1596,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1669,6 +1611,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           test-browser: ${{ env.TEST_BROWSER }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1870,6 +1813,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ needs.setup-workflow.outputs.ta_python_version }}
     permissions:
       actions: read
       deployments: read
@@ -1931,7 +1875,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1945,6 +1889,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2145,6 +2090,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ucc_modinput_functional"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ needs.setup-workflow.outputs.ta_python_version }}
     permissions:
       actions: read
       deployments: read
@@ -2206,7 +2152,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2220,6 +2166,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2420,6 +2367,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "upgrade"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ needs.setup-workflow.outputs.ta_python_version }}
     permissions:
       actions: read
       deployments: read
@@ -2469,7 +2417,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2484,6 +2432,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           ta-upgrade-version: ${{ matrix.ta-version-from-upgrade }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2682,6 +2631,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
+      PYTHON_VERSION: ${{ needs.setup-workflow.outputs.ta_python_version }}
     permissions:
       actions: read
       deployments: read
@@ -2744,7 +2694,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@fix/dynamic-python-version
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2759,6 +2709,7 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: calculate timeout
         id: calculate-timeout
         run: |
