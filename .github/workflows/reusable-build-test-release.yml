@@ -239,7 +239,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v2.1
+        uses: splunk/addonfactory-test-matrix-action@v3.0
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -r '.[].version')
