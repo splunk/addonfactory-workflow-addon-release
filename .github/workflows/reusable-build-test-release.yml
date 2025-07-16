@@ -512,7 +512,7 @@ jobs:
       - review_secrets
       - semgrep
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
