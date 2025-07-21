@@ -602,7 +602,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python3.7 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python3.9 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
