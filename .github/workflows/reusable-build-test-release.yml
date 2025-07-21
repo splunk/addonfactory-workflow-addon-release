@@ -700,7 +700,7 @@ jobs:
       - name: Slim Package
         id: slim
         run: |
-          pip install splunk-packaging-toolkit
+          pip install splunk-packaging-toolkit==1.2.4
           pip install semantic-version==2.6.0
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
