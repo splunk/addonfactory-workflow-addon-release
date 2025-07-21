@@ -34,7 +34,7 @@ on:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
         type: string
-        default: "staging"
+        default: "production"
       k8s-manifests-branch:
         required: false
         description: "branch for k8s manifests to run the tests on"
@@ -60,7 +60,7 @@ on:
       dev-python-version:
         required: false
         type: string
-        default: "3.9"
+        default: "3.7"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -439,8 +439,6 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - test-inventory
-      - setup-workflow
-      - meta
     permissions:
       actions: read
       deployments: read
@@ -450,6 +448,13 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.7
+      - name: verify Python 3.7 compatibility
+        run: |
+          python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1
+          poetry lock --no-update
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.dev-python-version }}
@@ -511,8 +516,9 @@ jobs:
       - lint
       - review_secrets
       - semgrep
+      - run-unit-tests
       - fossa-scan
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -766,7 +772,6 @@ jobs:
       - setup-workflow
       - build
       - test-inventory
-      - meta
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-22.04
     outputs:
