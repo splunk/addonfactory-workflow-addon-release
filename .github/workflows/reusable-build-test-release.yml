@@ -1,4 +1,4 @@
-slimname: build-test-release
+name: build-test-release
 on:
   workflow_call:
     inputs:
