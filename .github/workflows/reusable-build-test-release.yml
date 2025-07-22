@@ -639,6 +639,11 @@ jobs:
         uses: splunk/addonfactory-ucc-generator-action@v2
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
+      - name: debug upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-upload
+          path: ${{ steps.uccgen.outputs.OUTPUT }}
       - name: Slim Package
         id: slim
         run: |
