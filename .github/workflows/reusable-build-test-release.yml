@@ -34,7 +34,7 @@ on:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
         type: string
-        default: "staging"
+        default: "production"
       k8s-manifests-branch:
         required: false
         description: "branch for k8s manifests to run the tests on"
@@ -489,7 +489,7 @@ jobs:
         continue-on-error: true
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxml2-utils      
+          sudo apt-get install -y libxml2-utils
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
           if [ -n "$junit_xml_file" ]; then
@@ -639,11 +639,6 @@ jobs:
         uses: splunk/addonfactory-ucc-generator-action@v2
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
-      - name: debug upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-upload
-          path: ${{ steps.uccgen.outputs.OUTPUT }}
       - name: Slim Package
         id: slim
         run: |
