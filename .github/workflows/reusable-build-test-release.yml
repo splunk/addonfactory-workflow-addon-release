@@ -34,7 +34,7 @@ on:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
         type: string
-        default: "production"
+        default: "staging"
       k8s-manifests-branch:
         required: false
         description: "branch for k8s manifests to run the tests on"
