@@ -482,12 +482,12 @@ jobs:
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
-            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+            echo -e "| (new parsing) Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "no XML File found, exiting"
             exit 1
@@ -551,12 +551,12 @@ jobs:
           junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
 
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
-            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+            echo -e "| (new parsing) Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "no XML File found, exiting"
             exit 1
@@ -1516,10 +1516,10 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
             echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
@@ -1555,7 +1555,7 @@ jobs:
           pattern: summary-ko*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| (new parsing) Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-ko*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -1794,10 +1794,10 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
             echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
@@ -1833,7 +1833,7 @@ jobs:
           pattern: summary-ui*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| (new parsing) Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-ui-*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -2070,10 +2070,10 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
             echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
@@ -2109,7 +2109,7 @@ jobs:
           pattern: summary-modinput*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| (new parsing) Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-modinput*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -2345,10 +2345,10 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
             echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.marker }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
@@ -2384,7 +2384,7 @@ jobs:
           pattern: summary-ucc_modinput*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| (new parsing) Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-ucc_modinput*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -2609,10 +2609,10 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+            failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+            errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+            skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
             passed=$((total_tests - failures - errors - skipped))
             echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ matrix.ta-version-from-upgrade }} ${{ matrix.vendor-version.image }} |$total_tests |$passed |$failures |$errors | $skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
@@ -2648,7 +2648,7 @@ jobs:
           pattern: summary-upgrade*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| (new parsing) Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-upgrade*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
@@ -2878,10 +2878,10 @@ jobs:
           junit_xml_path="${{ needs.setup.outputs.directory-path }}/test-results"
           junit_xml_file=$(find "$junit_xml_path" -name "*.xml" -type f 2>/dev/null | head -n 1)
           if [ -n "$junit_xml_file" ]; then
-              total_tests=$(xmllint --xpath 'sum(//testsuite/@tests)' "$junit_xml_file")
-              failures=$(xmllint --xpath 'sum(//testsuite/@failures)' "$junit_xml_file")
-              errors=$(xmllint --xpath 'sum(//testsuite/@errors)' "$junit_xml_file")
-              skipped=$(xmllint --xpath 'sum(//testsuite/@skipped)' "$junit_xml_file")
+              total_tests=$(xmllint --xpath 'count(//testcase)' "$junit_xml_file")
+              failures=$(xmllint --xpath 'count(//testcase[./failure])' "$junit_xml_file")
+              errors=$(xmllint --xpath 'count(//testcase[./error and not(./failure)])' "$junit_xml_file")
+              skipped=$(xmllint --xpath 'count(//testcase[./skipped and not(./failure) and not(./error)])' "$junit_xml_file")
               passed=$((total_tests - failures - errors - skipped))
               echo "splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }} |$total_tests |$passed |$failures |$errors |$skipped |${{steps.test_report.outputs.url_html}}" > job_summary.txt
           else
@@ -2917,7 +2917,7 @@ jobs:
           pattern: summary-scripted*
       - name: Combine summaries into a table
         run: |
-          echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
+          echo "| (new parsing) Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
           for file in summary-scripted*/job_summary.txt; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
