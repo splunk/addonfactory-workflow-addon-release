@@ -60,11 +60,7 @@ on:
       dev-python-version:
         required: false
         type: string
-        default: "3.7"
-      python-37-compatibility:
-        required: false
-        type: string
-        default: "false"
+        default: "3.9"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -452,14 +448,6 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.7
-      - name: verify Python 3.7 compatibility
-        if: inputs.python-37-compatibility == 'true'
-        run: |
-          python3.7 -m pip install poetry==1.5.1
-          poetry lock --no-update
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.dev-python-version }}
