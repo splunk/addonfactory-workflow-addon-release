@@ -697,9 +697,16 @@ jobs:
         uses: splunk/addonfactory-ucc-generator-action@v2
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
+      - name: Setup python for slim
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
       - name: Slim Package
         id: slim
         run: |
+          # Create and activate a dedicated Python virtual environment for slim
+          python3.9 -m venv .venv-slim
+          source .venv-slim/bin/activate
           pip install splunk-packaging-toolkit
           pip install semantic-version==2.6.0
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
@@ -725,8 +732,13 @@ jobs:
           done
           slim validate "${PACKAGE}"
           chmod -R +r build
+          deactivate
           echo "OUTPUT=$PACKAGE" >> "$GITHUB_OUTPUT"
         if: always()
+      - name: Post python setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.7
       - name: artifact-openapi
         uses: actions/upload-artifact@v4
         with:
