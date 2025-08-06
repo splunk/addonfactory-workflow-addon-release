@@ -434,7 +434,7 @@ jobs:
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
-    name: test-unit-python3-${{ inputs.dev-python-version }}
+    name: test-unit-python-${{ inputs.dev-python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-22.04
     needs:
