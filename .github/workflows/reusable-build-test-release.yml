@@ -57,6 +57,10 @@ on:
         description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
         type: string
         default: "false"
+      dev-python-version:
+        required: false
+        type: string
+        default: "3.9"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -374,7 +378,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: ${{ inputs.dev-python-version }}
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
@@ -430,16 +434,11 @@ jobs:
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
-    name: test-unit-python3-${{ matrix.python-version }}
+    name: test-unit-python-${{ inputs.dev-python-version }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-22.04
     needs:
       - test-inventory
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.7"
     permissions:
       actions: read
       deployments: read
@@ -451,82 +450,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ inputs.dev-python-version }}
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry lock --check
-            poetry export --without-hashes -o package/lib/requirements.txt
-            poetry export --without-hashes --with dev -o requirements_dev.txt
-          fi
-          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          poetry install --with dev
-      - name: Create directories
-        run: |
-          mkdir -p /opt/splunk/var/log/splunk
-          chmod -R 777 /opt/splunk/var/log/splunk
-      - name: Copy pytest ini
-        run: cp tests/unit/pytest-ci.ini pytest.ini
-      - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
-      - name: Job summary
-        continue-on-error: true
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils      
-          junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
-
-          if [ -n "$junit_xml_file" ]; then
-            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
-            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
-            errors=$(xmllint --xpath "count(//testcase[error])" "$junit_xml_file")
-            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
-            passed=$((total_tests - failures - errors - skipped))
-            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "no XML File found, exiting"
-            exit 1
-          fi
-      - uses: actions/upload-artifact@v4
-        if: success() || failure()
-        with:
-          name: test-results-unit-python_${{ matrix.python-version }}
-          path: test-results/*
-
-  run-unit-tests-3_9:
-    name: test-unit-python3-${{ matrix.python-version }}
-    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
-    runs-on: ubuntu-latest
-    needs:
-      - test-inventory
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.9"
-    permissions:
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Setup addon
-        run: |
-          if [ -f "poetry.lock" ]
-          then
-            mkdir -p package/lib || true
-            python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -564,7 +494,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: test-results-unit-python_${{ matrix.python-version }}
+          name: test-results-unit-python_${{ inputs.dev-python-version }}
           path: test-results/*
 
   build:
@@ -596,13 +526,13 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.7
+          python-version: ${{ inputs.dev-python-version }}
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python3.7 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -700,8 +630,7 @@ jobs:
       - name: Slim Package
         id: slim
         run: |
-          pip install splunk-packaging-toolkit
-          pip install semantic-version==2.6.0
+          pip install splunk-packaging-toolkit==1.2.4
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
           if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
@@ -756,116 +685,7 @@ jobs:
           path: build/package/deployment**
         if: ${{ !cancelled() }}
 
-  build-3_9:
-    runs-on: ubuntu-latest
-    needs:
-      - check-docs-changes
-      - validate-custom-version
-      - setup-workflow
-      - test-inventory
-      - meta
-      - compliance-copyrights
-      - lint
-      - review_secrets
-      - semgrep
-      - run-unit-tests-3_9
-      - fossa-scan
-    if: |
-      always() &&
-      (needs.run-unit-tests-3_9.result == 'success' || needs.run-unit-tests-3_9.result == 'skipped') &&
-      (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && 
-      (needs.check-docs-changes.outputs.docs-only == 'false')
-    permissions:
-      contents: write
-      packages: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # Very Important semantic-release won't trigger a tagged
-          # build if this is not set false
-          persist-credentials: false
-      - name: Setup python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.9
-      - name: create requirements file for pip
-        run: |
-          if [ -f "poetry.lock" ]
-          then
-            echo " poetry.lock found "
-            python3.9 -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
-            poetry export --without-hashes -o requirements.txt
-            if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
-            then
-                echo "Prod dependencies were found, creating package/lib folder"
-                mkdir -p package/lib || true
-                mv requirements.txt package/lib
-            else
-                echo "No prod dependencies were found"
-                rm requirements.txt
-            fi
-            poetry export --without-hashes --with dev -o requirements_dev.txt
-            cat requirements_dev.txt
-          fi
-      - id: pip-cache
-        run: |
-          echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
-      - name: pip cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: ${{ runner.os }}-pip-python3_9-${{ hashFiles('requirements_dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-python3_9
-      - run: |
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
-      - id: semantic
-        if: github.event_name != 'pull_request'
-        uses: splunk/semantic-release-action@v1.3
-        with:
-          dry_run: true
-          git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
-          git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
-          gpg_private_key: ${{ secrets.SA_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SA_GPG_PASSPHRASE }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - id: BuildVersion
-        run: |
-          INPUT_SEMVER="${{ github.event.inputs.custom-version != '' && github.event.inputs.custom-version || steps.semantic.outputs.new_release_version }}"
-          echo "Initial semver ${INPUT_SEMVER}"
-          INPUT_PRNUMBER="${{ github.event.number }}"
-          SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+$'
-          BETA_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$'
-          echo working with version $INPUT_SEMVER
-          
-          if [[ $INPUT_SEMVER =~ $SEMVER_REGEX ]];
-          then
-            echo using provided semver
-            VERSION=$INPUT_SEMVER
-          elif [[ $INPUT_SEMVER =~ $BETA_REGEX ]];
-          then
-            VERSION=$(echo $INPUT_SEMVER | awk '{gsub("-beta\.", "-B");print}')
-          else
-            if [[ $GITHUB_EVENT_NAME != 'pull_request' ]];
-            then
-              echo this is not a release build and NOT PR RUNID + run ID
-              VERSION=0.0.${GITHUB_RUN_ID}
-            else 
-              echo this is not a release build and is a PR use run ID
-              VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
-            fi
-          fi
-          FINALVERSION="${VERSION//v}"
-          echo "Version to build is $FINALVERSION"
-          echo "VERSION=$FINALVERSION" >> "$GITHUB_OUTPUT"
-      - id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v2
-        with:
-          version: ${{ steps.BuildVersion.outputs.VERSION }}
-
+  
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
     needs: build
@@ -1014,12 +834,12 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.7
+          python-version: ${{ inputs.dev-python-version }}
       - name: setup-poetry
         id: setup-poetry
         shell: bash
         run: |
-          python3.7 -m pip install poetry==1.5.1 
+          python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
@@ -1085,6 +905,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "btool"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1140,6 +961,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1321,6 +1143,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1384,6 +1207,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1593,6 +1417,7 @@ jobs:
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }} ${{ needs.setup-workflow.outputs.exit-first }}"
       TEST_BROWSER: ${{ matrix.browser }}
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1669,6 +1494,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           test-browser: ${{ env.TEST_BROWSER }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1870,6 +1696,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1945,6 +1772,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2145,6 +1973,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ucc_modinput_functional"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2220,6 +2049,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2420,6 +2250,7 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "upgrade"
       TEST_ARGS: ""
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2484,6 +2315,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           ta-upgrade-version: ${{ matrix.ta-version-from-upgrade }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2682,6 +2514,7 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
+      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2759,6 +2592,7 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: calculate timeout
         id: calculate-timeout
         run: |
