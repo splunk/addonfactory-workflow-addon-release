@@ -434,7 +434,7 @@ jobs:
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
-    name: test-unit-python-${{ env.PYTHON_VERSION }}
+    name: run-unit-tests
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-22.04
     needs:
@@ -456,7 +456,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
+            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -532,7 +532,7 @@ jobs:
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
+            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -839,7 +839,7 @@ jobs:
         id: setup-poetry
         shell: bash
         run: |
-          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ POETRY_VERSION }} 
+          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
@@ -946,7 +946,7 @@ jobs:
         timeout-minutes: 10
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1191,7 +1191,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1476,7 +1476,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1754,7 +1754,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2030,7 +2030,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2294,7 +2294,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2570,7 +2570,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@v5.1
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
