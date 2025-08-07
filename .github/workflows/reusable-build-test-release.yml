@@ -626,7 +626,7 @@ jobs:
           cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@feat/update-poetry
+        uses: splunk/addonfactory-ucc-generator-action@v3.0
         with:
           version: ${{ steps.BuildVersion.outputs.VERSION }}
       - name: Slim Package
