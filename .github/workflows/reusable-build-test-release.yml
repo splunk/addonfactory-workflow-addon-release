@@ -457,7 +457,7 @@ jobs:
           then
             mkdir -p package/lib || true
             python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
-            poetry lock --check
+            poetry check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
           fi
