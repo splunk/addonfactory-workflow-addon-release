@@ -57,10 +57,6 @@ on:
         description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
         type: string
         default: "false"
-      dev-python-version:
-        required: false
-        type: string
-        default: "3.9"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -107,6 +103,10 @@ permissions:
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
+env:
+  PYTHON_VERSION: "3.9"
+  POETRY_VERSION: "2.1.4"
+  POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
 jobs:
   validate-custom-version:
     runs-on: ubuntu-latest
@@ -378,7 +378,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.dev-python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
@@ -434,7 +434,7 @@ jobs:
           find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
 
   run-unit-tests:
-    name: test-unit-python-${{ inputs.dev-python-version }}
+    name: test-unit-python-${{ env.PYTHON_VERSION }}
     if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-22.04
     needs:
@@ -450,13 +450,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.dev-python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
           then
             mkdir -p package/lib || true
-            python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
             poetry export --without-hashes --with dev -o requirements_dev.txt
@@ -494,7 +494,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: test-results-unit-python_${{ inputs.dev-python-version }}
+          name: test-results-unit-python_${{ env.PYTHON_VERSION }}
           path: test-results/*
 
   build:
@@ -526,13 +526,13 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.dev-python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: create requirements file for pip
         run: |
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
-            python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
+            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             poetry export --without-hashes -o requirements.txt
             if [ "$(grep -cve '^\s*$' requirements.txt)" -ne 0 ]
             then
@@ -834,12 +834,12 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.dev-python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: setup-poetry
         id: setup-poetry
         shell: bash
         run: |
-          python${{ inputs.dev-python-version }} -m pip install poetry==1.5.1 
+          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ POETRY_VERSION }} 
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
@@ -905,7 +905,6 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "btool"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1143,7 +1142,6 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "knowledge"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1417,7 +1415,6 @@ jobs:
       TEST_TYPE: "ui"
       TEST_ARGS: "--browser ${{ matrix.browser }} ${{ needs.setup-workflow.outputs.exit-first }}"
       TEST_BROWSER: ${{ matrix.browser }}
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1696,7 +1693,6 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "modinput_functional"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -1973,7 +1969,6 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "ucc_modinput_functional"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2250,7 +2245,6 @@ jobs:
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "upgrade"
       TEST_ARGS: ""
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
@@ -2514,7 +2508,6 @@ jobs:
       ARGO_NAMESPACE: ${{ needs.setup.outputs.argo-namespace }}
       SPLUNK_VERSION_BASE: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
       TEST_TYPE: "scripted_inputs"
-      PYTHON_VERSION: ${{ inputs.dev-python-version }}
     permissions:
       actions: read
       deployments: read
