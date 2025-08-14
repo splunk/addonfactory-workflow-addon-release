@@ -207,10 +207,21 @@ jobs:
           else
             echo "checking available test types."
             declare -a AVAILABLE_EXECUTION_TESTS
-            find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do AVAILABLE_EXECUTION_TESTS+=("execute_$TESTSET"); echo "$TESTSET::true"; done
-            find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do AVAILABLE_EXECUTION_TESTS+=("execute_$TESTSET"); echo "$TESTSET::true"; done
 
-            echo $AVAILABLE_EXECUTION_TESTS
+            while read -r TEST_BASE_NAME; do
+              if [[ -d "tests/$TEST_BASE_NAME" ]]; then
+                AVAILABLE_EXECUTION_TESTS+=("execute_$TEST_BASE_NAME")
+                echo "$TEST_BASE_NAME::true"
+              fi
+            done < <(find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g')
+
+            while read -r TEST_BASE_NAME; do
+              if [[ -d "package/default/data/$TEST_BASE_NAME" ]]; then
+                AVAILABLE_EXECUTION_TESTS+=("execute_$TEST_BASE_NAME")
+                echo "$TEST_BASE_NAME::true"
+              fi
+            done < <(find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g')
+
             if [[ "${AVAILABLE_EXECUTION_TESTS[@]}" =~ "execute_unit" ]]; then
               EXECUTION_FLAGS["execute_unit"]="true"
             fi
