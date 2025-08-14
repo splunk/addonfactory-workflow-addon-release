@@ -210,11 +210,12 @@ jobs:
             find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do AVAILABLE_EXECUTION_TESTS+=("execute_$TESTSET"); echo "$TESTSET::true"; done
             find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do AVAILABLE_EXECUTION_TESTS+=("execute_$TESTSET"); echo "$TESTSET::true"; done
 
+            echo $AVAILABLE_EXECUTION_TESTS
             if [[ "${AVAILABLE_EXECUTION_TESTS[@]}" =~ "execute_unit" ]]; then
               EXECUTION_FLAGS["execute_unit"]="true"
             fi
 
-            declare -a TESTS_TO_CONSIDER_FOR_EXECUTION=("${AVAILABLE_BASE_TEST_NAMES[@]}")
+            declare -a TESTS_TO_CONSIDER_FOR_EXECUTION=("${AVAILABLE_EXECUTION_TESTS[@]}")
 
             case "${{ github.event_name }}" in
             "pull_request")
@@ -274,7 +275,7 @@ jobs:
               ;;
             esac
           fi
-          echo "Tests to execute based on labels:"
+          echo "Tests to be executed:"
           for test_type in "${TESTSET[@]}"; do
             echo "$test_type""=${EXECUTION_FLAGS["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type"": ${EXECUTION_FLAGS["$test_type"]}"
