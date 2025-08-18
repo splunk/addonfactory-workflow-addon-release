@@ -222,7 +222,14 @@ jobs:
               fi
             done < <(find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g')
 
-            if [[ "${AVAILABLE_EXECUTION_TESTS[@]}" =~ "execute_unit" ]]; then
+            found_unit_test=false
+            for test_name in "${AVAILABLE_EXECUTION_TESTS[@]}"; do
+              if [[ "$test_name" == "execute_unit" ]]; then
+                found_unit_test=true
+                break
+              fi
+            done
+            if "$found_unit_test"; then
               EXECUTION_FLAGS["execute_unit"]="true"
             fi
 
@@ -233,7 +240,7 @@ jobs:
               labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
               if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
                 for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
-                  if [[ "$labels" =~ "$test_type" ]]; then
+                  if [[ "$labels" =~ $test_type ]]; then
                     EXECUTION_FLAGS["$test_type"]="true"
                   fi
                 done
