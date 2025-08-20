@@ -638,9 +638,18 @@ jobs:
           cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v3.0
-        with:
-          version: ${{ steps.BuildVersion.outputs.VERSION }}
+        run: |
+          ucc-gen --ta-version ${{ steps.BuildVersion.outputs.VERSION }}
+          if [ -f package.json ]
+          then
+            yarn
+            if [ -n ${{ steps.BuildVersion.outputs.VERSION }} ]
+            then
+              yarn version --new-version ${{ steps.BuildVersion.outputs.VERSION }} --no-git-tag-version
+            fi
+            yarn run build
+          fi
+          echo "OUTPUT=output/$(ls output/)" >> "$GITHUB_OUTPUT"
       - name: Slim Package
         id: slim
         run: |
