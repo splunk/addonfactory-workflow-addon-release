@@ -206,24 +206,22 @@ jobs:
             echo "Docs-only changes detected. No tests will be executed."
           else
             echo "checking available test types."
-            declare -a AVAILABLE_EXECUTION_TESTS
+            declare -a TESTS_TO_CONSIDER_FOR_EXECUTION
 
             while read -r TEST_BASE_NAME; do
               if [[ -d "tests/$TEST_BASE_NAME" ]]; then
-                AVAILABLE_EXECUTION_TESTS+=("execute_$TEST_BASE_NAME")
+                TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_$TEST_BASE_NAME")
                 echo "$TEST_BASE_NAME::true"
               fi
             done < <(find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g')
 
-            while read -r TEST_BASE_NAME; do
-              if [[ -d "package/default/data/$TEST_BASE_NAME" ]]; then
-                AVAILABLE_EXECUTION_TESTS+=("execute_$TEST_BASE_NAME")
-                echo "$TEST_BASE_NAME::true"
-              fi
-            done < <(find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g')
+            if [[ -d "package/default/data/spl2" ]]; then
+              TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_spl2")
+              echo "spl2::true"
+            fi
 
             found_unit_test=false
-            for test_name in "${AVAILABLE_EXECUTION_TESTS[@]}"; do
+            for test_name in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
               if [[ "$test_name" == "execute_unit" ]]; then
                 found_unit_test=true
                 break
@@ -232,8 +230,6 @@ jobs:
             if "$found_unit_test"; then
               EXECUTION_FLAGS["execute_unit"]="true"
             fi
-
-            declare -a TESTS_TO_CONSIDER_FOR_EXECUTION=("${AVAILABLE_EXECUTION_TESTS[@]}")
 
             case "${{ github.event_name }}" in
             "pull_request")
