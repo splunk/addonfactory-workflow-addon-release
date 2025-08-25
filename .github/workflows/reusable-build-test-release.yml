@@ -166,17 +166,18 @@ jobs:
 
   setup-workflow:
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - check-docs-changes
     outputs:
-      execute-knowledge-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_knowledge_labeled }}
-      execute-spl2-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_spl2_labeled }}
-      execute-ui-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ui_labeled }}
-      execute-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_modinput_functional_labeled }}
-      execute-ucc-modinput-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_ucc_modinput_functional_labeled }}
-      execute-scripted_inputs-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_scripted_inputs_labeled }}
-      execute-upgrade-labeled: ${{ steps.configure-tests-on-labels.outputs.execute_upgrade_labeled }}
-      exit-first: ${{ steps.configure-tests-on-labels.outputs.exit-first }}
+      execute-knowledge: ${{ steps.determine-test-execution-flags.outputs.execute_knowledge }}
+      execute-spl2: ${{ steps.determine-test-execution-flags.outputs.execute_spl2 }}
+      execute-ui: ${{ steps.determine-test-execution-flags.outputs.execute_ui }}
+      execute-modinput: ${{ steps.determine-test-execution-flags.outputs.execute_modinput_functional }}
+      execute-ucc_modinput: ${{ steps.determine-test-execution-flags.outputs.execute_ucc_modinput_functional }}
+      execute-scripted_inputs: ${{ steps.determine-test-execution-flags.outputs.execute_scripted_inputs }}
+      execute-upgrade: ${{ steps.determine-test-execution-flags.outputs.execute_upgrade }}
+      exit-first: ${{ steps.determine-test-execution-flags.outputs.exit-first }}
+      execute-unit: ${{ steps.determine-test-execution-flags.outputs.execute_unit }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
@@ -200,78 +201,110 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
-      - name: configure tests based on labels
-        id: configure-tests-on-labels
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine Test Execution Flags
+        id: determine-test-execution-flags
         run: |
           set +e
-          declare -A EXECUTE_LABELED
-          TESTSET=("execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
+          declare -A EXECUTION_FLAGS
+          TESTSET=("execute_unit" "execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
           for test_type in "${TESTSET[@]}"; do
-            EXECUTE_LABELED["$test_type"]="false"
+            EXECUTION_FLAGS["$test_type"]="false"
           done
 
-          case "${{ github.event_name }}" in
-          "pull_request")
-            labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-            if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
-              for test_type in "${TESTSET[@]}"; do
-                if [[ "$labels" =~ $test_type ]]; then
-                  EXECUTE_LABELED["$test_type"]="true"
-                fi
-              done
-            elif ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
-              for test_type in "${TESTSET[@]}"; do
-                # Exclude upgrade tests on PRs to main 
-                if [[ "$test_type" != "execute_upgrade" ]]; then
-                  EXECUTE_LABELED["$test_type"]="true"
-                fi
-              done
-            else
-              for test_type in "${TESTSET[@]}"; do
-                if [[ "$labels" =~ $test_type ]]; then
-                  EXECUTE_LABELED["$test_type"]="true"
-                fi
-              done
+          if [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == "true" ]]; then
+            echo "Docs-only changes detected. No tests will be executed."
+          else
+            echo "checking available test types."
+            declare -a TESTS_TO_CONSIDER_FOR_EXECUTION
+
+            while read -r TEST_BASE_NAME; do
+              if [[ -d "tests/$TEST_BASE_NAME" ]]; then
+                TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_$TEST_BASE_NAME")
+                echo "$TEST_BASE_NAME::true"
+              fi
+            done < <(find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g')
+
+            if [[ -d "package/default/data/spl2" ]]; then
+              TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_spl2")
+              echo "spl2::true"
             fi
-            ;;
-          "push")
-            if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} ||
-            ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
-              for test_type in "${TESTSET[@]}"; do
-                # Exclude upgrade tests on push to main
-                if [[ "$test_type" != "execute_upgrade" ]]; then
-                  EXECUTE_LABELED["$test_type"]="true"
-                fi
-              done
-            fi
-            ;;
-          "schedule")
-            for test_type in "${TESTSET[@]}"; do
-              # Exclude upgrade tests in scheduled runs
-              if [[ "$test_type" != "execute_upgrade" ]]; then
-                EXECUTE_LABELED["$test_type"]="true"
+
+            found_unit_test=false
+            for test_name in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+              if [[ "$test_name" == "execute_unit" ]]; then
+                found_unit_test=true
+                break
               fi
             done
-            ;;
-          "workflow_dispatch")
-            if ${{ inputs.custom-version != '' }} ; then
-              for test_type in "${TESTSET[@]}"; do
-                # Exclude upgrade tests in custom releases
+            if "$found_unit_test"; then
+              EXECUTION_FLAGS["execute_unit"]="true"
+            fi
+
+            case "${{ github.event_name }}" in
+            "pull_request")
+              labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
+              if ${{ github.base_ref == 'main' }} && ${{ contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+                for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+                  if [[ "$labels" =~ $test_type ]]; then
+                    EXECUTION_FLAGS["$test_type"]="true"
+                  fi
+                done
+              elif ${{ github.base_ref == 'main' }} || ${{ contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
+                for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+                  # Exclude upgrade tests on PRs to main
+                  if [[ "$test_type" != "execute_upgrade" ]]; then
+                    EXECUTION_FLAGS["$test_type"]="true"
+                  fi
+                done
+              else
+                for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+                  if [[ "$labels" =~ $test_type ]]; then
+                    EXECUTION_FLAGS["$test_type"]="true"
+                  fi
+                done
+              fi
+              ;;
+            "push")
+              if ${{ github.ref_name == 'main' }} || ${{ github.ref_name == 'develop' }} ||
+              ${{ startsWith(github.ref_name, 'release/') && inputs.execute-tests-on-push-to-release == 'true' }} ; then
+                for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+                  # Exclude upgrade tests on push to main
+                  if [[ "$test_type" != "execute_upgrade" ]]; then
+                    EXECUTION_FLAGS["$test_type"]="true"
+                  fi
+                done
+              fi
+              ;;
+            "schedule")
+              for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+                # Exclude upgrade tests in scheduled runs
                 if [[ "$test_type" != "execute_upgrade" ]]; then
-                  EXECUTE_LABELED["$test_type"]="true"
+                  EXECUTION_FLAGS["$test_type"]="true"
                 fi
               done
-            fi
-            ;;
-          *)
-            echo "No tests were labeled for execution!"
-            ;;
-          esac
-          
-          echo "Tests to execute based on labels:"
+              ;;
+            "workflow_dispatch")
+              if ${{ inputs.custom-version != '' }} ; then
+                for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
+                  # Exclude upgrade tests in custom releases
+                  if [[ "$test_type" != "execute_upgrade" ]]; then
+                    EXECUTION_FLAGS["$test_type"]="true"
+                  fi
+                done
+              fi
+              ;;
+            *)
+              echo "No tests were labeled for execution!"
+              ;;
+            esac
+          fi
+          echo "Tests to be executed:"
           for test_type in "${TESTSET[@]}"; do
-            echo "$test_type""_labeled=${EXECUTE_LABELED["$test_type"]}" >> "$GITHUB_OUTPUT"
-            echo "$test_type""_labeled: ${EXECUTE_LABELED["$test_type"]}"
+            echo "$test_type""=${EXECUTION_FLAGS["$test_type"]}" >> "$GITHUB_OUTPUT"
+            echo "$test_type"": ${EXECUTION_FLAGS["$test_type"]}"
           done
           # exit first fail if label exit-first is present
           EXIT_FIRST=""
@@ -336,6 +369,7 @@ jobs:
           splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
           echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
+
   fossa-scan:
     runs-on: ubuntu-latest
     steps:
@@ -425,34 +459,12 @@ jobs:
     with:
       block_mode: "policy"
 
-  test-inventory:
-    runs-on: ubuntu-latest
-    needs: 
-      - check-docs-changes
-    # Map a step output to a job output
-    outputs:
-      spl2: ${{ steps.testset.outputs.spl2 }}
-      unit: ${{ steps.testset.outputs.unit }}
-      knowledge: ${{ steps.testset.outputs.knowledge }}
-      ui: ${{ steps.testset.outputs.ui }}
-      modinput_functional: ${{ steps.testset.outputs.modinput_functional }}
-      scripted_inputs: ${{ steps.testset.outputs.scripted_inputs }}
-      ucc_modinput_functional: ${{ steps.testset.outputs.ucc_modinput_functional }}
-      upgrade: ${{ steps.testset.outputs.upgrade }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: testset
-        name: Check available test types
-        run: |
-          find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done
-          find package/default/data -type d -name "spl2" -maxdepth 1 -mindepth 1 | sed 's|^package/default/data/||g' | while read -r TESTSET; do echo "$TESTSET=${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}" >> "$GITHUB_OUTPUT"; echo "$TESTSET::${{ needs.check-docs-changes.outputs.docs-only == 'false' && 'true' || 'false' }}"; done 
-
   run-unit-tests:
     name: run-unit-tests
-    if: ${{ needs.test-inventory.outputs.unit == 'true' }}
     runs-on: ubuntu-22.04
     needs:
-      - test-inventory
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' }}
     permissions:
       actions: read
       deployments: read
@@ -517,7 +529,6 @@ jobs:
       - check-docs-changes
       - validate-custom-version
       - setup-workflow
-      - test-inventory
       - meta
       - compliance-copyrights
       - lint
@@ -614,7 +625,7 @@ jobs:
             then
               echo this is not a release build and NOT PR RUNID + run ID
               VERSION=0.0.${GITHUB_RUN_ID}
-            else 
+            else
               echo this is not a release build and is a PR use run ID
               VERSION=0.${INPUT_PRNUMBER}.${GITHUB_RUN_ID}
             fi
@@ -684,7 +695,7 @@ jobs:
         with:
           name: artifact-openapi
           path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/appserver/static/openapi.json
-        if: ${{ !cancelled() && needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
+        if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-ucc_modinput == 'true' }}
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v4
         with:
@@ -708,7 +719,7 @@ jobs:
           path: build/package/deployment**
         if: ${{ !cancelled() }}
 
-  
+
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
     needs: build
@@ -787,7 +798,6 @@ jobs:
     needs:
       - setup-workflow
       - build
-      - test-inventory
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-22.04
     outputs:
@@ -849,7 +859,7 @@ jobs:
           echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
-        if: ${{ needs.test-inventory.outputs.ucc_modinput_functional == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.execute-ucc_modinput == 'true' }}
         id: download-openapi
         with:
           name: artifact-openapi
@@ -862,7 +872,7 @@ jobs:
         id: setup-poetry
         shell: bash
         run: |
-          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} 
+          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }}
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
@@ -904,10 +914,9 @@ jobs:
           aws s3 sync "${{ steps.download-openapi.outputs.download-path }}/tmp/restapi_client/" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$swagger_name/" --exclude "*" --include "README.md" --include "*swagger_client*" --only-show-errors
 
   run-btool-check:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-knowledge == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -1102,9 +1111,8 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
 
   run-spl2-tests:
-    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2-labeled == 'true' && needs.test-inventory.outputs.spl2 == 'true'}}
+    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2 == 'true'}}
     needs:
-      - test-inventory
       - setup-workflow
     runs-on: ubuntu-latest
     container:
@@ -1141,10 +1149,9 @@ jobs:
           reporter: java-junit
 
   run-knowledge-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.knowledge == 'true' && needs.setup-workflow.outputs.execute-knowledge-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-knowledge == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -1411,10 +1418,9 @@ jobs:
             summary-ko*
 
   run-ui-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ui == 'true' && needs.setup-workflow.outputs.execute-ui-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-ui == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -1690,10 +1696,9 @@ jobs:
             summary-ui*
 
   run-modinput-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.modinput_functional == 'true' && needs.setup-workflow.outputs.execute-modinput-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-modinput == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -1769,7 +1774,7 @@ jobs:
           if [[ "${{ inputs.marker }}" != "$EMPTY_MARKER" ]]; then
             TEST_ARG_M="-m"
           fi
-          
+
           echo "test-arg=$TEST_ARG_M" >> "$GITHUB_OUTPUT"
       - name: run-tests
         id: run-tests
@@ -1967,10 +1972,9 @@ jobs:
             summary-modinput*
 
   run-ucc-modinput-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.ucc_modinput_functional == 'true' && needs.setup-workflow.outputs.execute-ucc-modinput-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-ucc_modinput == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -2243,10 +2247,9 @@ jobs:
             summary-ucc_modinput*
 
   run-upgrade-tests:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.upgrade == 'true' && needs.setup-workflow.outputs.execute-upgrade-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-upgrade == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -2508,10 +2511,9 @@ jobs:
             summary-upgrade*
 
   run-scripted-input-tests-full-matrix:
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.test-inventory.outputs.scripted_inputs == 'true' && needs.setup-workflow.outputs.execute-scripted_inputs-labeled == 'true' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-scripted_inputs == 'true' }}
     needs:
       - build
-      - test-inventory
       - setup
       - meta
       - setup-workflow
@@ -2783,7 +2785,7 @@ jobs:
     # It is necessary to avoid confusion caused by github actions considering pre-publish for both push to develop branch
     # and pull_request to main branch events.
     name: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' &&  'pre-publish' ||  'pre-publish-not_main_pr' }}
-    outputs: 
+    outputs:
       run-publish: ${{ steps.check.outputs.run-publish }}
     needs:
       - check-docs-changes
@@ -2794,7 +2796,6 @@ jobs:
       - review_secrets
       - semgrep
       - build
-      - test-inventory
       - run-unit-tests
       - appinspect
       - setup

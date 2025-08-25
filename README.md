@@ -17,7 +17,6 @@
   * [[Job] lint](#job-lint)
   * [[Job] security-detect-secrets](#job-security-detect-secrets)
   * [[Job] security-sast-semgrep](#job-security-sast-semgrep)
-  * [[Job] test-inventory](#job-test-inventory)
   * [[Job] build](#job-build)
   * [[Job] AppInspect](#job-appinspect)
   * [[Job] AppInspect API](#job-appinspect-api)
@@ -183,9 +182,18 @@ gitGraph
 * Check if there is any similar issue reported to GitHub repo for the action by other users.
 * If you are not sure what to do, please use `go/addon/help`.
 
+## [Job] check-docs-changes
+
+**Description:**
+
+- Job that is checking if the PR only contains the changes in the docs related files.
+- If PR only contains the changes in the docs related files then TA build related tests (KO, Modinput, UI etc.) will be skipped.
+
 ## [Job] setup-workflow
 
-Job that is scanning PR and based on PR body or included labels defining tests to be executed.
+**Description:**
+
+- Job that decides which tests to be executed in the workflow based on the available test types in the TA, PR labels and the docs-only check.
 
 * All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
   * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
@@ -379,22 +387,6 @@ i.e <img src="images/compliance-copyrights/license.png" alt="license" style="wid
 **Artifacts:**
 
 - Findings can be observed in the console logs of the stage and also at Semgrep link for which is provided in the end.
-
-## [Job] test-inventory
-
-**Description**
-
-- This stage detects the no of test-types present in the addons tests folder
-
-**Output:**
-
-```
-ui_local::true
-knowledge::true
-unit::true
-modinput_functional::true
-ucc_modinput_functional::true
-```
 
 ## [Job] build
 
