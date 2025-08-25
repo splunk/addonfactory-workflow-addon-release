@@ -643,6 +643,8 @@ jobs:
           cp /tmp/app.manifest "${INPUT_SOURCE}"/app.manifest
           mkdir -p build/package/splunkbase
           mkdir -p build/package/deployment
+          rm -rf "${INPUT_SOURCE}"/lib/urllib3*
+          rm -rf "${INPUT_SOURCE}"/lib/*urllib3*dist-info*
           slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
           for f in build/package/splunkbase/*.tar.gz; do
             n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
