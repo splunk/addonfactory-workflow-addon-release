@@ -710,6 +710,8 @@ jobs:
           fi
           slim generate-manifest "${INPUT_SOURCE}" --update >/tmp/app.manifest   || true
           cp /tmp/app.manifest "${INPUT_SOURCE}"/app.manifest
+          rm -rf "${INPUT_SOURCE}"/lib/urllib3*
+          rm -rf "${INPUT_SOURCE}"/lib/*urllib3*dist-info*
           mkdir -p build/package/splunkbase
           mkdir -p build/package/deployment
           slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
