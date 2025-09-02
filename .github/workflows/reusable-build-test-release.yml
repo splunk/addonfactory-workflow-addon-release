@@ -479,8 +479,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Setup addon
         run: |
+          # DEBUG
+          set -x
+          
           if [ -f "poetry.lock" ]
           then
+            pwd
+            ls -lah
+          
             mkdir -p package/lib || true
             python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             poetry check
