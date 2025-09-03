@@ -582,6 +582,7 @@ jobs:
           if [ -f "requirements_ucc.txt" ]; then
             python${{ env.PYTHON_VERSION }} -m venv .ucc_venv
             echo "Found requirements_ucc.txt. Installing UCC dependencies in an isolated environment"
+            ./.ucc_venv/bin/python -m pip install -U pip
             ./.ucc_venv/bin/python -m pip install -r requirements_ucc.txt
             export UCC_GEN="$PWD/.ucc_venv/bin/ucc-gen"
           
