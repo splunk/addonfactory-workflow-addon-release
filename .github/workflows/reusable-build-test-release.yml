@@ -616,6 +616,24 @@ jobs:
             poetry export --without-hashes --with dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
+      - name: Setup UCC
+        run: |
+          if [ -f "requirements_ucc.txt" ]; then
+            python${{ env.PYTHON_VERSION }} -m venv .ucc_venv
+            echo "Found requirements_ucc.txt. Installing UCC dependencies in an isolated environment"
+            ./.ucc_venv/bin/python -m pip install -r requirements_ucc.txt
+            export UCC_GEN="$PWD/.ucc_venv/bin/ucc-gen"
+          
+            if [ ! -f "$UCC_GEN" ]; then
+              echo "ucc-gen not found after installing requirements from requirements_ucc.txt"
+              exit 1
+            fi
+          
+            echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
+          else
+            echo "No UCC requirements file found, skipping UCC setup"
+            echo "Consider adding a requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
+          fi
       - name: Get pip cache dir
         id: pip-cache
         run: |
@@ -694,9 +712,18 @@ jobs:
           cp -f THIRDPARTY package/THIRDPARTY || echo "THIRDPARTY file not found (allowed for PR and schedule)"
       - name: Build Package
         id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v2
-        with:
-          version: ${{ steps.BuildVersion.outputs.VERSION }}
+        run: |
+          "${UCC_GEN:-ucc-gen}" build --ta-version ${{ steps.BuildVersion.outputs.VERSION }}
+          if [ -f package.json ]
+          then
+            yarn
+            if [ -n ${{ steps.BuildVersion.outputs.VERSION }} ]
+            then
+              yarn version --new-version ${{ steps.BuildVersion.outputs.VERSION }} --no-git-tag-version
+            fi
+            yarn run build
+          fi
+          echo "OUTPUT=output/$(ls output/)" >> "$GITHUB_OUTPUT"
       - name: Slim Package
         id: slim
         run: |
