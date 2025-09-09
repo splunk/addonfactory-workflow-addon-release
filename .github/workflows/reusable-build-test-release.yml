@@ -834,6 +834,24 @@ jobs:
             poetry export --without-hashes --with dev -o requirements_dev.txt
             cat requirements_dev.txt
           fi
+      - name: Setup UCC
+        run: |
+          if [ -f "requirements_ucc.txt" ]; then
+            python${{ env.PYTHON_VERSION }} -m venv .ucc_venv
+            echo "Found requirements_ucc.txt. Installing UCC dependencies in an isolated environment"
+            ./.ucc_venv/bin/python -m pip install -r requirements_ucc.txt
+            export UCC_GEN="$PWD/.ucc_venv/bin/ucc-gen"
+          
+            if [ ! -f "$UCC_GEN" ]; then
+              echo "ucc-gen not found after installing requirements from requirements_ucc.txt"
+              exit 1
+            fi
+          
+            echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
+          else
+            echo "No UCC requirements file found, skipping UCC setup"
+            echo "Consider adding a requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
+          fi
       - id: pip-cache
         run: |
           echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
@@ -889,9 +907,8 @@ jobs:
           echo "Version to build is $FINALVERSION"
           echo "VERSION=$FINALVERSION" >> "$GITHUB_OUTPUT"
       - id: uccgen
-        uses: splunk/addonfactory-ucc-generator-action@v2
-        with:
-          version: ${{ steps.BuildVersion.outputs.VERSION }}
+        run: |
+          "${UCC_GEN:-ucc-gen}" build --ta-version ${{ steps.BuildVersion.outputs.VERSION }}
 
   appinspect:
     name: quality-appinspect-${{ matrix.tags }}
