@@ -761,7 +761,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.10
+        uses: splunk/appinspect-cli-action@dependabot/pip/main/splunk-appinspect-4.0.2
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
