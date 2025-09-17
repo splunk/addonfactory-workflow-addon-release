@@ -104,7 +104,7 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 env:
-  PYTHON_VERSION: "3.9"
+  PYTHON_VERSION: "3.13"
   POETRY_VERSION: "2.1.4"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
 jobs:
