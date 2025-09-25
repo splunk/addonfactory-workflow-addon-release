@@ -492,6 +492,7 @@ jobs:
           python${{ env.PYTHON_VERSION }} -m venv .dev_venv
           echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
           ./.dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
+          ./.dev_venv/bin/python -m pip install -r package/lib/requirements.txt
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
