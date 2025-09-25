@@ -489,7 +489,9 @@ jobs:
           if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 0 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r dev_deps/requirements_dev.txt
+          python${{ env.PYTHON_VERSION }} -m venv .dev_venv
+          echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
+          ./.dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -497,7 +499,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: ./.dev_venv/bin/python -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Job summary
         continue-on-error: true
         run: |
