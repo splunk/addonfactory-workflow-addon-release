@@ -529,12 +529,14 @@ jobs:
             python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
-            poetry export --without-hashes --with dev -o requirements_dev.txt
           fi
-          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          poetry install --with dev
+          python${{ env.PYTHON_VERSION }} -m venv .dev_venv
+          echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
+          ./.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
+          ./.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -542,7 +544,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: ./.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Job summary
         continue-on-error: true
         run: |
@@ -613,26 +615,24 @@ jobs:
                 echo "No prod dependencies were found"
                 rm requirements.txt
             fi
-            poetry export --without-hashes --with dev -o requirements_dev.txt
-            cat requirements_dev.txt
           fi
       - name: Setup UCC
         run: |
-          if [ -f "requirements_ucc.txt" ]; then
+          if [ -f "dev_deps/requirements_ucc.txt" ]; then
             python${{ env.PYTHON_VERSION }} -m venv .ucc_venv
             echo "Found requirements_ucc.txt. Installing UCC dependencies in an isolated environment"
-            ./.ucc_venv/bin/python -m pip install -r requirements_ucc.txt
+            ./.ucc_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_ucc.txt
             export UCC_GEN="$PWD/.ucc_venv/bin/ucc-gen"
           
             if [ ! -f "$UCC_GEN" ]; then
-              echo "ucc-gen not found after installing requirements from requirements_ucc.txt"
+              echo "ucc-gen not found after installing requirements from dev_deps/requirements_ucc.txt"
               exit 1
             fi
           
             echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
           else
             echo "No UCC requirements file found, skipping UCC setup"
-            echo "Consider adding a requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
+            echo "Consider adding a dev_deps/requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
           fi
       - name: Get pip cache dir
         id: pip-cache
@@ -640,13 +640,13 @@ jobs:
           echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
       - name: Run Check there are libraries to scan
         id: checklibs
-        run: if [ -f requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
+        run: if [ -f dev_deps/requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
       - name: pip cache
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
         uses: actions/cache@v4
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements_dev.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('dev_deps/requirements_dev.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install deps
@@ -654,7 +654,7 @@ jobs:
         run: |
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
+          python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
@@ -1075,11 +1075,11 @@ jobs:
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          poetry install --only modinput
+          python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
-            poetry run ucc-test-modinput gen -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+            ucc-test-modinput gen -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           else
-            poetry run ucc-test-modinput gen -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
+            ucc-test-modinput gen -o ${{ steps.download-openapi.outputs.download-path }}/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           fi
       - name: upload-libs-to-s3
         id: upload-libs-to-s3
@@ -1088,9 +1088,11 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          poetry install --with dev
+          python${{ env.PYTHON_VERSION }} -m venv .dev_venv
+          echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
+          ./.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
-          cp -r "$(find "$(poetry env info --path)" -maxdepth 3 -type d -name "site-packages")" libs/
+          cp -r ./.dev_venv/lib/python${{ env.PYTHON_VERSION }}/site-packages/ libs/
           tar -czf "$libs_archive" libs
           aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
