@@ -460,13 +460,16 @@ jobs:
             python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
+            echo $?
+            echo "debug poetry export"
           fi
           if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
-          ./.dev_venv/bin/python${{ matrix.python-version }} -m pip install -r dev_deps/requirements_dev.txt
-          ./.dev_venv/bin/python${{ matrix.python-version }} -m pip install -r package/lib/requirements.txt     
+          python${{ matrix.python-version }} -m venv .dev_venv
+          .dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
+          .dev_venv/bin/python -m pip install -r package/lib/requirements.txt     
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -474,7 +477,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: ./.dev_venv/bin/python${{ matrix.python-version }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: .dev_venv/bin/python -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Job summary
         continue-on-error: true
         run: |
@@ -529,14 +532,15 @@ jobs:
             mkdir -p package/lib || true
             python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
+            poetry export --without-hashes -o package/lib/requirements.txt
           fi
           if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           python${{ matrix.python-version }} -m venv .dev_venv
           echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
-          ./.dev_venv/bin/python${{ matrix.python-version }} -m pip install -r dev_deps/requirements_dev.txt
-          ./.dev_venv/bin/python${{ matrix.python-version }} -m pip install -r package/lib/requirements.txt
+          .dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
+          .dev_venv/bin/python -m pip install -r package/lib/requirements.txt
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -544,7 +548,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: ./.dev_venv/bin/python${{ matrix.python-version }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: .dev_venv/bin/python -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Job summary
         continue-on-error: true
         run: |
@@ -1089,10 +1093,10 @@ jobs:
           python -m venv .dev_venv
           if [[ -f dev_deps/requirements_dev.txt ]]; then
             echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
-            ./.dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
+            .dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
           fi
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
-          cp -r ./.dev_venv/lib/python*/site-packages/ libs/
+          cp -r .dev_venv/lib/python*/site-packages/ libs/
           tar -czf "$libs_archive" libs
           aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
