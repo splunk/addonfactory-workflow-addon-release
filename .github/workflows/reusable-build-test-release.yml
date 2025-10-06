@@ -460,12 +460,13 @@ jobs:
             python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
-            poetry export --without-hashes --with dev -o requirements_dev.txt
           fi
-          if [ ! -f requirements_dev.txt ]; then echo no requirements;exit 0 ;fi
+          if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          poetry install --with dev
+          echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
+          ./.dev_venv/bin/python${{ matrix.python-version }} -m pip install -r dev_deps/requirements_dev.txt
+          ./.dev_venv/bin/python${{ matrix.python-version }} -m pip install -r package/lib/requirements.txt     
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -473,7 +474,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: poetry run pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: ./.dev_venv/bin/python${{ matrix.python-version }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Job summary
         continue-on-error: true
         run: |
@@ -528,7 +529,6 @@ jobs:
             mkdir -p package/lib || true
             python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
-            poetry export --without-hashes -o package/lib/requirements.txt
           fi
           if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
@@ -831,26 +831,24 @@ jobs:
                 echo "No prod dependencies were found"
                 rm requirements.txt
             fi
-            poetry export --without-hashes --with dev -o requirements_dev.txt
-            cat requirements_dev.txt
           fi
       - name: Setup UCC
         run: |
-          if [ -f "requirements_ucc.txt" ]; then
+          if [ -f "dev_deps/requirements_ucc.txt" ]; then
             python -m venv .ucc_venv
             echo "Found requirements_ucc.txt. Installing UCC dependencies in an isolated environment"
-            ./.ucc_venv/bin/python -m pip install -r requirements_ucc.txt
+            ./.ucc_venv/bin/python -m pip install -r dev_deps/requirements_ucc.txt
             export UCC_GEN="$PWD/.ucc_venv/bin/ucc-gen"
           
             if [ ! -f "$UCC_GEN" ]; then
-              echo "ucc-gen not found after installing requirements from requirements_ucc.txt"
+              echo "ucc-gen not found after installing requirements from dev_deps/requirements_ucc.txt"
               exit 1
             fi
           
             echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
           else
             echo "No UCC requirements file found, skipping UCC setup"
-            echo "Consider adding a requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
+            echo "Consider adding a dev_deps/requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
           fi
       - id: pip-cache
         run: |
@@ -865,7 +863,7 @@ jobs:
       - run: |
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          pip install -r requirements_dev.txt
+          python -m pip install -r dev_deps/requirements_dev.txt
       - id: semantic
         if: github.event_name != 'pull_request'
         uses: splunk/semantic-release-action@v1.3
@@ -1089,8 +1087,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           python -m venv .dev_venv
-          echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
-          ./.dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
+          if [[ -f dev_deps/requirements_dev.txt ]]; then
+            echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
+            ./.dev_venv/bin/python -m pip install -r dev_deps/requirements_dev.txt
+          fi
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
           cp -r ./.dev_venv/lib/python*/site-packages/ libs/
           tar -czf "$libs_archive" libs
