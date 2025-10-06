@@ -486,7 +486,7 @@ jobs:
             poetry check
             poetry export --without-hashes -o package/lib/requirements.txt
           fi
-          if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 0 ;fi
+          if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           python${{ env.PYTHON_VERSION }} -m venv .dev_venv
