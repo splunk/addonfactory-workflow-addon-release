@@ -46,10 +46,11 @@ jobs:
         run: |
             gh release download v${{ inputs.addon_version }} --pattern "*${{ inputs.addon_version }}.spl" --output release.spl
       - run: |
-            export APP_ID=$(cat .splunkbase)
+            APP_ID=$(cat .splunkbase)
+            export APP_ID
             ucc-gen publish \
                 --stage \
-                --app-id $APP_ID \
+                --app-id "$APP_ID" \
                 --package-path release.spl \
                 --splunk-versions ${{ inputs.splunk_versions }} \
                 --cim-versions ${{ inputs.cim_versions }} \
