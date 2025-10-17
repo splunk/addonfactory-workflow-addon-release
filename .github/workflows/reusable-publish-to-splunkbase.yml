@@ -1,9 +1,9 @@
-name: release-to-splunkbase
+name: publish-to-splunkbase
 on:
   workflow_call:
     inputs:
       addon_version:
-        description: 'The version of the add-on to release to Splunkbase'
+        description: 'The version of the add-on to publish to Splunkbase'
         required: true
         type: string
       splunk_versions:
@@ -30,7 +30,7 @@ jobs:
         uses: splunk/addonfactory-test-matrix-action@v3.1
         with:
           features: PYTHON39
-  release:
+  publish:
     runs-on: ubuntu-latest
     needs:
       - inputs-validator
