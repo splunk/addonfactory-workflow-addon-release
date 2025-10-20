@@ -1267,7 +1267,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 300-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1552,7 +1552,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 300-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -1828,7 +1828,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 300-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -2103,7 +2103,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 300-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -2367,7 +2367,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 300-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
@@ -2636,7 +2636,7 @@ jobs:
         run: |
           start_time=${{ steps.capture-start-time.outputs.start_time }}
           current_time=$(date +%s)
-          remaining_time_minutes=$(( 350-((current_time-start_time)/60) ))
+          remaining_time_minutes=$(( 300-((current_time-start_time)/60) ))
           echo "remaining_time_minutes=$remaining_time_minutes" >> "$GITHUB_OUTPUT"
       - name: Check if pod was deleted
         id: is-pod-deleted
