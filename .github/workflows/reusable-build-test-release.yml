@@ -859,7 +859,7 @@ jobs:
             -e AWS_REGION \
             -e APPINSPECT_USER \
             -e APPINSPECT_PASS \
-            -v $(pwd)/package:/data \
+            -v $(pwd)/package:/addon \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:1.0.0-beta.1
 
       - name: Upload GS Scorecard report
