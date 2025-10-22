@@ -842,7 +842,7 @@ jobs:
 
       - name: Pull GS Scorecard image
         run: |
-          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:latest
+          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:1.0.0-beta.1
 
       - name: Run GS Scorecard
         env:
@@ -860,7 +860,7 @@ jobs:
             -e APPINSPECT_USER \
             -e APPINSPECT_PASS \
             -v $(pwd)/package:/data \
-            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:latest
+            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:1.0.0-beta.1
 
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v4
