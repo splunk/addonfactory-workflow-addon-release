@@ -812,6 +812,64 @@ jobs:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
 
+
+  run-gs-scorecard:
+    name: quality-gs-scorecard
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download package-splunkbase
+        uses: actions/download-artifact@v4
+        with:
+          name: package-splunkbase
+          path: ./package
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 956110764581.dkr.ecr.us-west-2.amazonaws.com
+
+      - name: Pull GS Scorecard image
+        run: |
+          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:latest
+
+      - name: Run GS Scorecard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
+          APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
+          APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
+        run: |
+          docker run \
+            -e GITHUB_TOKEN \
+            -e GITHUB_USERNAME \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_REGION \
+            -e APPINSPECT_USER \
+            -e APPINSPECT_PASS \
+            -v $(pwd)/package:/data \
+            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:latest
+
+      - name: Upload GS Scorecard report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gs-scorecard-report
+          path: ./package/gs_scorecard.html
+
   setup:
     needs:
       - setup-workflow
