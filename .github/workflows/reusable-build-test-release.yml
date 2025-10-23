@@ -97,6 +97,13 @@ on:
       SPL_COM_PASSWORD:
         description: password to splunk.com
         required: true
+      GSSA_AWS_ACCESS_KEY_ID:
+        description: AWS access key id
+        required: true
+      GSSA_AWS_SECRET_ACCESS_KEY:
+        description: AWS secret access key
+        required: true
+
 permissions:
   contents: read
   packages: read
@@ -826,9 +833,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
 
       - name: Login to Amazon ECR
         run: |
@@ -844,12 +851,14 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
+          GSSA_AWS_ACCESS_KEY_ID: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          GSSA_AWS_SECRET_ACCESS_KEY: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
         run: |
           docker run \
             -e GITHUB_TOKEN \
             -e GITHUB_USERNAME \
-            -e AWS_ACCESS_KEY_ID \
-            -e AWS_SECRET_ACCESS_KEY \
+            -e GSSA_AWS_ACCESS_KEY_ID \
+            -e GSSA_AWS_SECRET_ACCESS_KEY \
             -e AWS_REGION \
             -e APPINSPECT_USER \
             -e APPINSPECT_PASS \
