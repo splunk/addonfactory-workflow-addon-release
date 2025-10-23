@@ -103,7 +103,6 @@ on:
       GSSA_AWS_SECRET_ACCESS_KEY:
         description: AWS secret access key
         required: true
-
 permissions:
   contents: read
   packages: read
@@ -851,15 +850,13 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-          GSSA_AWS_ACCESS_KEY_ID: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          GSSA_AWS_SECRET_ACCESS_KEY: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
         run: |
-          docker run \
+          docker run --rm \
             -e GITHUB_TOKEN \
             -e GITHUB_USERNAME \
-            -e GSSA_AWS_ACCESS_KEY_ID \
-            -e GSSA_AWS_SECRET_ACCESS_KEY \
-            -e AWS_REGION \
+            -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
+            -e AWS_SECRET_ACCESS_KEY="${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}" \
+            -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" \
             -e APPINSPECT_USER \
             -e APPINSPECT_PASS \
             -v $(pwd):/addon \
