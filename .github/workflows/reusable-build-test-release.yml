@@ -460,8 +460,6 @@ jobs:
             python${{ matrix.python-version }} -m pip install poetry==1.5.1 poetry-plugin-export==1.4.0
             poetry lock --check
             poetry export --without-hashes -o package/lib/requirements.txt
-            echo $?
-            echo "debug poetry export"
           fi
           if [ ! -f dev_deps/requirements_dev.txt ]; then echo no dev_deps/requirements;exit 1 ;fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
