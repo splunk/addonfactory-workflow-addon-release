@@ -823,21 +823,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download package-splunkbase
-        uses: actions/download-artifact@v4
-        with:
-          name: package-splunkbase
-          path: ./package
-
-      - name: Unpack .spl package
-        run: |
-          cd ./package
-          spl_file=$(ls *.spl)
-          echo "Unpacking $spl_file"
-          mkdir -p unpacked
-          tar -xvf "$spl_file" -C unpacked
-          ls -la unpacked
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -867,8 +852,8 @@ jobs:
             -e AWS_SECRET_ACCESS_KEY \
             -e AWS_REGION \
             -e APPINSPECT_USER \
-            -e APPINSPECT_PASS \
-            -v $(pwd)/package/unpacked:/data \
+            -e APPINSPECT_PASS \doc
+            v $(pwd):/addon \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:1.0.0-beta.1
 
       - name: Upload GS Scorecard report
