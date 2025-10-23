@@ -867,7 +867,7 @@ jobs:
         if: always()
         with:
           name: gs-scorecard-report
-          path: ./package/gs_scorecard.html
+          path: ./gs_scorecard.html
 
 
   setup:
