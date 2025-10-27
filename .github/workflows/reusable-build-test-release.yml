@@ -822,7 +822,7 @@ jobs:
   run-gs-scorecard:
     name: quality-gs-scorecard
     needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && (github.ref_name == 'main' && github.event_name == 'push') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
