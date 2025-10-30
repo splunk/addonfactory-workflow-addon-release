@@ -852,7 +852,7 @@ jobs:
             -e AWS_DEFAULT_REGION="us-west-2" \
             -e APPINSPECT_USER \
             -e APPINSPECT_PASS \
-            -v $(pwd):/addon \
+            -v "$(pwd)":/addon \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:1.0.0
 
       - name: Upload GS Scorecard report
