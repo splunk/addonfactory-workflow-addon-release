@@ -481,7 +481,7 @@ jobs:
         run: |
           if [ -f "poetry.lock" ]
           then
-          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
+              python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             mkdir -p package/lib || true
             poetry check --lock
             poetry export --without-hashes -o package/lib/requirements.txt
