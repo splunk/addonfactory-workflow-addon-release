@@ -609,12 +609,6 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('dev_deps/requirements_dev.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      # - name: Install dev deps
-      #   if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-      #   run: |
-      #     git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-      #     git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-      #     python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
