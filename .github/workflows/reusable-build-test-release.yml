@@ -349,7 +349,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v3.1
+        uses: splunk/addonfactory-test-matrix-action@fix/10.0.1-sha-fix
         with:
           features: PYTHON39
       - id: determine_splunk
