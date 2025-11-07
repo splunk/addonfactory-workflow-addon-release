@@ -113,7 +113,8 @@ env:
   PYTHON_VERSION: "3.9"
   POETRY_VERSION: "2.1.4"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
-  GS_SCORECARD_VERSION: "1.0.0"
+  GS_IMAGE_VERSION: "1.0.0"
+  GS_VERSION: "0.3"
 jobs:
   validate-custom-version:
     runs-on: ubuntu-latest
@@ -836,7 +837,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
       - name: Pull GS Scorecard image
         run:
-          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_SCORECARD_VERSION }}
+          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
       - name: Run GS Scorecard
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
@@ -852,8 +853,9 @@ jobs:
             -e AWS_DEFAULT_REGION="us-west-2" \
             -e APPINSPECT_USER \
             -e APPINSPECT_PASS \
+            -e GS_VERSION="${{ env.GS_VERSION }}" \
             -v "$(pwd)":/addon \
-            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:1.0.0
+            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
 
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v4
