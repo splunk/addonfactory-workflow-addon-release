@@ -20,6 +20,7 @@
   * [[Job] build](#job-build)
   * [[Job] AppInspect](#job-appinspect)
   * [[Job] AppInspect API](#job-appinspect-api)
+  * [[Job] run-gs-scorecard](#job-run-gs-scorecard)
   * [[Job] setup](#job-setup)
   * [[Job] test-unit-python3](#job-test-unit-python3)
   * [[Job] run-btool-check](#job-run-btool-check)
@@ -520,6 +521,46 @@ appinspect_splunk_appinspect_checks.json
 appinspect-api-html-report
 appinspect-api-html-report-cloud
 appinspect-api-html-report-self-service
+```
+
+
+## [Job] run-gs-scorecard
+
+**Description**
+
+- This job runs the Gold Standard Scorecard quality assessment tool to evaluate the add-on against security and quality standards.
+
+- The GS Scorecard tool is containerized and runs in a Docker container, analyzing the repository and generating a comprehensive quality report.
+
+- This job only runs on push events to the `main` branch after a successful build.
+
+**Action used:** 
+- AWS ECR (Elastic Container Registry) for Docker image storage
+- Custom Docker image: `ta-automation/gs-scorecard` pushed from GitLab GS Scorecard repository
+
+**Pass/fail behaviour:**
+
+- The job executes the GS Scorecard analysis and generates a quality report.
+
+- The job requires proper AWS credentials for accessing the ECR registry and GitHub credentials for repository analysis.
+
+**Troubleshooting steps for failures if any:**
+
+- Verify that the required secrets are properly configured in GitHub Actions:
+  - `GSSA_AWS_ACCESS_KEY_ID` and `GSSA_AWS_SECRET_ACCESS_KEY` for AWS ECR access
+  - `GH_TOKEN_ADMIN` and `SA_GH_USER_NAME` for GitHub access
+  - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
+
+- Check that the Docker image version specified in `GS_SCORECARD_VERSION` environment variable exists in the ECR registry.
+
+- Review the job logs for specific error messages from the GS Scorecard tool.
+
+- Ensure the build job completed successfully before this job runs, as it depends on the build artifacts.
+
+**Artifacts:**
+
+```
+gs-scorecard-report (gs_scorecard.html)
 ```
 
 

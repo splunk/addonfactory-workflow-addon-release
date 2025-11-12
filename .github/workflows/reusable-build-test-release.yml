@@ -97,6 +97,12 @@ on:
       SPL_COM_PASSWORD:
         description: password to splunk.com
         required: true
+      GSSA_AWS_ACCESS_KEY_ID:
+        description: GSSA AWS access key id
+        required: true
+      GSSA_AWS_SECRET_ACCESS_KEY:
+        description: GSSA AWS secret access key
+        required: true
 permissions:
   contents: read
   packages: read
@@ -107,6 +113,8 @@ env:
   PYTHON_VERSION: "3.9"
   POETRY_VERSION: "2.1.4"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
+  GS_IMAGE_VERSION: "1.0.0"
+  GS_VERSION: "0.3"
 jobs:
   validate-custom-version:
     runs-on: ubuntu-latest
@@ -810,6 +818,50 @@ jobs:
         with:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
+
+  run-gs-scorecard:
+    name: quality-gs-scorecard
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' && (github.ref_name == 'main' && github.event_name == 'push') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Pull GS Scorecard image
+        run:
+          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+      - name: Run GS Scorecard
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
+          APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
+          APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
+        run: |
+          docker run --rm \
+            -e GITHUB_TOKEN \
+            -e GITHUB_USERNAME \
+            -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
+            -e AWS_SECRET_ACCESS_KEY="${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}" \
+            -e AWS_DEFAULT_REGION="us-west-2" \
+            -e APPINSPECT_USER \
+            -e APPINSPECT_PASS \
+            -e GS_VERSION="${{ env.GS_VERSION }}" \
+            -v "$(pwd)":/addon \
+            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
+
+      - name: Upload GS Scorecard report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gs-scorecard-report
+          path: ./gs_scorecard.html
 
   setup:
     needs:
