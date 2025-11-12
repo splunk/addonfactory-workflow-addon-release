@@ -1,0 +1,58 @@
+name: publish-to-splunkbase
+on:
+  workflow_call:
+    inputs:
+      addon_version:
+        description: 'The version of the add-on to publish to Splunkbase'
+        required: true
+        type: string
+      splunk_versions:
+        description: 'Comma-separated list of supported Splunk versions'
+        required: true
+        type: string
+      cim_versions:
+        description: 'Comma-separated list of supported CIM versions'
+        required: true
+        type: string
+    secrets:
+      SPL_COM_USERNAME:
+        description: 'Splunk Community username'
+        required: true
+      SPL_COM_PASSWORD:
+        description: 'Splunk Community password'
+        required: true
+
+jobs:
+  inputs-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - id: matrix
+        uses: splunk/addonfactory-test-matrix-action@v3.1
+        with:
+          features: PYTHON39
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - inputs-validator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install splunk_add_on_ucc_framework-5.69.1-py3-none-any.whl
+      - name: Fetch build
+        env:
+            GH_TOKEN: ${{ github.token }}
+        run: |
+            gh release download v${{ inputs.addon_version }} --pattern "*${{ inputs.addon_version }}.spl" --output release.spl
+      - run: |
+            APP_ID=$(cat .splunkbase)
+            export APP_ID
+            ucc-gen publish \
+                --stage \
+                --app-id "$APP_ID" \
+                --package-path release.spl \
+                --splunk-versions ${{ inputs.splunk_versions }} \
+                --cim-versions ${{ inputs.cim_versions }} \
+                --username ${{ secrets.SPL_COM_USERNAME }} \
+                --password ${{ secrets.SPL_COM_PASSWORD }}
