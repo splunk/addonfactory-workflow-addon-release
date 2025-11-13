@@ -668,8 +668,6 @@ jobs:
       - name: Build Package
         id: uccgen
         run: |
-          set +e
-          set -x
           "${UCC_GEN:-ucc-gen}" build --ta-version ${{ steps.BuildVersion.outputs.VERSION }}
           ls
           if [ -f package.json ]
