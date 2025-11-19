@@ -97,6 +97,12 @@ on:
       SPL_COM_PASSWORD:
         description: password to splunk.com
         required: true
+      GSSA_AWS_ACCESS_KEY_ID:
+        description: GSSA AWS access key id
+        required: true
+      GSSA_AWS_SECRET_ACCESS_KEY:
+        description: GSSA AWS secret access key
+        required: true
 permissions:
   contents: read
   packages: read
