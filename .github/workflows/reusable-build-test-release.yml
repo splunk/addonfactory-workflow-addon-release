@@ -503,7 +503,6 @@ jobs:
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
-          ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
           ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
         run: |
