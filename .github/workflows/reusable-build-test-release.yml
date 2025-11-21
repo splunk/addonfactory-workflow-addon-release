@@ -492,7 +492,7 @@ jobs:
               python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             mkdir -p package/lib || true
             poetry check --lock
-            poetry export --without-hashes -o package/lib/requirements.txt
+            poetry export --without-hashes --with dev -o package/lib/requirements.txt
           fi
           if [ ! -f dev_deps/requirements_dev.txt ]; then
             echo "No dev_deps/requirements_dev.txt. Migrate your dependencies to dev_deps/requirements_dev.txt"
