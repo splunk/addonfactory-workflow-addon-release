@@ -567,6 +567,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: create requirements file for pip
         run: |
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
