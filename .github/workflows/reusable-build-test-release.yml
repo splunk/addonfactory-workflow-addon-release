@@ -39,7 +39,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "v3.6"
+        default: "v4.0"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
@@ -57,6 +57,11 @@ on:
         description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
         type: string
         default: "false"
+      python-version:
+        required: false
+        description: "Python version to use for testing"
+        type: string
+        default: "3.9"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -110,7 +115,7 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 env:
-  PYTHON_VERSION: "3.9"
+  PYTHON_VERSION: ${{ inputs.python-version }}
   POETRY_VERSION: "2.1.4"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
   GS_IMAGE_VERSION: "1.0.0"
@@ -489,16 +494,13 @@ jobs:
         run: |
           if [ -f "poetry.lock" ]
           then
-              python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
+            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             mkdir -p package/lib || true
             poetry check --lock
-            poetry export --without-hashes -o package/lib/requirements.txt
-          fi
-          if [ ! -f dev_deps/requirements_dev.txt ]; then
-            echo "No dev_deps/requirements_dev.txt. Migrate your dependencies to dev_deps/requirements_dev.txt"
-            exit 1 
-          else 
-            echo "Found dev_deps/requirements_dev.txt. Installing dev dependencies in an isolated environment"; 
+            poetry export --without-hashes --with dev -o package/lib/requirements.txt
+          else
+            echo "No poetry.lock found, make sure your dependencies are managed through poetry, exiting"
+            exit 1
           fi
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
           git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
@@ -568,6 +570,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: create requirements file for pip
         run: |
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
