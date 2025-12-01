@@ -646,23 +646,6 @@ jobs:
         id: pip-cache
         run: |
           echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
-      - name: Run Check there are libraries to scan
-        id: checklibs
-        run: if [ -f dev_deps/requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
-      - name: pip cache
-        if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('dev_deps/requirements_dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install deps
-        if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        run: |
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          python -m pip install -r dev_deps/requirements_dev.txt
       - name: Semantic Release Get Next
         id: semantic
         if: github.event_name != 'pull_request'
@@ -861,17 +844,6 @@ jobs:
       - id: pip-cache
         run: |
           echo "dir=$(pip cache dir)" >> "$GITHUB_OUTPUT"
-      - name: pip cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pip-cache.outputs.dir }}
-          key: ${{ runner.os }}-pip-python3_9-${{ hashFiles('requirements_dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-python3_9
-      - run: |
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
-          python -m pip install -r dev_deps/requirements_dev.txt
       - id: semantic
         if: github.event_name != 'pull_request'
         uses: splunk/semantic-release-action@v1.3
