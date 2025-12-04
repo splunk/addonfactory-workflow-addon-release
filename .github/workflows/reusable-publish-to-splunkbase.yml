@@ -35,10 +35,10 @@ jobs:
     needs:
       - inputs-validator
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - run: pip install splunk_add_on_ucc_framework-5.69.1-py3-none-any.whl
       - name: Fetch build
         env:

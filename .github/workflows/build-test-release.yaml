@@ -19,18 +19,18 @@ jobs:
   compliance-copyrights:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: apache/skywalking-eyes@v0.6.0
+      - uses: actions/checkout@v6
+      - uses: apache/skywalking-eyes@v0.8.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   pre-commit:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.7"
+          python-version: "3.14"
       - run: |
           bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.26/scripts/download-actionlint.bash)
       - uses: pre-commit/action@v3.0.1
@@ -41,7 +41,7 @@ jobs:
       - pre-commit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: false
           persist-credentials: false
@@ -60,7 +60,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: splunk/addonfactory-update-semver@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
