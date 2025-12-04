@@ -9,10 +9,10 @@ jobs:
     outputs:
       status: ${{ steps.validate.outputs.status }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: 3.14
       - name: Install mkdocs and plugins
         run: pip install mkdocs==1.6.0 mkdocs-material==9.5.32 mkdocs-print-site-plugin==2.6.0
       - name: Validate docs change
@@ -40,10 +40,10 @@ jobs:
       pages: write
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: 3.12
+          python-version: 3.14
       - name: Install mkdocs and plugins
         run: pip install mkdocs==1.6.0 mkdocs-material==9.5.32 mkdocs-print-site-plugin==2.6.0
       - name: Build and Deploy docs
