@@ -191,6 +191,7 @@ jobs:
       execute-upgrade: ${{ steps.determine-test-execution-flags.outputs.execute_upgrade }}
       exit-first: ${{ steps.determine-test-execution-flags.outputs.exit-first }}
       execute-unit: ${{ steps.determine-test-execution-flags.outputs.execute_unit }}
+      execute-gs-scorecard: ${{ steps.determine-test-execution-flags.outputs.execute_gs_scorecard }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
@@ -222,7 +223,7 @@ jobs:
         run: |
           set +e
           declare -A EXECUTION_FLAGS
-          TESTSET=("execute_unit" "execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade")
+          TESTSET=("execute_unit" "execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade" "execute_gs_scorecard")
           for test_type in "${TESTSET[@]}"; do
             EXECUTION_FLAGS["$test_type"]="false"
           done
@@ -244,6 +245,10 @@ jobs:
               TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_spl2")
               echo "spl2::true"
             fi
+
+            # GS Scorecard is always available
+            TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_gs_scorecard")
+            echo "gs_scorecard::true"
 
             found_unit_test=false
             for test_name in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
@@ -824,8 +829,10 @@ jobs:
 
   run-gs-scorecard:
     name: quality-gs-scorecard
-    needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' && (github.ref_name == 'main' && github.event_name == 'push') }}
+    needs:
+      - build
+      - setup-workflow
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
