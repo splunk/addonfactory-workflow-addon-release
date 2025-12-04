@@ -355,9 +355,9 @@ jobs:
       matrix_Splunk: ${{ steps.determine_splunk.outputs.matrixSplunk }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
-      matrix_epSupportingSplunk: ${{ steps.matrix.outputs.epSupportingSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
-      matrix_singleSC4S: ${{ steps.select_single_sc4s.outputs.matrixSingleSC4S }}
+      matrix_singleSC4S: ${{ steps.select_ep_sc4s_and_splunk.outputs.matrixSingleSC4S }}
+      matrix_epSupportingSplunk: ${{ steps.select_ep_sc4s_and_splunk.outputs.matrixEpSupportingSplunk }}
       matrix_supportedModinputFunctionalVendors: ${{ steps.matrix.outputs.supportedModinputFunctionalVendors }}
       matrix_supportedUIVendors: ${{ steps.matrix.outputs.supportedUIVendors }}
     permissions:
@@ -369,7 +369,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@user/mgazda/ep_test
+        uses: splunk/addonfactory-test-matrix-action@v3.1
         with:
           features: PYTHON39
       - id: determine_splunk
@@ -384,15 +384,15 @@ jobs:
           else
             echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
           fi
-      - id: select_single_sc4s
-        run:
-          echo "matrixSingleSC4S=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -c '.[0]')" >> "$GITHUB_OUTPUT"
+      - id: select_ep_sc4s_and_splunk
+        run: |
+          echo "matrixSingleSC4S=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -c '.[0]')" >> "$GITHUB_OUTPUT"  
+          echo "matrixEpSupportingSplunk=$(echo '${{ steps.matrix.outputs.latestSplunk }}' | jq -c '.[0]')" >> "$GITHUB_OUTPUT"
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
           sc4s_version_list=$(echo '${{ steps.matrix.outputs.supportedSC4S }}' | jq -r '.[].version')
-          splunk_with_ep_list=$(echo '${{ steps.matrix.outputs.epSupportingSplunk }}' | jq -r '.version')
-          echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n-EP supporting splunk: (${splunk_with_ep_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
+          echo -e "## Summary of Versions Used\n- **Splunk versions used:** (${splunk_version_list})\n- **SC4S versions used:** (${sc4s_version_list})\n- Browser: Chrome" >> "$GITHUB_STEP_SUMMARY"
   fossa-scan:
     runs-on: ubuntu-latest
     steps:
