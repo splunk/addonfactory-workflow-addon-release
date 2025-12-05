@@ -532,7 +532,7 @@ appinspect-api-html-report-self-service
 
 - The GS Scorecard tool is containerized and runs in a Docker container, analyzing the repository and generating a comprehensive quality report.
 
-- This job runs on push events to the main branch after a successful build, or when the label `execute_gs_scorecard` is added to a pull request.
+- This job runs on push events to the `main` branch after a successful build, or when the label `execute_gs_scorecard` is added to a pull request.
 
 **Action used:** 
 - AWS ECR (Elastic Container Registry) for Docker image storage
