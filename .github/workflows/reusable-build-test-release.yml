@@ -63,7 +63,7 @@ on:
         type: string
         default: "3.9"
     secrets:
-      GH_TOKEN_ADMIN:
+      GH_REPO_TOKEN:
         description: Github admin token
         required: true
       SEMGREP_PUBLISH_TOKEN:
@@ -507,8 +507,8 @@ jobs:
             echo "No poetry.lock found, make sure your dependencies are managed through poetry, exiting"
             exit 1
           fi
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://${{ secrets.GH_REPO_TOKEN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_REPO_TOKEN }}@github.com".insteadOf ssh://git@github.com
           python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
           ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
@@ -574,8 +574,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: create requirements file for pip
         run: |
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://${{ secrets.GH_REPO_TOKEN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_REPO_TOKEN }}@github.com".insteadOf ssh://git@github.com
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
@@ -849,7 +849,7 @@ jobs:
           docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
       - name: Run GS Scorecard
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
@@ -902,7 +902,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          token: ${{ secrets.GH_TOKEN_ADMIN }}
+          token: ${{ secrets.GH_REPO_TOKEN }}
       - name: setup for test
         id: test-setup
         shell: bash
@@ -954,9 +954,9 @@ jobs:
           python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }}
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
-          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_TOKEN_ADMIN }}
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ secrets.GH_TOKEN_ADMIN }}@github.com".insteadOf ssh://git@github.com
+          export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ secrets.GH_REPO_TOKEN }}
+          git config --global --add url."https://${{ secrets.GH_REPO_TOKEN }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://${{ secrets.GH_REPO_TOKEN }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
@@ -2927,7 +2927,7 @@ jobs:
         id: semantic
         uses: splunk/semantic-release-action@v1.3
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
         with:
           git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
@@ -2938,7 +2938,7 @@ jobs:
         id: custom
         uses: "softprops/action-gh-release@v2"
         with:
-          token: "${{ secrets.GH_TOKEN_ADMIN }}"
+          token: "${{ secrets.GH_REPO_TOKEN }}"
           tag_name: v${{ github.event.inputs.custom-version }}
           target_commitish: "${{github.ref_name}}"
           make_latest: false

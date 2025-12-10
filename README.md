@@ -548,7 +548,7 @@ appinspect-api-html-report-self-service
 
 - Verify that the required secrets are properly configured in GitHub Actions:
   - `GSSA_AWS_ACCESS_KEY_ID` and `GSSA_AWS_SECRET_ACCESS_KEY` for AWS ECR access
-  - `GH_TOKEN_ADMIN` and `SA_GH_USER_NAME` for GitHub access
+  - `GH_REPO_TOKEN` and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
 - Check that the Docker image version specified in `GS_SCORECARD_VERSION` environment variable exists in the ECR registry.

@@ -48,7 +48,7 @@ jobs:
       - name: Semantic Release
         uses: splunk/semantic-release-action@v1.3
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
         with:
           git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: splunk/addonfactory-update-semver@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
+          GITHUB_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
         with:
           git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
