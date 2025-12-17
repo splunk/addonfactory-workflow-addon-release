@@ -1253,6 +1253,10 @@ jobs:
           - splunk: ${{ fromJson(needs.meta.outputs.matrix_epSupportingSplunk) }}
             sc4s: ${{ fromJson(needs.meta.outputs.matrix_singleSC4S) }}
             test-type: "knowledge_ep"
+        exclude:
+          - splunk: ${{ fromJson(needs.meta.outputs.matrix_epSupportingSplunk) }}
+            sc4s: ${{ fromJson(needs.meta.outputs.matrix_singleSC4S) }}
+            test-type: "knowledge"
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
