@@ -374,9 +374,6 @@ jobs:
         env:
           wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
         run: |
-          if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
-            wfe_run_on_splunk_latest="${{  github.event_name == 'schedule' || !((github.base_ref == 'main' || github.ref_name == 'main') || ((github.base_ref == 'develop' || github.ref_name == 'develop')  && github.event_name == 'push')) }}"
-          fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
