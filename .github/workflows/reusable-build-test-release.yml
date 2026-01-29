@@ -374,13 +374,17 @@ jobs:
         env:
           wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
         run: |
-          if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
-            wfe_run_on_splunk_latest="${{  github.event_name == 'schedule' || !((github.base_ref == 'main' || github.ref_name == 'main') || ((github.base_ref == 'develop' || github.ref_name == 'develop')  && github.event_name == 'push')) }}"
+          if [[ -z "$wfe_run_on_splunk_latest" ]]; then
+            if [[ "${{ github.event_name }}" == "schedule" ]]; then
+              wfe_run_on_splunk_latest="true"
+            else
+              wfe_run_on_splunk_latest="false"
+            fi
           fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
-            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{ steps.matrix.outputs.latestSplunk }}" >> "$GITHUB_OUTPUT"
           else
-            echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{ steps.matrix.outputs.supportedSplunk }}" >> "$GITHUB_OUTPUT"
           fi
       - name: job summary
         run: |
