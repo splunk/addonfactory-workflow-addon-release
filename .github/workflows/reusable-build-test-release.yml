@@ -372,12 +372,14 @@ jobs:
           features: PYTHON39
       - id: determine_splunk
         run: |
-          if [[ "$wfe_run_on_splunk_latest" == "" ]] || [[ "${{ github.event_name }}" == "schedule" ]]; then
-            wfe_run_on_splunk_latest="true"
+          if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
+            if [[ "${{ github.event_name }}" == "schedule" ]]; then
+              wfe_run_on_splunk_latest="true"
+            else
+              wfe_run_on_splunk_latest="false"
+            fi
           fi
-          if [[ "$wfe_run_on_splunk_latest" != "true" ]]; then
-            wfe_run_on_splunk_latest="${{ !((github.base_ref == 'main' || github.ref_name == 'main') || ((github.base_ref == 'develop' || github.ref_name == 'develop') && github.event_name == 'push')) }}"
-          fi  
+
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
