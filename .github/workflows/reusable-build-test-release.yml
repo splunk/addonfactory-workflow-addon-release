@@ -144,7 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          if grep -q 'splunktafunctionaltests' poetry.lock; then
+          if grep -q 'splunktafunctionaltests' poetry.lock || grep -q 'splunktafunctionaltests' dev_deps/requirements_dev.txt 2>/dev/null; then
             echo "::warning title=\"splunktafunctionaltests\" should NOT be used for modinput tests::For more details, please see https://splunk.slack.com/archives/C081JT7R69Z/p1754662758743839."
             exit 1
           else
