@@ -375,16 +375,20 @@ jobs:
           if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
             if [[ "${{ github.event_name }}" == "schedule" ]]; then
               wfe_run_on_splunk_latest="true"
-            else
+            elif [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]] || \
+                [[ ("${{ github.base_ref }}" == "develop" || "${{ github.ref_name }}" == "develop") && "${{ github.event_name }}" == "push" ]]; then
               wfe_run_on_splunk_latest="false"
+            else
+              wfe_run_on_splunk_latest="true"
             fi
           fi
-
+          
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
           fi
+
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
