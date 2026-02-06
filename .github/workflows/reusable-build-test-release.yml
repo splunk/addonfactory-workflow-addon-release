@@ -379,9 +379,8 @@ jobs:
           elif [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             wfe_run_on_splunk_latest="true"
           else
-            if [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]]; then
-              wfe_run_on_splunk_latest="false"
-            elif [[ ("${{ github.base_ref }}" == "develop" || "${{ github.ref_name }}" == "develop") \
+            if [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]] || \
+              [[ ( "${{ github.base_ref }}" == "develop" || "${{ github.ref_name }}" == "develop" ) \
                   && "${{ github.event_name }}" == "push" ]]; then
               wfe_run_on_splunk_latest="false"
             else
