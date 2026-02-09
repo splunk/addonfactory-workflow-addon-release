@@ -376,8 +376,7 @@ jobs:
         run: |  
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             wfe_run_on_splunk_latest="true"
-          elif [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
-            wfe_run_on_splunk_latest="true"
+            
           else
             if [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]] || \
               [[ "${{ github.ref_name }}" == "develop" && "${{ github.event_name }}" == "push" ]]; then
