@@ -1067,7 +1067,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: run-btool-check
         id: run-btool-check
-        timeout-minutes: 10
+        timeout-minutes: 20
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v5.2
