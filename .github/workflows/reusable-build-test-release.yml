@@ -66,7 +66,7 @@ on:
         required: false
         description: "Version of the GS scorecard Docker image"
         type: string
-        default: "1.0.0"
+        default: "1.1"
       gs-version:
         required: false
         description: "Version of the GS scorecard"
@@ -890,7 +890,14 @@ jobs:
         if: always()
         with:
           name: gs-scorecard-report
-          path: ./gs_scorecard.html
+          path: ./gs_scorecard.json
+
+      - name: Print GS Scorecard report
+        if: always()
+        run: |
+          echo "::group::GS Scorecard Report"
+          jq . ./gs_scorecard.json
+          echo "::endgroup::"
 
   setup:
     needs:
