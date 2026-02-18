@@ -884,20 +884,25 @@ jobs:
             -e GS_VERSION="${{ env.GS_VERSION }}" \
             -v "$(pwd)":/addon \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
-
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: gs-scorecard-report
           path: ./gs_scorecard.json
-
-      - name: Print GS Scorecard report
-        if: always()
+      - name: Print and verify GS Scorecard report
         run: |
+          if [ ! -f ./gs_scorecard.json ]; then
+            echo "::error::GS Scorecard report not found"
+            exit 1
+          fi
           echo "::group::GS Scorecard Report"
           jq . ./gs_scorecard.json
           echo "::endgroup::"
+          passed=$(jq -r '.result.passed' ./gs_scorecard.json)
+          if [ "$passed" != "true" ]; then
+            echo "::error::GS Scorecard failed"
+            exit 1
+          fi
 
   setup:
     needs:
