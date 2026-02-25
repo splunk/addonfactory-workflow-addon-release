@@ -256,10 +256,6 @@ jobs:
               echo "spl2::true"
             fi
 
-            # GS Scorecard is always available
-            TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_gs_scorecard")
-            echo "gs_scorecard::true"
-
             found_unit_test=false
             for test_name in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
               if [[ "$test_name" == "execute_unit" ]]; then
@@ -328,6 +324,14 @@ jobs:
               echo "No tests were labeled for execution!"
               ;;
             esac
+
+            # GS Scorecard: runs when label is present (any PR) or on push to main
+            # Required (must not be skipped) for merging PRs to main -- enforced in pre-publish
+            if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "$labels" =~ execute_gs_scorecard ]]; then
+              EXECUTION_FLAGS["execute_gs_scorecard"]="true"
+            elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref_name }}" == "main" ]]; then
+              EXECUTION_FLAGS["execute_gs_scorecard"]="true"
+            fi
           fi
           echo "Tests to be executed:"
           for test_type in "${TESTSET[@]}"; do
@@ -2917,6 +2921,7 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
+      - run-gs-scorecard
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -2925,7 +2930,19 @@ jobs:
         id: check
         shell: bash
         run: |
-          RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
+          # GS Scorecard: must have run for PRs to main (result doesn't matter, but skipped = blocked)
+          GS_RESULT=$(echo "$NEEDS" | jq -r '.["run-gs-scorecard"].result')
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]]; then
+            echo "::error::GS Scorecard is required for PRs to main. Add the 'execute_gs_scorecard' label and re-run the workflow."
+            echo "## GS Scorecard Required" >> "$GITHUB_STEP_SUMMARY"
+            echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)." >> "$GITHUB_STEP_SUMMARY"
+            echo "run-publish=false" >> "$GITHUB_OUTPUT"
+            echo "Publish conditions are not met."
+            exit 1
+          fi
+
+          # Exclude run-gs-scorecard from the general check since it has its own handling above
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
