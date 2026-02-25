@@ -62,6 +62,16 @@ on:
         description: "Python version to use for testing"
         type: string
         default: "3.9"
+      gs-image-version:
+        required: false
+        description: "Version of the GS scorecard Docker image"
+        type: string
+        default: "1.1"
+      gs-version:
+        required: false
+        description: "Version of the GS scorecard"
+        type: string
+        default: "0.3"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -118,8 +128,8 @@ env:
   PYTHON_VERSION: ${{ inputs.python-version }}
   POETRY_VERSION: "2.1.4"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
-  GS_IMAGE_VERSION: "1.0.0"
-  GS_VERSION: "0.3"
+  GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
+  GS_VERSION: ${{ inputs.gs-version }}
 jobs:
   validate-custom-version:
     runs-on: ubuntu-latest
@@ -144,7 +154,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          if grep -q 'splunktafunctionaltests' poetry.lock; then
+          if grep -q 'splunktafunctionaltests' poetry.lock || grep -q 'splunktafunctionaltests' dev_deps/requirements_dev.txt 2>/dev/null; then
             echo "::warning title=\"splunktafunctionaltests\" should NOT be used for modinput tests::For more details, please see https://splunk.slack.com/archives/C081JT7R69Z/p1754662758743839."
             exit 1
           else
@@ -246,10 +256,6 @@ jobs:
               echo "spl2::true"
             fi
 
-            # GS Scorecard is always available
-            TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_gs_scorecard")
-            echo "gs_scorecard::true"
-
             found_unit_test=false
             for test_name in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
               if [[ "$test_name" == "execute_unit" ]]; then
@@ -318,6 +324,14 @@ jobs:
               echo "No tests were labeled for execution!"
               ;;
             esac
+
+            # GS Scorecard: runs when label is present (any PR) or on push to main
+            # Required (must not be skipped) for merging PRs to main -- enforced in pre-publish
+            if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "$labels" =~ execute_gs_scorecard ]]; then
+              EXECUTION_FLAGS["execute_gs_scorecard"]="true"
+            elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref_name }}" == "main" ]]; then
+              EXECUTION_FLAGS["execute_gs_scorecard"]="true"
+            fi
           fi
           echo "Tests to be executed:"
           for test_type in "${TESTSET[@]}"; do
@@ -373,15 +387,24 @@ jobs:
       - id: determine_splunk
         env:
           wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
-        run: |
-          if [[ "$wfe_run_on_splunk_latest" == "" ]]; then
-            wfe_run_on_splunk_latest="${{  github.event_name == 'schedule' || !((github.base_ref == 'main' || github.ref_name == 'main') || ((github.base_ref == 'develop' || github.ref_name == 'develop')  && github.event_name == 'push')) }}"
+        run: |  
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            wfe_run_on_splunk_latest="true"
+            
+          else
+            if [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]] || \
+              [[ "${{ github.ref_name }}" == "develop" && "${{ github.event_name }}" == "push" ]]; then
+              wfe_run_on_splunk_latest="false"
+            else
+              wfe_run_on_splunk_latest="true"
+            fi
           fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
-            echo "matrixSplunk=${{toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
           fi
+
       - name: job summary
         run: |
           splunk_version_list=$(echo '${{ steps.determine_splunk.outputs.matrixSplunk }}' | jq -r '.[].version')
@@ -865,13 +888,25 @@ jobs:
             -e GS_VERSION="${{ env.GS_VERSION }}" \
             -v "$(pwd)":/addon \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
-
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: gs-scorecard-report
-          path: ./gs_scorecard.html
+          path: ./gs_scorecard.json
+      - name: Print and verify GS Scorecard report
+        run: |
+          if [ ! -f ./gs_scorecard.json ]; then
+            echo "::error::GS Scorecard report not found"
+            exit 1
+          fi
+          echo "::group::GS Scorecard Report"
+          jq . ./gs_scorecard.json
+          echo "::endgroup::"
+          passed=$(jq -r '.result.passed' ./gs_scorecard.json)
+          if [ "$passed" != "true" ]; then
+            echo "::error::GS Scorecard failed"
+            exit 1
+          fi
 
   setup:
     needs:
@@ -1057,7 +1092,7 @@ jobs:
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
       - name: run-btool-check
         id: run-btool-check
-        timeout-minutes: 10
+        timeout-minutes: 20
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
         uses: splunk/wfe-test-runner-action@v5.2
@@ -2886,6 +2921,7 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
+      - run-gs-scorecard
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -2894,7 +2930,19 @@ jobs:
         id: check
         shell: bash
         run: |
-          RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
+          # GS Scorecard: must have run for PRs to main (result doesn't matter, but skipped = blocked)
+          GS_RESULT=$(echo "$NEEDS" | jq -r '.["run-gs-scorecard"].result')
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]]; then
+            echo "::error::GS Scorecard is required for PRs to main. Add the 'execute_gs_scorecard' label and re-run the workflow."
+            echo "## GS Scorecard Required" >> "$GITHUB_STEP_SUMMARY"
+            echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)." >> "$GITHUB_STEP_SUMMARY"
+            echo "run-publish=false" >> "$GITHUB_OUTPUT"
+            echo "Publish conditions are not met."
+            exit 1
+          fi
+
+          # Exclude run-gs-scorecard from the general check since it has its own handling above
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
