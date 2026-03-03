@@ -799,7 +799,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.10
+        uses: splunk/appinspect-cli-action@v2.11
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
