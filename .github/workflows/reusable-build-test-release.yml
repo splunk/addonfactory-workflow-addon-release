@@ -471,7 +471,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '25'
+          java-version: '17'
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
