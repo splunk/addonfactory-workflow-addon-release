@@ -9,7 +9,11 @@
 * [Spec reusable-build-test-release](#spec-reusable-build-test-release)
   * [Workflow Inputs](#workflow-inputs)
   * [General troubleshooting](#general-troubleshooting)
+  * [[Job] validate-custom-version](#job-validate-custom-version)
+  * [[Job] check-splunktafunctionaltests-exists](#job-check-splunktafunctionaltests-exists)
+  * [[Job] check-docs-changes](#job-check-docs-changes)
   * [[Job] setup-workflow](#job-setup-workflow)
+  * [[Job] validate-pr-title](#job-validate-pr-title)
   * [[Job] meta](#job-meta)
   * [[Job] fossa-scan](#job-fossa-scan)
   * [[Job] fossa-test](#job-fossa-test)
@@ -24,10 +28,13 @@
   * [[Job] setup](#job-setup)
   * [[Job] test-unit-python3](#job-test-unit-python3)
   * [[Job] run-btool-check](#job-run-btool-check)
+  * [[Job] run-spl2-tests](#job-run-spl2-tests)
   * [[Job] run-knowledge-tests](#job-run-knowledge-tests)
   * [[Job] run-ui-tests](#job-run-ui-tests-)
   * [[Job] run-modinput-tests](#job-run-modinput-tests-)
   * [[Job] run-ucc-modinput-tests](#job-run-ucc-modinput-tests-)
+  * [[Job] run-upgrade-tests](#job-run-upgrade-tests)
+  * [[Job] run-scripted-input-tests-full-matrix](#job-run-scripted-input-tests-full-matrix)
   * [[Job] pre-publish](#job-pre-publish)
   * [[Job] publish](#job-publish)
   * [Vendor Addon Matrix tests](#vendor-addon-matrix-tests)
@@ -168,20 +175,57 @@ gitGraph
 
 # Spec reusable-build-test-release
 ## Workflow Inputs
-* marker - list of markers used to paralelize modinput tests
-* ucc-modinput-marker - list of markers used to paralelize ucc modinput tests
-* ui_marker - list of markers used to paralelize ui tests
-* custom-version - version used for release on manual workflow trigger
-* execute-tests-on-push-to-release - enable tests on release branch - default false
-* k8s-enfironment - k8s environment for testing
-* k8s-manifests-branch - k8s-manifests branch for testing
-* scripted-inputs-os-list - list of OSes used for scripted inputs tests
+* `marker` - list of markers used to parallelize modinput tests
+* `ucc-modinput-marker` - list of markers used to parallelize ucc modinput tests
+* `ui_marker` - list of markers used to parallelize ui tests
+* `custom-version` - version used for release on manual workflow trigger (format: `x.x.x`)
+* `execute-tests-on-push-to-release` - enable tests on push to `release/*` branch - default `false`
+* `k8s-environment` - k8s environment for testing, choices: `production` (default) or `staging`
+* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.0`
+* `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
+* `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
+* `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
+* `python-version` - Python version used for testing, default `3.9`
+* `gs-image-version` - version of the GS Scorecard Docker image, default `1.1`
+* `gs-version` - version of the GS Scorecard tool, default `0.3`
 
 ## General troubleshooting
 
 * For each stage there are logs which provides list of failures or link the test report for the stage or more details like error code regarding what caused the stage to fail.
 * Check if there is any similar issue reported to GitHub repo for the action by other users.
 * If you are not sure what to do, please use `go/addon/help`.
+
+## [Job] validate-custom-version
+
+**Description:**
+
+- Runs only when `custom-version` input is provided (manual `workflow_dispatch` trigger).
+- Validates that the value matches semantic version format `X.X.X` and that the version tag does not already exist in the repository.
+
+**Pass/fail behaviour:**
+
+- Fails if the version format is invalid or the tag already exists, preventing duplicate releases.
+
+**Artifacts:**
+
+- No additional artifacts.
+
+
+## [Job] check-splunktafunctionaltests-exists
+
+**Description:**
+
+- Checks whether the deprecated `splunktafunctionaltests` package is referenced in `poetry.lock` or `dev_deps/requirements_dev.txt`.
+- This package must **not** be used for modinput tests. See the [Slack notice](https://splunk.slack.com/archives/C081JT7R69Z/p1754662758743839) for context.
+
+**Pass/fail behaviour:**
+
+- Fails with a warning if `splunktafunctionaltests` is detected, blocking the pipeline until the dependency is removed.
+
+**Artifacts:**
+
+- No additional artifacts.
+
 
 ## [Job] check-docs-changes
 
@@ -206,14 +250,47 @@ gitGraph
   * triggering event is workflow_dispatch (used to create custom release version)
   * schedule event (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/tools/jinja_parameters.yml))
 * To trigger specific test type
-  * add to PR one or multiple labels, available choices can be found [here](https://github.com/splunk/addonfactory-workflow-addon-release/blob/4f3fa4d779b6ec7649f0dc6b973eb4d68e5fcc48/.github/workflows/reusable-build-test-release.yml#L153)
-  * there is no need to add labels when PR's target branch is `main`
+  * add to PR one or multiple of the following labels:
+    * `execute_unit` - unit tests
+    * `execute_knowledge` - knowledge / KO tests
+    * `execute_spl2` - SPL2 tests
+    * `execute_ui` - UI tests
+    * `execute_modinput_functional` - modinput functional tests
+    * `execute_ucc_modinput_functional` - UCC modinput functional tests
+    * `execute_scripted_inputs` - scripted inputs tests
+    * `execute_upgrade` - upgrade tests (not run on push to `main` or scheduled runs)
+    * `execute_gs_scorecard` - Gold Standard Scorecard (always runs on push to `main`)
+    * `execute_all_tests` - all available test types
+    * `use_labels` - when combined with a PR to `main`, enables label-based selective test execution instead of running all tests
+    * `exit-first` - stop pytest execution on the first failure (`-x` flag)
+  * there is no need to add labels when PR's target branch is `main` (all tests except upgrade tests run by default)
+
+## [Job] validate-pr-title
+
+**Description:**
+
+- Runs only on pull request events.
+- Validates the PR title conforms to the [Conventional Commits](https://www.conventionalcommits.org/) specification, which is required for semantic release to correctly determine the next version number.
+- Also validates that a single commit PR has a matching commit message.
+
+**Action used:** https://github.com/amannn/action-semantic-pull-request
+
+**Pass/fail behaviour:**
+
+- Fails if the PR title does not follow conventional commit format (e.g. `feat:`, `fix:`, `chore:`, etc.) or if it is marked as WIP.
+
+**Artifacts:**
+
+- No additional artifacts.
+
 
 ## [Job] meta
 
 **Description:** 
 
 - Determines which Splunk and SC4S versions to run tests with.
+- Outputs matrices for supported and latest Splunk versions, SC4S versions, and vendor matrices for modinput/UI tests.
+- On schedule events, always uses latest Splunk only. On PRs to `main` or push to `main`/`develop`, uses the full supported matrix (unless overridden by `wfe-run-on-splunk-latest` input).
 
 ## [Job] fossa-scan
 
@@ -551,7 +628,7 @@ appinspect-api-html-report-self-service
   - `GH_TOKEN_ADMIN` and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified in `GS_SCORECARD_VERSION` environment variable exists in the ECR registry.
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.1`) exists in the ECR registry. The GS Scorecard tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
 - Review the job logs for specific error messages from the GS Scorecard tool.
 
@@ -616,6 +693,25 @@ gs-scorecard-report (gs_scorecard.html)
 ```
 btool-output.txt
 ```
+
+## [Job] run-spl2-tests
+
+**Description:**
+
+- Executes SPL2 tests for add-ons that ship SPL2 modules under `package/default/data/spl2/`.
+- Runs inside the `ghcr.io/splunk/spl2-testing-base:latest` container using the `spl2_tests_run` CLI.
+- Triggered when `package/default/data/spl2/` directory is detected in the repository.
+
+**Pass/fail behaviour:**
+
+- Fails if any SPL2 test case fails.
+
+**Artifacts:**
+
+```
+Junit XML test report
+```
+
 
 ## [Job] run-knowledge-tests
 
@@ -775,6 +871,60 @@ Junit XML file
 splunk-add-on-ucc-modinput-test-functional.log
 Junit XML file
 ```
+
+## [Job] run-upgrade-tests
+
+**Description:**
+
+- Executes upgrade tests to verify that the TA can be upgraded from a previous version to the current build without issues.
+- Runs a matrix of Splunk versions × vendor versions × TA versions supplied via the `upgrade-tests-ta-versions` workflow input.
+- Uses the Argo Workflow Engine (WFE) on Kubernetes to run tests, same infrastructure as modinput and UI tests.
+- **Not** triggered on PRs to `main`, push to `main`, scheduled runs, or custom-version releases. Only triggered by the `execute_upgrade` label on a PR or by the `execute_all_tests` label on non-main PRs.
+
+**Pass/fail behaviour:**
+
+- Fails if any upgrade test scenario fails.
+
+**Troubleshooting steps for failures if any:**
+
+- Ensure `upgrade-tests-ta-versions` input is set with the correct list of prior TA versions (e.g. `['7.6.0', '7.7.0']`).
+- Review Argo workflow logs and test result XML artifacts for failure details.
+- Verify AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`) and k8s environment are properly configured.
+
+**Artifacts:**
+
+```
+Junit XML file
+argo-logs
+```
+
+
+## [Job] run-scripted-input-tests-full-matrix
+
+**Description:**
+
+- Executes scripted input tests across a matrix of Splunk versions × OS images.
+- The OS list is controlled by the `scripted-inputs-os-list` workflow input (default: Ubuntu 16.04–24.04 and Red Hat 8.4–9.5).
+- Tests are located under `tests/scripted_inputs/` and run on Kubernetes via the Argo Workflow Engine.
+- Uses `--hostname=spl --os-name=<os> --os-version=<version> -m script_input` test arguments.
+
+**Pass/fail behaviour:**
+
+- Fails if any scripted input test fails on any OS/Splunk combination.
+
+**Troubleshooting steps for failures if any:**
+
+- Review the test result XML and Argo logs artifacts for the specific OS/Splunk combination that failed.
+- Verify that credentials and AWS secrets are correctly configured.
+- Test can be run locally using the same OS Docker image listed in `scripted-inputs-os-list`.
+
+**Artifacts:**
+
+```
+Junit XML file
+argo-logs
+```
+
 
 ## [Job] pre-publish
 
