@@ -468,6 +468,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
@@ -799,7 +803,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.10
+        uses: splunk/appinspect-cli-action@v2.11
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -2932,8 +2936,8 @@ jobs:
         run: |
           # GS Scorecard: must have run for PRs to main (result doesn't matter, but skipped = blocked)
           GS_RESULT=$(echo "$NEEDS" | jq -r '.["run-gs-scorecard"].result')
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]]; then
-            echo "::error::GS Scorecard is required for PRs to main. Add the 'execute_gs_scorecard' label and re-run the workflow."
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]]; then
+            echo "::error::GS Scorecard is required for merging PRs to main. To unblock merging please add the 'execute_gs_scorecard' label and re-run the workflow."
             echo "## GS Scorecard Required" >> "$GITHUB_STEP_SUMMARY"
             echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)." >> "$GITHUB_STEP_SUMMARY"
             echo "run-publish=false" >> "$GITHUB_OUTPUT"
