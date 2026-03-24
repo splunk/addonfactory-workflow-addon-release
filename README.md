@@ -33,6 +33,7 @@
   * [[Job] run-ui-tests](#job-run-ui-tests-)
   * [[Job] run-modinput-tests](#job-run-modinput-tests-)
   * [[Job] run-ucc-modinput-tests](#job-run-ucc-modinput-tests-)
+  * [[Job] run-spl2-integration-tests](#job-run-spl2-integration-tests)
   * [[Job] run-upgrade-tests](#job-run-upgrade-tests)
   * [[Job] run-scripted-input-tests-full-matrix](#job-run-scripted-input-tests-full-matrix)
   * [[Job] pre-publish](#job-pre-publish)
@@ -872,6 +873,60 @@ splunk-add-on-ucc-modinput-test-functional.log
 Junit XML file
 ```
 
+## [Job] run-spl2-integration-tests
+
+**Description**
+
+- This job runs SPL2 integration tests against a real Splunk instance to validate that the add-on's data is correctly ingested and searchable using the SPL2 query language.
+- Tests are executed using the `spl2-testing-framework` and `conf-spl2-converter` tools.
+- The job runs as a matrix: for each latest Splunk version, two parallel jobs are created — one for **CIM** checks and one for **TA** checks — controlled by the `spl2-test-type` matrix parameter (`CIM` or `TA`).
+- Triggered only when `execute-spl2` flag is set to `true` by the `setup-workflow` job.
+
+**Action used:**
+- [`splunk/wfe-test-runner-action`](https://github.com/splunk/wfe-test-runner-action) — submits and monitors the Argo workflow
+- Custom Docker image: `workflow-engine/workflow-engine-ta-test-spl2-base`
+- `spl2-testing-framework` — Python package for running SPL2 tests
+- `conf-spl2-converter` — converts conf files to SPL2 expected format
+
+**Matrix:**
+
+| Parameter | Values |
+|---|---|
+| `splunk` | latest Splunk version from `meta` job |
+| `spl2-test-type` | `CIM`, `TA` |
+
+**Test types:**
+
+- `CIM` — validates that data is correctly mapped to CIM data models (`--check_splunk_results=CIM`)
+- `TA` — validates TA-specific search results (`--check_splunk_results=TA`)
+
+**Pass/fail behaviour:**
+
+- The job fails if `spl2_tests_run` returns a non-zero exit code for the selected test type.
+- Each matrix job (CIM / TA) runs independently and reports separately.
+
+**Enabling for an add-on:**
+
+- The job is enabled when `setup-workflow` outputs `execute-spl2: true`.
+- To enable it, ensure the `execute_spl2` flag is configured in your `build-test-release.yml`.
+
+**Troubleshooting steps for failures if any:**
+
+- Check the Argo workflow logs for detailed output from `spl2_tests_run`.
+- Verify Splunk instance connectivity: `SPL2_TF_SPLUNK_INSTANCE_IP` must point to a reachable host.
+- Confirm `spl2-testing-framework` version is compatible (currently pinned to `1.6.0`).
+- Pull test artifacts from S3 for full logs and XML report.
+- For CIM failures: validate that sourcetypes are correctly tagged in the add-on's `tags.conf`.
+- For TA failures: verify expected search results match actual ingested data.
+
+**Artifacts:**
+
+```
+report-spl2-cim-results.xml   (for CIM job)
+report-spl2-ta-results.xml    (for TA job)
+```
+
+
 ## [Job] run-upgrade-tests
 
 **Description:**
@@ -924,6 +979,7 @@ argo-logs
 Junit XML file
 argo-logs
 ```
+
 
 
 ## [Job] pre-publish
