@@ -440,15 +440,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Pin setuptools for pkg_resources compatibility
-        run: pip install "setuptools<82"
       - uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "17"
       - uses: pre-commit/action@v3.0.1
-        env:
-          VIRTUALENV_SETUPTOOLS: bundle
 
   review_secrets:
     name: security-detect-secrets
