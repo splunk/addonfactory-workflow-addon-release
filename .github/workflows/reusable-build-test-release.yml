@@ -440,8 +440,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Ensure setuptools is available for pkg_resources
-        run: pip install setuptools
+      - name: Pin setuptools for pkg_resources compatibility
+        run: pip install "setuptools<82" virtualenv pre-commit
       - uses: actions/setup-java@v4
         with:
           distribution: "temurin"
