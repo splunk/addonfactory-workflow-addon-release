@@ -440,6 +440,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      - name: Ensure setuptools is available for pkg_resources
+        run: pip install setuptools
       - uses: actions/setup-java@v4
         with:
           distribution: "temurin"
