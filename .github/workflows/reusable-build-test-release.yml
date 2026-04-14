@@ -71,7 +71,7 @@ on:
         required: false
         description: "Version of the GS scorecard"
         type: string
-        default: "0.3"
+        default: "2.0-beta"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
