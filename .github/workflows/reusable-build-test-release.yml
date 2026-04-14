@@ -66,12 +66,12 @@ on:
         required: false
         description: "Version of the GS scorecard Docker image"
         type: string
-        default: "1.1"
+        default: "2.0-beta_1"
       gs-version:
         required: false
         description: "Version of the GS scorecard"
         type: string
-        default: "2.0-beta"
+        default: "0.3"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
