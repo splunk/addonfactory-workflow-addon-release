@@ -72,11 +72,10 @@ on:
         description: "Version of the GS scorecard"
         type: string
         default: "0.3"
-      gh-app-client-id:
-        required: true
-        description: "GitHub App Client ID for authentication"
-        type: string
     secrets:
+      GH_APP_CLIENT_ID:
+        description: GitHub App Client ID for authentication
+        required: true
       GH_APP_PRIVATE_KEY:
         description: GitHub App private key for authentication
         required: true
@@ -517,7 +516,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          client-id: ${{ inputs.gh-app-client-id }}
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v4
@@ -595,7 +594,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          client-id: ${{ inputs.gh-app-client-id }}
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v4
@@ -873,7 +872,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          client-id: ${{ inputs.gh-app-client-id }}
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v4
@@ -950,7 +949,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          client-id: ${{ inputs.gh-app-client-id }}
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v4
@@ -2974,7 +2973,7 @@ jobs:
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
-          client-id: ${{ inputs.gh-app-client-id }}
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - name: Checkout
