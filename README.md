@@ -625,7 +625,7 @@ appinspect-api-html-report-self-service
 
 - Verify that the required secrets are properly configured in GitHub Actions:
   - `GSSA_AWS_ACCESS_KEY_ID` and `GSSA_AWS_SECRET_ACCESS_KEY` for AWS ECR access
-  - `GH_TOKEN_ADMIN` and `SA_GH_USER_NAME` for GitHub access
+  - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
 - Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.1`) exists in the ECR registry. The GS Scorecard tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
