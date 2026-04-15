@@ -259,10 +259,6 @@ jobs:
               echo "spl2::true"
             fi
 
-            # GS Scorecard is always available
-            TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_gs_scorecard")
-            echo "gs_scorecard::true"
-
             found_unit_test=false
             for test_name in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
               if [[ "$test_name" == "execute_unit" ]]; then
@@ -331,6 +327,14 @@ jobs:
               echo "No tests were labeled for execution!"
               ;;
             esac
+
+            # GS Scorecard: runs when label is present (any PR) or on push to main
+            # Required (must not be skipped) for merging PRs to main -- enforced in pre-publish
+            if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "$labels" =~ execute_gs_scorecard ]]; then
+              EXECUTION_FLAGS["execute_gs_scorecard"]="true"
+            elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref_name }}" == "main" ]]; then
+              EXECUTION_FLAGS["execute_gs_scorecard"]="true"
+            fi
           fi
           echo "Tests to be executed:"
           for test_type in "${TESTSET[@]}"; do
@@ -467,6 +471,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       - uses: pre-commit/action@v3.0.1
 
   review_secrets:
@@ -810,7 +818,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.10
+        uses: splunk/appinspect-cli-action@v2.11
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -905,20 +913,25 @@ jobs:
             -e GS_VERSION="${{ env.GS_VERSION }}" \
             -v "$(pwd)":/addon \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
-
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: gs-scorecard-report
           path: ./gs_scorecard.json
-
-      - name: Print GS Scorecard report
-        if: always()
+      - name: Print and verify GS Scorecard report
         run: |
+          if [ ! -f ./gs_scorecard.json ]; then
+            echo "::error::GS Scorecard report not found"
+            exit 1
+          fi
           echo "::group::GS Scorecard Report"
           jq . ./gs_scorecard.json
           echo "::endgroup::"
+          passed=$(jq -r '.result.passed' ./gs_scorecard.json)
+          if [ "$passed" != "true" ]; then
+            echo "::error::GS Scorecard failed"
+            exit 1
+          fi
 
   setup:
     needs:
@@ -2939,6 +2952,7 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
+      - run-gs-scorecard
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -2947,7 +2961,19 @@ jobs:
         id: check
         shell: bash
         run: |
-          RUN_PUBLISH=$(echo "$NEEDS" | jq ".[] |  select(  ( .result != \"skipped\" ) and .result != \"success\" ) | length == 0")
+          # GS Scorecard: must have run for PRs to main (result doesn't matter, but skipped = blocked)
+          GS_RESULT=$(echo "$NEEDS" | jq -r '.["run-gs-scorecard"].result')
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]]; then
+            echo "::error::GS Scorecard is required for merging PRs to main. To unblock merging please add the 'execute_gs_scorecard' label and re-run the workflow."
+            echo "## GS Scorecard Required" >> "$GITHUB_STEP_SUMMARY"
+            echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)." >> "$GITHUB_STEP_SUMMARY"
+            echo "run-publish=false" >> "$GITHUB_OUTPUT"
+            echo "Publish conditions are not met."
+            exit 1
+          fi
+
+          # Exclude run-gs-scorecard from the general check since it has its own handling above
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
