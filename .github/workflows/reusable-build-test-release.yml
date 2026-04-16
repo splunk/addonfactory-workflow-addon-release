@@ -66,7 +66,7 @@ on:
         required: false
         description: "Version of the GS scorecard Docker image"
         type: string
-        default: "2.0-beta_1"
+        default: "2.0-beta-2"
       gs-version:
         required: false
         description: "Version of the GS scorecard"
