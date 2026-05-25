@@ -998,7 +998,7 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
+          JOB_NAME=$(echo "$ADDON_NAME" | tail -c 8)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           LABELS="addon-name=${ADDON_NAME}"
           ADDON_UPLOAD_PATH="s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/${{ needs.build.outputs.buildname }}"
@@ -3006,8 +3006,7 @@ jobs:
         run: |
           RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME}-${{ env.SPL2_TEST_TYPE }}
+          JOB_NAME=${JOB_NAME//TEST-TYPE/spl2-inte}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
