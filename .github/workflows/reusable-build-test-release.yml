@@ -1046,7 +1046,9 @@ jobs:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
           python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
-          ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
+          if [ -f dev_deps/requirements_dev.txt ]; then
+            ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
+          fi
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             ~/.dev_venv/bin/ucc-test-modinput gen -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           else
