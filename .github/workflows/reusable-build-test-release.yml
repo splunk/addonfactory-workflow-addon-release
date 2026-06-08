@@ -78,6 +78,9 @@ on:
         type: string
         default: "0.3"
     secrets:
+      GH_TOKEN_ADMIN:
+        description: Github admin token
+        required: true
       GH_APP_CLIENT_ID:
         description: GitHub App Client ID for authentication
         required: true
