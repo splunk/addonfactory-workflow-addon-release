@@ -558,8 +558,8 @@ jobs:
             echo "No poetry.lock found, make sure your dependencies are managed through poetry, exiting"
             exit 1
           fi
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
           python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
           ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
@@ -635,8 +635,8 @@ jobs:
           java-version: '17'
       - name: create requirements file for pip
         run: |
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
@@ -1040,8 +1040,8 @@ jobs:
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ steps.app-token.outputs.token }}
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
