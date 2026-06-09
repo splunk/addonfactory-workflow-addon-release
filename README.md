@@ -16,6 +16,8 @@
   * [[Job] validate-pr-title](#job-validate-pr-title)
   * [[Job] meta](#job-meta)
   * [[Job] fossa-scan](#job-fossa-scan)
+  * [[Job] fossa-license-scan](#job-fossa-license-scan)
+  * [[Job] fossa-vulnerability-scan](#job-fossa-vulnerability-scan)
   * [[Job] fossa-test](#job-fossa-test)
   * [[Job] compliance-copyrights](#job-compliance-copyrights)
   * [[Job] lint](#job-lint)
@@ -315,6 +317,54 @@ gitGraph
 ```
 THIRDPARTY
 ```
+
+## [Job] fossa-license-scan
+
+**Description:**
+
+- This action checks the FOSSA Issues API for active licensing issues on the project revision created by `fossa-scan`.
+
+- It publishes license-only results so CI can distinguish license compliance findings from vulnerability findings.
+
+**Pass/fail behaviour:**
+
+- This stage fails if active FOSSA licensing issues are found, or if FOSSA cannot return issue results for the scanned revision. The job is allowed to continue so non-release workflow paths can remain usable, while `pre-publish` enforces release gating.
+
+**Troubleshooting steps for failures if any:**
+
+- Review the job summary and the `fossa-license-issues` artifact. License issues should be checked by the legal team.
+
+**Artifacts:**
+
+```
+fossa-license-issues
+```
+
+## [Job] fossa-vulnerability-scan
+
+**Description:**
+
+- This action checks the FOSSA Issues API for active vulnerability issues on the project revision created by `fossa-scan`.
+
+- It publishes vulnerability-only results so CI can distinguish security findings from license compliance findings.
+
+- It uses FOSSA severity filtering to identify critical/high vulnerabilities for release gating.
+
+**Pass/fail behaviour:**
+
+- This stage fails if active critical or high FOSSA vulnerability issues are found, or if FOSSA cannot return issue results for the scanned revision. Medium, low, and unknown severity vulnerabilities are reported in the artifact and summary without failing this split job.
+
+**Troubleshooting steps for failures if any:**
+
+- Review the job summary and the `fossa-vulnerability-issues` artifact. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
+
+**Artifacts:**
+
+```
+fossa-vulnerability-issues
+```
+
+This artifact contains all active vulnerability issues, critical/high vulnerability issues, and the human-readable summary.
 
 ## [Job] fossa-test
 
@@ -1000,6 +1050,10 @@ argo-logs
 **Pass/fail behaviour:**
 
 - If this stage is failing and PR is merged to main/develop Publsih stage will not get executed in the pipeline run.
+
+- Release readiness is blocked when `fossa-license-scan` reports active license compliance issues or when `fossa-vulnerability-scan` reports active critical/high vulnerability issues.
+
+- FOSSA split scan findings are reported without release gating on non-release workflow paths so merge-to-develop workflows remain usable.
 
 **Troubleshooting steps for failures if any**
 
