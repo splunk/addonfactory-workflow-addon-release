@@ -326,6 +326,8 @@ THIRDPARTY
 
 - It publishes license-only results so CI can distinguish license compliance findings from vulnerability findings.
 
+- It derives the FOSSA project locator from the `fossa-scan` report URL and falls back to the GitHub repository locator if the report URL does not contain one.
+
 **Pass/fail behaviour:**
 
 - This stage fails if active FOSSA licensing issues are found, or if FOSSA cannot return issue results for the scanned revision. The job is allowed to continue so non-release workflow paths can remain usable, while `pre-publish` enforces release gating.
@@ -349,6 +351,8 @@ fossa-license-issues
 - It publishes vulnerability-only results so CI can distinguish security findings from license compliance findings.
 
 - It uses FOSSA severity filtering to identify critical/high vulnerabilities for release gating.
+
+- It derives the FOSSA project locator from the `fossa-scan` report URL and falls back to the GitHub repository locator if the report URL does not contain one.
 
 **Pass/fail behaviour:**
 

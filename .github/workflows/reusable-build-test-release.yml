@@ -476,6 +476,40 @@ jobs:
           page=1
           count=1000
 
+          resolved_project_locator=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+
+          url = os.environ.get("FOSSA_REPORT_URL", "")
+          if not url:
+              raise SystemExit
+
+          parsed_url = urllib.parse.urlparse(url)
+          project_path = parsed_url.path
+          next_values = urllib.parse.parse_qs(parsed_url.query).get("next")
+          if next_values:
+              project_path = next_values[0]
+
+          for _ in range(3):
+              decoded_path = urllib.parse.unquote(project_path)
+              if decoded_path == project_path:
+                  break
+              project_path = decoded_path
+
+          if "/projects/" not in project_path:
+              raise SystemExit
+
+          locator = project_path.split("/projects/", 1)[1].split("/refs/", 1)[0]
+          if locator:
+              print(locator)
+          PY
+          )
+
+          if [[ -n "$resolved_project_locator" ]]; then
+            FOSSA_PROJECT_LOCATOR="$resolved_project_locator"
+          fi
+
+          echo "Using FOSSA project locator: ${FOSSA_PROJECT_LOCATOR}"
           echo '{"issues":[]}' > "$issues_file"
 
           while true; do
@@ -577,6 +611,40 @@ jobs:
           page=1
           count=1000
 
+          resolved_project_locator=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+
+          url = os.environ.get("FOSSA_REPORT_URL", "")
+          if not url:
+              raise SystemExit
+
+          parsed_url = urllib.parse.urlparse(url)
+          project_path = parsed_url.path
+          next_values = urllib.parse.parse_qs(parsed_url.query).get("next")
+          if next_values:
+              project_path = next_values[0]
+
+          for _ in range(3):
+              decoded_path = urllib.parse.unquote(project_path)
+              if decoded_path == project_path:
+                  break
+              project_path = decoded_path
+
+          if "/projects/" not in project_path:
+              raise SystemExit
+
+          locator = project_path.split("/projects/", 1)[1].split("/refs/", 1)[0]
+          if locator:
+              print(locator)
+          PY
+          )
+
+          if [[ -n "$resolved_project_locator" ]]; then
+            FOSSA_PROJECT_LOCATOR="$resolved_project_locator"
+          fi
+
+          echo "Using FOSSA project locator: ${FOSSA_PROJECT_LOCATOR}"
           echo '{"issues":[]}' > "$issues_file"
 
           while true; do
