@@ -451,16 +451,16 @@ jobs:
         run: |
           echo "FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> "$GITHUB_STEP_SUMMARY"
 
-  fossa-license-scan:
+  fossa-license-test:
     continue-on-error: true
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
     outputs:
-      active-issues: ${{ steps.fossa-license-scan.outputs.active-issues }}
+      active-issues: ${{ steps.fossa-license-test.outputs.active-issues }}
     steps:
-      - name: retrieve FOSSA license issues
-        id: fossa-license-scan
+      - name: run fossa license test
+        id: fossa-license-test
         shell: bash
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
@@ -471,7 +471,6 @@ jobs:
           set -euo pipefail
 
           issues_file="fossa-license-issues.json"
-          summary_file="fossa-license-summary.md"
           tmp_dir="$(mktemp -d)"
           page=1
           count=1000
@@ -511,6 +510,27 @@ jobs:
 
           echo "Using FOSSA project locator: ${FOSSA_PROJECT_LOCATOR}"
           echo '{"issues":[]}' > "$issues_file"
+
+          write_api_failure_summary() {
+            local reason="$1"
+            local response_file="$2"
+            {
+              echo "## FOSSA License Test"
+              echo ""
+              echo "| Field | Value |"
+              echo "| --- | --- |"
+              echo "| Status | Failed |"
+              echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+              echo "| Revision | \`${FOSSA_REVISION}\` |"
+              echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+              echo "| Failure reason | ${reason} |"
+              echo ""
+              echo "### FOSSA API Response"
+              echo '```json'
+              cat "$response_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
 
           while true; do
             response_file="$tmp_dir/license-issues-page-${page}.json"
@@ -529,12 +549,14 @@ jobs:
 
             if [[ "$http_status" == "202" ]]; then
               echo "::error::FOSSA licensing issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
+              write_api_failure_summary "FOSSA licensing issues are not ready yet." "$response_file"
               cat "$response_file"
               exit 1
             fi
 
             if [[ "$http_status" != "200" ]]; then
               echo "::error::FOSSA licensing issues API returned HTTP ${http_status}."
+              write_api_failure_summary "FOSSA licensing issues API returned HTTP ${http_status}." "$response_file"
               cat "$response_file"
               exit 1
             fi
@@ -554,47 +576,48 @@ jobs:
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## FOSSA License Compliance"
+            echo "## FOSSA License Test"
             echo ""
-            echo "- Project locator: \`${FOSSA_PROJECT_LOCATOR}\`"
-            echo "- Revision: \`${FOSSA_REVISION}\`"
-            echo "- Active licensing issues: \`${issue_count}\`"
-            echo "- FOSSA report: ${FOSSA_REPORT_URL}"
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "| Status | Failed |"
+            else
+              echo "| Status | Passed |"
+            fi
+            echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+            echo "| Revision | \`${FOSSA_REVISION}\` |"
+            echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+            echo "| Active license issues | \`${issue_count}\` |"
+            echo "| Release blocking license issues | \`${issue_count}\` |"
             echo ""
             if [[ "$issue_count" -gt 0 ]]; then
-              echo "### First 25 Issues"
-              jq -r '.issues[0:25][]? | "- Issue ID: \(.id // "unknown") | Package: \(.package.name // .dependency.name // .packageName // "unknown") | Type: \(.type // .issueType // "unknown")"' "$issues_file"
+              echo "### Blocking License Issues"
+              echo ""
+              echo "Showing the first 25 active license issues. Use the FOSSA report link for the full issue list."
+              echo ""
+              jq -r '.issues[0:25][]? | "- Issue ID: `\(.id // "unknown")`; Package: `\(.package.name // .dependency.name // .packageName // "unknown")`; Type: `\(.type // .issueType // "unknown")`"' "$issues_file"
             else
-              echo "No active licensing issues were reported by FOSSA."
+              echo "No active license issues were reported by FOSSA."
             fi
-          } > "$summary_file"
-
-          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "$issue_count" -gt 0 ]]; then
             echo "::error::Found ${issue_count} active FOSSA licensing issue(s)."
             exit 1
           fi
-      - name: upload FOSSA license issue artifacts
-        uses: actions/upload-artifact@v4
-        if: success() || failure()
-        with:
-          name: fossa-license-issues
-          path: |
-            fossa-license-issues.json
-            fossa-license-summary.md
 
-  fossa-vulnerability-scan:
+  fossa-vulnerability-test:
     continue-on-error: true
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
     outputs:
-      active-issues: ${{ steps.fossa-vulnerability-scan.outputs.active-issues }}
-      critical-high-issues: ${{ steps.fossa-vulnerability-scan.outputs.critical-high-issues }}
+      active-issues: ${{ steps.fossa-vulnerability-test.outputs.active-issues }}
+      blocking-issues: ${{ steps.fossa-vulnerability-test.outputs.blocking-issues }}
     steps:
-      - name: retrieve FOSSA vulnerability issues
-        id: fossa-vulnerability-scan
+      - name: run fossa vulnerability test
+        id: fossa-vulnerability-test
         shell: bash
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
@@ -605,8 +628,7 @@ jobs:
           set -euo pipefail
 
           issues_file="fossa-vulnerability-issues.json"
-          critical_high_issues_file="fossa-vulnerability-critical-high-issues.json"
-          summary_file="fossa-vulnerability-summary.md"
+          blocking_issues_file="fossa-vulnerability-blocking-issues.json"
           tmp_dir="$(mktemp -d)"
           page=1
           count=1000
@@ -647,6 +669,27 @@ jobs:
           echo "Using FOSSA project locator: ${FOSSA_PROJECT_LOCATOR}"
           echo '{"issues":[]}' > "$issues_file"
 
+          write_api_failure_summary() {
+            local reason="$1"
+            local response_file="$2"
+            {
+              echo "## FOSSA Vulnerability Test"
+              echo ""
+              echo "| Field | Value |"
+              echo "| --- | --- |"
+              echo "| Status | Failed |"
+              echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+              echo "| Revision | \`${FOSSA_REVISION}\` |"
+              echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+              echo "| Failure reason | ${reason} |"
+              echo ""
+              echo "### FOSSA API Response"
+              echo '```json'
+              cat "$response_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
           while true; do
             response_file="$tmp_dir/vulnerability-issues-page-${page}.json"
             http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
@@ -664,12 +707,14 @@ jobs:
 
             if [[ "$http_status" == "202" ]]; then
               echo "::error::FOSSA vulnerability issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
+              write_api_failure_summary "FOSSA vulnerability issues are not ready yet." "$response_file"
               cat "$response_file"
               exit 1
             fi
 
             if [[ "$http_status" != "200" ]]; then
               echo "::error::FOSSA vulnerability issues API returned HTTP ${http_status}."
+              write_api_failure_summary "FOSSA vulnerability issues API returned HTTP ${http_status}." "$response_file"
               cat "$response_file"
               exit 1
             fi
@@ -688,10 +733,10 @@ jobs:
           issue_count=$(jq '.issues | length' "$issues_file")
 
           page=1
-          echo '{"issues":[]}' > "$critical_high_issues_file"
+          echo '{"issues":[]}' > "$blocking_issues_file"
 
           while true; do
-            response_file="$tmp_dir/vulnerability-critical-high-issues-page-${page}.json"
+            response_file="$tmp_dir/vulnerability-blocking-issues-page-${page}.json"
             http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
               -H "Authorization: Bearer ${FOSSA_API_KEY}" \
               -H "Accept: application/json" \
@@ -702,26 +747,29 @@ jobs:
               --data-urlencode "scope[revision]=${FOSSA_REVISION}" \
               --data-urlencode "filter[severity][0]=critical" \
               --data-urlencode "filter[severity][1]=high" \
+              --data-urlencode "filter[severity][2]=medium" \
               --data-urlencode "page=${page}" \
               --data-urlencode "count=${count}" \
               -o "$response_file" \
               -w "%{http_code}")
 
             if [[ "$http_status" == "202" ]]; then
-              echo "::error::FOSSA critical/high vulnerability issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
+              echo "::error::FOSSA critical/high/medium vulnerability issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
+              write_api_failure_summary "FOSSA critical/high/medium vulnerability issues are not ready yet." "$response_file"
               cat "$response_file"
               exit 1
             fi
 
             if [[ "$http_status" != "200" ]]; then
-              echo "::error::FOSSA critical/high vulnerability issues API returned HTTP ${http_status}."
+              echo "::error::FOSSA critical/high/medium vulnerability issues API returned HTTP ${http_status}."
+              write_api_failure_summary "FOSSA critical/high/medium vulnerability issues API returned HTTP ${http_status}." "$response_file"
               cat "$response_file"
               exit 1
             fi
 
             page_issue_count=$(jq '.issues | length' "$response_file")
-            jq -s '{issues: (.[0].issues + .[1].issues)}' "$critical_high_issues_file" "$response_file" > "$critical_high_issues_file.next"
-            mv "$critical_high_issues_file.next" "$critical_high_issues_file"
+            jq -s '{issues: (.[0].issues + .[1].issues)}' "$blocking_issues_file" "$response_file" > "$blocking_issues_file.next"
+            mv "$blocking_issues_file.next" "$blocking_issues_file"
 
             if [[ "$page_issue_count" -lt "$count" ]]; then
               break
@@ -730,47 +778,49 @@ jobs:
             page=$((page + 1))
           done
 
-          critical_high_issue_count=$(jq '.issues | length' "$critical_high_issues_file")
+          blocking_issue_count=$(jq '.issues | length' "$blocking_issues_file")
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
-          echo "critical-high-issues=$critical_high_issue_count" >> "$GITHUB_OUTPUT"
+          echo "blocking-issues=$blocking_issue_count" >> "$GITHUB_OUTPUT"
 
           {
-            echo "## FOSSA Vulnerability Findings"
+            echo "## FOSSA Vulnerability Test"
             echo ""
-            echo "- Project locator: \`${FOSSA_PROJECT_LOCATOR}\`"
-            echo "- Revision: \`${FOSSA_REVISION}\`"
-            echo "- Active vulnerability issues: \`${issue_count}\`"
-            echo "- Active critical/high vulnerability issues: \`${critical_high_issue_count}\`"
-            echo "- FOSSA report: ${FOSSA_REPORT_URL}"
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            if [[ "$blocking_issue_count" -gt 0 ]]; then
+              echo "| Status | Failed |"
+            else
+              echo "| Status | Passed |"
+            fi
+            echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+            echo "| Revision | \`${FOSSA_REVISION}\` |"
+            echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+            echo "| Active vulnerability issues | \`${issue_count}\` |"
+            echo "| Release blocking critical/high/medium vulnerability issues | \`${blocking_issue_count}\` |"
             echo ""
-            if [[ "$issue_count" -gt 0 ]]; then
-              echo "### First 25 Issues"
-              jq -r '.issues[0:25][]? | "- Issue ID: \(.id // "unknown") | Package: \(.package.name // .dependency.name // .packageName // "unknown") | Severity: \(.severity // .vulnerability.severity // "unknown")"' "$issues_file"
+            if [[ "$blocking_issue_count" -gt 0 ]]; then
+              echo "### Blocking Vulnerability Issues"
+              echo ""
+              echo "Showing the first 25 active critical/high/medium vulnerability issues. Use the FOSSA report link for the full issue list."
+              echo ""
+              jq -r '.issues[0:25][]? | "- Issue ID: `\(.id // "unknown")`; Package: `\(.package.name // .dependency.name // .packageName // "unknown")`; Severity: `\(.severity // .vulnerability.severity // "unknown")`"' "$blocking_issues_file"
+            elif [[ "$issue_count" -gt 0 ]]; then
+              echo "No release-blocking critical/high/medium vulnerability issues were reported by FOSSA."
+              echo ""
+              echo "### Non-Blocking Vulnerability Issues"
+              echo ""
+              echo "Showing the first 25 lower-severity active vulnerability issues."
+              echo ""
+              jq -r '.issues[0:25][]? | "- Issue ID: `\(.id // "unknown")`; Package: `\(.package.name // .dependency.name // .packageName // "unknown")`; Severity: `\(.severity // .vulnerability.severity // "unknown")`"' "$issues_file"
             else
               echo "No active vulnerability issues were reported by FOSSA."
             fi
-            if [[ "$critical_high_issue_count" -gt 0 ]]; then
-              echo ""
-              echo "### First 25 Critical/High Issues"
-              jq -r '.issues[0:25][]? | "- Issue ID: \(.id // "unknown") | Package: \(.package.name // .dependency.name // .packageName // "unknown") | Severity: \(.severity // .vulnerability.severity // "unknown")"' "$critical_high_issues_file"
-            fi
-          } > "$summary_file"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ "$critical_high_issue_count" -gt 0 ]]; then
-            echo "::error::Found ${critical_high_issue_count} active critical/high FOSSA vulnerability issue(s)."
+          if [[ "$blocking_issue_count" -gt 0 ]]; then
+            echo "::error::Found ${blocking_issue_count} active critical/high/medium FOSSA vulnerability issue(s)."
             exit 1
           fi
-      - name: upload FOSSA vulnerability issue artifacts
-        uses: actions/upload-artifact@v4
-        if: success() || failure()
-        with:
-          name: fossa-vulnerability-issues
-          path: |
-            fossa-vulnerability-issues.json
-            fossa-vulnerability-critical-high-issues.json
-            fossa-vulnerability-summary.md
 
   fossa-test:
     continue-on-error: true
@@ -3546,8 +3596,8 @@ jobs:
       - run-ui-tests
       - validate-pr-title
       - run-gs-scorecard
-      - fossa-license-scan
-      - fossa-vulnerability-scan
+      - fossa-license-test
+      - fossa-vulnerability-test
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -3567,10 +3617,10 @@ jobs:
             exit 1
           fi
 
-          FOSSA_LICENSE_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-license-scan"].outputs["active-issues"] // ""')
-          FOSSA_CRITICAL_HIGH_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-scan"].outputs["critical-high-issues"] // ""')
-          FOSSA_LICENSE_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-license-scan"].result // "missing"')
-          FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-scan"].result // "missing"')
+          FOSSA_LICENSE_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].outputs["active-issues"] // ""')
+          FOSSA_BLOCKING_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["blocking-issues"] // ""')
+          FOSSA_LICENSE_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].result // "missing"')
+          FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].result // "missing"')
           FOSSA_RELEASE_GATING=false
 
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "main" ]]; then
@@ -3582,7 +3632,7 @@ jobs:
           fi
 
           if [[ "$FOSSA_RELEASE_GATING" == "true" && "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]]; then
-            if [[ "$FOSSA_LICENSE_RESULT" == "skipped" || "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ || ! "$FOSSA_CRITICAL_HIGH_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
+            if [[ "$FOSSA_LICENSE_RESULT" == "skipped" || "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ || ! "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
               echo "::error::FOSSA split scan results are required for release readiness."
               echo "## FOSSA Release Gate" >> "$GITHUB_STEP_SUMMARY"
               echo "FOSSA split scan results are required for release readiness. License job result: \`${FOSSA_LICENSE_RESULT}\`; vulnerability job result: \`${FOSSA_VULNERABILITY_RESULT}\`." >> "$GITHUB_STEP_SUMMARY"
@@ -3591,25 +3641,25 @@ jobs:
               exit 1
             fi
 
-            if [[ "$FOSSA_LICENSE_ISSUES" -gt 0 || "$FOSSA_CRITICAL_HIGH_VULNERABILITIES" -gt 0 ]]; then
-              echo "::error::FOSSA release blockers found. License issues: ${FOSSA_LICENSE_ISSUES}. Critical/high vulnerability issues: ${FOSSA_CRITICAL_HIGH_VULNERABILITIES}."
+            if [[ "$FOSSA_LICENSE_ISSUES" -gt 0 || "$FOSSA_BLOCKING_VULNERABILITIES" -gt 0 ]]; then
+              echo "::error::FOSSA release blockers found. License issues: ${FOSSA_LICENSE_ISSUES}. Critical/high/medium vulnerability issues: ${FOSSA_BLOCKING_VULNERABILITIES}."
               echo "## FOSSA Release Gate" >> "$GITHUB_STEP_SUMMARY"
               echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`" >> "$GITHUB_STEP_SUMMARY"
-              echo "- Active critical/high vulnerability issues: \`${FOSSA_CRITICAL_HIGH_VULNERABILITIES}\`" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`" >> "$GITHUB_STEP_SUMMARY"
               echo "Resolve or approve the FOSSA findings before release." >> "$GITHUB_STEP_SUMMARY"
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
               exit 1
             fi
-          elif [[ "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ && "$FOSSA_CRITICAL_HIGH_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
+          elif [[ "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ && "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
             echo "## FOSSA Release Gate" >> "$GITHUB_STEP_SUMMARY"
             echo "FOSSA release gating is not enforced for this workflow path." >> "$GITHUB_STEP_SUMMARY"
             echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Active critical/high vulnerability issues: \`${FOSSA_CRITICAL_HIGH_VULNERABILITIES}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Exclude run-gs-scorecard and FOSSA split jobs from the general check since they have their own handling above
-          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-license-scan"], .["fossa-vulnerability-scan"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-license-test"], .["fossa-vulnerability-test"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
