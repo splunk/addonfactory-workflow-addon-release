@@ -328,15 +328,17 @@ THIRDPARTY
 
 - It derives the FOSSA project locator from the `fossa-scan` report URL and falls back to the GitHub repository locator if the report URL does not contain one.
 
+- It retries for a bounded period when the FOSSA Issues API reports that results are not ready yet.
+
 **Pass/fail behaviour:**
 
 - This stage fails if active FOSSA licensing issues are found, or if FOSSA cannot return issue results for the scanned revision. The job is allowed to continue so non-release workflow paths can remain usable, while `pre-publish` enforces release gating.
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job summary. It includes the FOSSA report link, active license issue count, release-blocking issue count, and the first 25 blocking findings. License issues should be checked by the legal team.
+- Review the job summary. It includes the FOSSA report link, active license issue count, release-blocking issue count, and all active license findings in a `fossa test`-style format. License issues should be checked by the legal team.
 
-- No artifacts are produced by this job.
+- Raw FOSSA API responses are uploaded as the `fossa-license-issues` artifact.
 
 ## [Job] fossa-vulnerability-test
 
@@ -350,15 +352,17 @@ THIRDPARTY
 
 - It derives the FOSSA project locator from the `fossa-scan` report URL and falls back to the GitHub repository locator if the report URL does not contain one.
 
+- It retries for a bounded period when the FOSSA Issues API reports that results are not ready yet.
+
 **Pass/fail behaviour:**
 
 - This stage fails if active critical, high, or medium FOSSA vulnerability issues are found, or if FOSSA cannot return issue results for the scanned revision. Low and unknown severity vulnerabilities are reported in the job summary without failing this split job.
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job summary. It includes the FOSSA report link, active vulnerability count, release-blocking critical/high/medium vulnerability count, and the first 25 blocking findings. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
+- Review the job summary. It includes the FOSSA report link, active vulnerability count, release-blocking critical/high/medium vulnerability count, and all active vulnerability findings in a `fossa test`-style format. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
 
-- No artifacts are produced by this job.
+- Raw FOSSA API responses are uploaded as the `fossa-vulnerability-issues` artifact.
 
 ## [Job] fossa-test
 
