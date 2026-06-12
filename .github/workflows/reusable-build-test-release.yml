@@ -474,6 +474,8 @@ jobs:
           tmp_dir="$(mktemp -d)"
           page=1
           count=1000
+          max_attempts=6
+          retry_sleep_seconds=20
 
           resolved_project_locator=$(python3 - <<'PY'
           import os
@@ -532,37 +534,59 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           }
 
+          fetch_issues_page() {
+            local response_file="$1"
+            local description="$2"
+            shift 2
+
+            local attempt
+            local http_status
+            local reason
+            for attempt in $(seq 1 "$max_attempts"); do
+              : > "$response_file"
+              http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
+                -H "Authorization: Bearer ${FOSSA_API_KEY}" \
+                -H "Accept: application/json" \
+                "$@" \
+                -o "$response_file" \
+                -w "%{http_code}") || http_status="000"
+
+              if [[ "$http_status" == "200" ]]; then
+                return 0
+              fi
+
+              if [[ "$http_status" == "202" && "$attempt" -lt "$max_attempts" ]]; then
+                echo "::warning::FOSSA ${description} are not ready yet; retrying in ${retry_sleep_seconds}s (attempt ${attempt}/${max_attempts})."
+                sleep "$retry_sleep_seconds"
+                continue
+              fi
+
+              if [[ "$http_status" == "202" ]]; then
+                reason="FOSSA ${description} are not ready after ${max_attempts} attempts."
+              else
+                reason="FOSSA ${description} API returned HTTP ${http_status}."
+              fi
+
+              echo "::error::${reason}"
+              write_api_failure_summary "$reason" "$response_file"
+              cat "$response_file"
+              exit 1
+            done
+          }
+
           while true; do
             response_file="$tmp_dir/license-issues-page-${page}.json"
-            http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
-              -H "Authorization: Bearer ${FOSSA_API_KEY}" \
-              -H "Accept: application/json" \
+            fetch_issues_page "$response_file" "licensing issues" \
               --data-urlencode "category=licensing" \
               --data-urlencode "status=active" \
               --data-urlencode "scope[type]=project" \
               --data-urlencode "scope[id]=${FOSSA_PROJECT_LOCATOR}" \
               --data-urlencode "scope[revision]=${FOSSA_REVISION}" \
               --data-urlencode "page=${page}" \
-              --data-urlencode "count=${count}" \
-              -o "$response_file" \
-              -w "%{http_code}")
+              --data-urlencode "count=${count}"
 
-            if [[ "$http_status" == "202" ]]; then
-              echo "::error::FOSSA licensing issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
-              write_api_failure_summary "FOSSA licensing issues are not ready yet." "$response_file"
-              cat "$response_file"
-              exit 1
-            fi
-
-            if [[ "$http_status" != "200" ]]; then
-              echo "::error::FOSSA licensing issues API returned HTTP ${http_status}."
-              write_api_failure_summary "FOSSA licensing issues API returned HTTP ${http_status}." "$response_file"
-              cat "$response_file"
-              exit 1
-            fi
-
-            page_issue_count=$(jq '.issues | length' "$response_file")
-            jq -s '{issues: (.[0].issues + .[1].issues)}' "$issues_file" "$response_file" > "$issues_file.next"
+            page_issue_count=$(jq '(.issues // []) | length' "$response_file")
+            jq -s '{issues: ((.[0].issues // []) + (.[1].issues // []))}' "$issues_file" "$response_file" > "$issues_file.next"
             mv "$issues_file.next" "$issues_file"
 
             if [[ "$page_issue_count" -lt "$count" ]]; then
@@ -572,8 +596,64 @@ jobs:
             page=$((page + 1))
           done
 
-          issue_count=$(jq '.issues | length' "$issues_file")
+          issue_count=$(jq '(.issues // []) | length' "$issues_file")
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
+
+          summary_file="$tmp_dir/fossa-license-summary.txt"
+          {
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "Error:"
+              echo ""
+            fi
+            echo "========================================================================"
+            echo "Tested Following Project:"
+            echo "========================================================================"
+            echo ""
+            echo "Project Title: ${GITHUB_REPOSITORY#*/}"
+            echo "Project Revision: ${FOSSA_REVISION}"
+            echo "Project Locator: ${FOSSA_PROJECT_LOCATOR}"
+            echo "FOSSA Report: ${FOSSA_REPORT_URL:-Not available}"
+            echo ""
+            echo ""
+            echo "COMPLIANCE ISSUES (Total ${issue_count})"
+            echo ""
+            echo "========================================================================"
+            echo "Flagged by Policy (Total ${issue_count})"
+            echo "========================================================================"
+            if [[ "$issue_count" -gt 0 ]]; then
+              jq -r --arg reportUrl "${FOSSA_REPORT_URL:-}" '
+                def first($values):
+                  ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
+                def package_name:
+                  first([.package.name, .dependency.name, .packageName, .dependency.locator]);
+                def license_name:
+                  first([.license.spdxId, .license.name, .licenseId, .license, .licenses[0].spdxId, .licenses[0].name, .type, .issueType]);
+                def issue_url($category):
+                  first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
+                  | if $direct != "unknown" then $direct
+                    elif (((.id // "") | tostring) != "" and $reportUrl != "") then
+                      (($reportUrl | sub("\\?.*$"; "") | sub("/$"; "")) + "/issues/\($category)/\(.id)")
+                    else
+                      "unknown"
+                    end;
+                .issues[]? |
+                  "- \(license_name) license detected in \(package_name)\n  More information: \(issue_url("licensing"))\n"
+              ' "$issues_file"
+              echo ""
+              echo "[DEBUG] An issue occurred"
+              echo ""
+              echo "  *** Relevant Errors ***"
+              echo ""
+              echo "      Error: The scan has revealed license compliance issues. Number of license issues found: ${issue_count}"
+              echo ""
+              echo "      Traceback:"
+              echo "        (none)"
+            else
+              echo "No active license compliance issues were reported by FOSSA."
+            fi
+          } > "$summary_file"
+
+          cat "$summary_file"
 
           {
             echo "## FOSSA License Test"
@@ -591,21 +671,24 @@ jobs:
             echo "| Active license issues | \`${issue_count}\` |"
             echo "| Release blocking license issues | \`${issue_count}\` |"
             echo ""
-            if [[ "$issue_count" -gt 0 ]]; then
-              echo "### Blocking License Issues"
-              echo ""
-              echo "Showing the first 25 active license issues. Use the FOSSA report link for the full issue list."
-              echo ""
-              jq -r '.issues[0:25][]? | "- Issue ID: `\(.id // "unknown")`; Package: `\(.package.name // .dependency.name // .packageName // "unknown")`; Type: `\(.type // .issueType // "unknown")`"' "$issues_file"
-            else
-              echo "No active license issues were reported by FOSSA."
-            fi
+            echo "### License Issues"
+            echo ""
+            echo '```text'
+            cat "$summary_file"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "$issue_count" -gt 0 ]]; then
             echo "::error::Found ${issue_count} active FOSSA licensing issue(s)."
             exit 1
           fi
+      - name: upload FOSSA license issues
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fossa-license-issues
+          path: fossa-license-issues.json
+          if-no-files-found: ignore
 
   fossa-vulnerability-test:
     continue-on-error: true
@@ -632,6 +715,8 @@ jobs:
           tmp_dir="$(mktemp -d)"
           page=1
           count=1000
+          max_attempts=6
+          retry_sleep_seconds=20
 
           resolved_project_locator=$(python3 - <<'PY'
           import os
@@ -690,37 +775,59 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           }
 
+          fetch_issues_page() {
+            local response_file="$1"
+            local description="$2"
+            shift 2
+
+            local attempt
+            local http_status
+            local reason
+            for attempt in $(seq 1 "$max_attempts"); do
+              : > "$response_file"
+              http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
+                -H "Authorization: Bearer ${FOSSA_API_KEY}" \
+                -H "Accept: application/json" \
+                "$@" \
+                -o "$response_file" \
+                -w "%{http_code}") || http_status="000"
+
+              if [[ "$http_status" == "200" ]]; then
+                return 0
+              fi
+
+              if [[ "$http_status" == "202" && "$attempt" -lt "$max_attempts" ]]; then
+                echo "::warning::FOSSA ${description} are not ready yet; retrying in ${retry_sleep_seconds}s (attempt ${attempt}/${max_attempts})."
+                sleep "$retry_sleep_seconds"
+                continue
+              fi
+
+              if [[ "$http_status" == "202" ]]; then
+                reason="FOSSA ${description} are not ready after ${max_attempts} attempts."
+              else
+                reason="FOSSA ${description} API returned HTTP ${http_status}."
+              fi
+
+              echo "::error::${reason}"
+              write_api_failure_summary "$reason" "$response_file"
+              cat "$response_file"
+              exit 1
+            done
+          }
+
           while true; do
             response_file="$tmp_dir/vulnerability-issues-page-${page}.json"
-            http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
-              -H "Authorization: Bearer ${FOSSA_API_KEY}" \
-              -H "Accept: application/json" \
+            fetch_issues_page "$response_file" "vulnerability issues" \
               --data-urlencode "category=vulnerability" \
               --data-urlencode "status=active" \
               --data-urlencode "scope[type]=project" \
               --data-urlencode "scope[id]=${FOSSA_PROJECT_LOCATOR}" \
               --data-urlencode "scope[revision]=${FOSSA_REVISION}" \
               --data-urlencode "page=${page}" \
-              --data-urlencode "count=${count}" \
-              -o "$response_file" \
-              -w "%{http_code}")
+              --data-urlencode "count=${count}"
 
-            if [[ "$http_status" == "202" ]]; then
-              echo "::error::FOSSA vulnerability issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
-              write_api_failure_summary "FOSSA vulnerability issues are not ready yet." "$response_file"
-              cat "$response_file"
-              exit 1
-            fi
-
-            if [[ "$http_status" != "200" ]]; then
-              echo "::error::FOSSA vulnerability issues API returned HTTP ${http_status}."
-              write_api_failure_summary "FOSSA vulnerability issues API returned HTTP ${http_status}." "$response_file"
-              cat "$response_file"
-              exit 1
-            fi
-
-            page_issue_count=$(jq '.issues | length' "$response_file")
-            jq -s '{issues: (.[0].issues + .[1].issues)}' "$issues_file" "$response_file" > "$issues_file.next"
+            page_issue_count=$(jq '(.issues // []) | length' "$response_file")
+            jq -s '{issues: ((.[0].issues // []) + (.[1].issues // []))}' "$issues_file" "$response_file" > "$issues_file.next"
             mv "$issues_file.next" "$issues_file"
 
             if [[ "$page_issue_count" -lt "$count" ]]; then
@@ -730,16 +837,14 @@ jobs:
             page=$((page + 1))
           done
 
-          issue_count=$(jq '.issues | length' "$issues_file")
+          issue_count=$(jq '(.issues // []) | length' "$issues_file")
 
           page=1
           echo '{"issues":[]}' > "$blocking_issues_file"
 
           while true; do
             response_file="$tmp_dir/vulnerability-blocking-issues-page-${page}.json"
-            http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
-              -H "Authorization: Bearer ${FOSSA_API_KEY}" \
-              -H "Accept: application/json" \
+            fetch_issues_page "$response_file" "critical/high/medium vulnerability issues" \
               --data-urlencode "category=vulnerability" \
               --data-urlencode "status=active" \
               --data-urlencode "scope[type]=project" \
@@ -749,26 +854,10 @@ jobs:
               --data-urlencode "filter[severity][1]=high" \
               --data-urlencode "filter[severity][2]=medium" \
               --data-urlencode "page=${page}" \
-              --data-urlencode "count=${count}" \
-              -o "$response_file" \
-              -w "%{http_code}")
+              --data-urlencode "count=${count}"
 
-            if [[ "$http_status" == "202" ]]; then
-              echo "::error::FOSSA critical/high/medium vulnerability issues are not ready for ${FOSSA_PROJECT_LOCATOR}@${FOSSA_REVISION}."
-              write_api_failure_summary "FOSSA critical/high/medium vulnerability issues are not ready yet." "$response_file"
-              cat "$response_file"
-              exit 1
-            fi
-
-            if [[ "$http_status" != "200" ]]; then
-              echo "::error::FOSSA critical/high/medium vulnerability issues API returned HTTP ${http_status}."
-              write_api_failure_summary "FOSSA critical/high/medium vulnerability issues API returned HTTP ${http_status}." "$response_file"
-              cat "$response_file"
-              exit 1
-            fi
-
-            page_issue_count=$(jq '.issues | length' "$response_file")
-            jq -s '{issues: (.[0].issues + .[1].issues)}' "$blocking_issues_file" "$response_file" > "$blocking_issues_file.next"
+            page_issue_count=$(jq '(.issues // []) | length' "$response_file")
+            jq -s '{issues: ((.[0].issues // []) + (.[1].issues // []))}' "$blocking_issues_file" "$response_file" > "$blocking_issues_file.next"
             mv "$blocking_issues_file.next" "$blocking_issues_file"
 
             if [[ "$page_issue_count" -lt "$count" ]]; then
@@ -778,9 +867,78 @@ jobs:
             page=$((page + 1))
           done
 
-          blocking_issue_count=$(jq '.issues | length' "$blocking_issues_file")
+          blocking_issue_count=$(jq '(.issues // []) | length' "$blocking_issues_file")
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
           echo "blocking-issues=$blocking_issue_count" >> "$GITHUB_OUTPUT"
+
+          summary_file="$tmp_dir/fossa-vulnerability-summary.txt"
+          {
+            if [[ "$blocking_issue_count" -gt 0 ]]; then
+              echo "Error:"
+              echo ""
+            fi
+            echo "========================================================================"
+            echo "Tested Following Project:"
+            echo "========================================================================"
+            echo ""
+            echo "Project Title: ${GITHUB_REPOSITORY#*/}"
+            echo "Project Revision: ${FOSSA_REVISION}"
+            echo "Project Locator: ${FOSSA_PROJECT_LOCATOR}"
+            echo "FOSSA Report: ${FOSSA_REPORT_URL:-Not available}"
+            echo ""
+            echo ""
+            echo "SECURITY ISSUES (Total ${issue_count})"
+            echo "Release-blocking critical/high/medium vulnerabilities: ${blocking_issue_count}"
+            echo ""
+            echo "========================================================================"
+            echo "Vulnerability (Total ${issue_count})"
+            echo "========================================================================"
+            if [[ "$issue_count" -gt 0 ]]; then
+              jq -r --arg reportUrl "${FOSSA_REPORT_URL:-}" '
+                def first($values):
+                  ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
+                def capitalize:
+                  tostring as $s | ($s[0:1] | ascii_upcase) + ($s[1:] | ascii_downcase);
+                def severity_raw:
+                  first([.severity, .vulnerability.severity, .vulnerabilitySeverity]) | ascii_downcase;
+                def severity_rank:
+                  {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}[severity_raw] // 4;
+                def package_name:
+                  first([.package.name, .dependency.name, .packageName, .dependency.locator]);
+                def severity_name:
+                  severity_raw | capitalize;
+                def cve_id:
+                  first([.cve, .cveId, .cve_id, .vulnerability.cve, .vulnerability.cveId, .vulnerability.id, .vulnerability.cves[0], .cves[0]]);
+                def fixed_in:
+                  first([.fixedIn, .fixed_in, .fixedVersion, .fixVersion, .vulnerability.fixedIn, .vulnerability.fixedVersion, .vulnerability.fixedVersions[0]]);
+                def issue_url($category):
+                  first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
+                  | if $direct != "unknown" then $direct
+                    elif (((.id // "") | tostring) != "" and $reportUrl != "") then
+                      (($reportUrl | sub("\\?.*$"; "") | sub("/$"; "")) + "/issues/\($category)/\(.id)")
+                    else
+                      "unknown"
+                    end;
+                .issues | sort_by(severity_rank, package_name, cve_id, ((.id // "") | tostring))[]? |
+                  "- \(severity_name) vulnerability was detected on \(package_name)\n  CVE ID: \(cve_id)\n  Fixed in: \(fixed_in)\n  More information: \(issue_url("security"))\n"
+              ' "$issues_file"
+              if [[ "$blocking_issue_count" -gt 0 ]]; then
+                echo ""
+                echo "[DEBUG] An issue occurred"
+                echo ""
+                echo "  *** Relevant Errors ***"
+                echo ""
+                echo "      Error: The scan has revealed release-blocking vulnerability issues. Number of critical/high/medium vulnerability issues found: ${blocking_issue_count}"
+                echo ""
+                echo "      Traceback:"
+                echo "        (none)"
+              fi
+            else
+              echo "No active vulnerability issues were reported by FOSSA."
+            fi
+          } > "$summary_file"
+
+          cat "$summary_file"
 
           {
             echo "## FOSSA Vulnerability Test"
@@ -798,29 +956,26 @@ jobs:
             echo "| Active vulnerability issues | \`${issue_count}\` |"
             echo "| Release blocking critical/high/medium vulnerability issues | \`${blocking_issue_count}\` |"
             echo ""
-            if [[ "$blocking_issue_count" -gt 0 ]]; then
-              echo "### Blocking Vulnerability Issues"
-              echo ""
-              echo "Showing the first 25 active critical/high/medium vulnerability issues. Use the FOSSA report link for the full issue list."
-              echo ""
-              jq -r '.issues[0:25][]? | "- Issue ID: `\(.id // "unknown")`; Package: `\(.package.name // .dependency.name // .packageName // "unknown")`; Severity: `\(.severity // .vulnerability.severity // "unknown")`"' "$blocking_issues_file"
-            elif [[ "$issue_count" -gt 0 ]]; then
-              echo "No release-blocking critical/high/medium vulnerability issues were reported by FOSSA."
-              echo ""
-              echo "### Non-Blocking Vulnerability Issues"
-              echo ""
-              echo "Showing the first 25 lower-severity active vulnerability issues."
-              echo ""
-              jq -r '.issues[0:25][]? | "- Issue ID: `\(.id // "unknown")`; Package: `\(.package.name // .dependency.name // .packageName // "unknown")`; Severity: `\(.severity // .vulnerability.severity // "unknown")`"' "$issues_file"
-            else
-              echo "No active vulnerability issues were reported by FOSSA."
-            fi
+            echo "### Vulnerability Issues"
+            echo ""
+            echo '```text'
+            cat "$summary_file"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "$blocking_issue_count" -gt 0 ]]; then
             echo "::error::Found ${blocking_issue_count} active critical/high/medium FOSSA vulnerability issue(s)."
             exit 1
           fi
+      - name: upload FOSSA vulnerability issues
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fossa-vulnerability-issues
+          path: |
+            fossa-vulnerability-issues.json
+            fossa-vulnerability-blocking-issues.json
+          if-no-files-found: ignore
 
   fossa-test:
     continue-on-error: true
