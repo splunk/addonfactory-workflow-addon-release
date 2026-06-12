@@ -3266,12 +3266,6 @@ jobs:
       pull-requests: read
       statuses: write
     steps:
-      - uses: actions/create-github-app-token@v3
-        id: app-token
-        with:
-          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -3282,7 +3276,7 @@ jobs:
         id: semantic
         uses: splunk/semantic-release-action@v1.3
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
         with:
           git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
@@ -3293,7 +3287,7 @@ jobs:
         id: custom
         uses: "softprops/action-gh-release@v2"
         with:
-          token: "${{ steps.app-token.outputs.token }}"
+          token: "${{ secrets.GH_TOKEN_ADMIN }}"
           tag_name: v${{ github.event.inputs.custom-version }}
           target_commitish: "${{github.ref_name}}"
           make_latest: false
