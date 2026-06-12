@@ -45,7 +45,7 @@ on:
         description: "list of OS used for scripted input tests"
         type: string
         default: >-
-          ["ubuntu:16.04", "ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8", "redhat:9.5"]
+          ["ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8", "redhat:9.5"]
       upgrade-tests-ta-versions:
         required: false
         description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
@@ -78,6 +78,9 @@ on:
         type: string
         default: "0.3"
     secrets:
+      GH_TOKEN_ADMIN:
+        description: Github admin token
+        required: true
       GH_APP_CLIENT_ID:
         description: GitHub App Client ID for authentication
         required: true
@@ -421,6 +424,8 @@ jobs:
 
   fossa-scan:
     runs-on: ubuntu-latest
+    outputs:
+      report-url: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: run fossa analyze and create report
@@ -445,6 +450,557 @@ jobs:
         if: success() || failure()
         run: |
           echo "FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> "$GITHUB_STEP_SUMMARY"
+
+  fossa-license-test:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    needs:
+      - fossa-scan
+    outputs:
+      active-issues: ${{ steps.fossa-license-test.outputs.active-issues }}
+    steps:
+      - name: run fossa license test
+        id: fossa-license-test
+        shell: bash
+        env:
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
+          FOSSA_PROJECT_LOCATOR: git+github.com/${{ github.repository }}
+          FOSSA_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          issues_file="fossa-license-issues.json"
+          tmp_dir="$(mktemp -d)"
+          page=1
+          count=1000
+          max_attempts=6
+          retry_sleep_seconds=20
+
+          resolved_project_locator=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+
+          url = os.environ.get("FOSSA_REPORT_URL", "")
+          if not url:
+              raise SystemExit
+
+          parsed_url = urllib.parse.urlparse(url)
+          project_path = parsed_url.path
+          next_values = urllib.parse.parse_qs(parsed_url.query).get("next")
+          if next_values:
+              project_path = next_values[0]
+
+          for _ in range(3):
+              decoded_path = urllib.parse.unquote(project_path)
+              if decoded_path == project_path:
+                  break
+              project_path = decoded_path
+
+          if "/projects/" not in project_path:
+              raise SystemExit
+
+          locator = project_path.split("/projects/", 1)[1].split("/refs/", 1)[0]
+          if locator:
+              print(locator)
+          PY
+          )
+
+          if [[ -n "$resolved_project_locator" ]]; then
+            FOSSA_PROJECT_LOCATOR="$resolved_project_locator"
+          fi
+
+          echo "Using FOSSA project locator: ${FOSSA_PROJECT_LOCATOR}"
+          echo '{"issues":[]}' > "$issues_file"
+
+          write_api_failure_summary() {
+            local reason="$1"
+            local response_file="$2"
+            {
+              echo "## FOSSA License Test"
+              echo ""
+              echo "| Field | Value |"
+              echo "| --- | --- |"
+              echo "| Status | Failed |"
+              echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+              echo "| Revision | \`${FOSSA_REVISION}\` |"
+              echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+              echo "| Failure reason | ${reason} |"
+              echo ""
+              echo "### FOSSA API Response"
+              echo '```json'
+              cat "$response_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          fetch_issues_page() {
+            local response_file="$1"
+            local description="$2"
+            shift 2
+
+            local attempt
+            local http_status
+            local reason
+            for attempt in $(seq 1 "$max_attempts"); do
+              : > "$response_file"
+              http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
+                -H "Authorization: Bearer ${FOSSA_API_KEY}" \
+                -H "Accept: application/json" \
+                "$@" \
+                -o "$response_file" \
+                -w "%{http_code}") || http_status="000"
+
+              if [[ "$http_status" == "200" ]]; then
+                return 0
+              fi
+
+              if [[ "$http_status" == "202" && "$attempt" -lt "$max_attempts" ]]; then
+                echo "::warning::FOSSA ${description} are not ready yet; retrying in ${retry_sleep_seconds}s (attempt ${attempt}/${max_attempts})."
+                sleep "$retry_sleep_seconds"
+                continue
+              fi
+
+              if [[ "$http_status" == "202" ]]; then
+                reason="FOSSA ${description} are not ready after ${max_attempts} attempts."
+              else
+                reason="FOSSA ${description} API returned HTTP ${http_status}."
+              fi
+
+              echo "::error::${reason}"
+              write_api_failure_summary "$reason" "$response_file"
+              cat "$response_file"
+              exit 1
+            done
+          }
+
+          while true; do
+            response_file="$tmp_dir/license-issues-page-${page}.json"
+            fetch_issues_page "$response_file" "licensing issues" \
+              --data-urlencode "category=licensing" \
+              --data-urlencode "status=active" \
+              --data-urlencode "scope[type]=project" \
+              --data-urlencode "scope[id]=${FOSSA_PROJECT_LOCATOR}" \
+              --data-urlencode "scope[revision]=${FOSSA_REVISION}" \
+              --data-urlencode "page=${page}" \
+              --data-urlencode "count=${count}"
+
+            page_issue_count=$(jq '(.issues // []) | length' "$response_file")
+            jq -s '{issues: ((.[0].issues // []) + (.[1].issues // []))}' "$issues_file" "$response_file" > "$issues_file.next"
+            mv "$issues_file.next" "$issues_file"
+
+            if [[ "$page_issue_count" -lt "$count" ]]; then
+              break
+            fi
+
+            page=$((page + 1))
+          done
+
+          issue_count=$(jq '(.issues // []) | length' "$issues_file")
+          echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
+
+          summary_file="$tmp_dir/fossa-license-summary.txt"
+          {
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "Error:"
+              echo ""
+            fi
+            echo "========================================================================"
+            echo "Tested Following Project:"
+            echo "========================================================================"
+            echo ""
+            echo "Project Title: ${GITHUB_REPOSITORY#*/}"
+            echo "Project Revision: ${FOSSA_REVISION}"
+            echo "Project Locator: ${FOSSA_PROJECT_LOCATOR}"
+            echo "FOSSA Report: ${FOSSA_REPORT_URL:-Not available}"
+            echo ""
+            echo ""
+            echo "COMPLIANCE ISSUES (Total ${issue_count})"
+            echo ""
+            echo "========================================================================"
+            echo "Flagged by Policy (Total ${issue_count})"
+            echo "========================================================================"
+            if [[ "$issue_count" -gt 0 ]]; then
+              jq -r --arg reportUrl "${FOSSA_REPORT_URL:-}" '
+                def scalar($value):
+                  if ($value != null and $value != "" and ($value | type) != "array" and ($value | type) != "object") then $value else empty end;
+                def field($value; $key):
+                  if ($value | type) == "object" then $value[$key] else empty end;
+                def array_first($value):
+                  if ($value | type) == "array" then $value[0] else $value end;
+                def first($values):
+                  ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
+                def source_package:
+                  if ((field(.source; "name") // "") != "" and (field(.source; "version") // "") != "") then
+                    "\(field(.source; "name"))@\(field(.source; "version"))"
+                  else
+                    empty
+                  end;
+                def package_name:
+                  first([source_package, field(.source; "id"), field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
+                def license_name:
+                  array_first(.licenses) as $license_entry
+                  | first([field(.license; "spdxId"), field(.license; "name"), .licenseId, scalar(.license), field($license_entry; "spdxId"), field($license_entry; "name"), scalar($license_entry), .type, .issueType]);
+                def issue_url($category):
+                  first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
+                  | if $direct != "unknown" then $direct
+                    elif (((.id // "") | tostring) != "" and $reportUrl != "") then
+                      (($reportUrl | sub("\\?.*$"; "") | sub("/$"; "")) + "/issues/\($category)/\(.id)")
+                    else
+                      "unknown"
+                    end;
+                .issues[]? |
+                  "- \(license_name) license detected in \(package_name)\n  More information: \(issue_url("licensing"))\n"
+              ' "$issues_file"
+              echo ""
+              echo "[DEBUG] An issue occurred"
+              echo ""
+              echo "  *** Relevant Errors ***"
+              echo ""
+              echo "      Error: The scan has revealed license compliance issues. Number of license issues found: ${issue_count}"
+              echo ""
+              echo "      Traceback:"
+              echo "        (none)"
+            else
+              echo "No active license compliance issues were reported by FOSSA."
+            fi
+          } > "$summary_file"
+
+          cat "$summary_file"
+
+          {
+            echo "## FOSSA License Test"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "| Status | Failed |"
+            else
+              echo "| Status | Passed |"
+            fi
+            echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+            echo "| Revision | \`${FOSSA_REVISION}\` |"
+            echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+            echo "| Active license issues | \`${issue_count}\` |"
+            echo "| Release blocking license issues | \`${issue_count}\` |"
+            echo ""
+            echo "### License Issues"
+            echo ""
+            echo '```text'
+            cat "$summary_file"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$issue_count" -gt 0 ]]; then
+            echo "::error::Found ${issue_count} active FOSSA licensing issue(s)."
+            exit 1
+          fi
+      - name: upload FOSSA license issues
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fossa-license-issues
+          path: fossa-license-issues.json
+          if-no-files-found: ignore
+
+  fossa-vulnerability-test:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    needs:
+      - fossa-scan
+    outputs:
+      active-issues: ${{ steps.fossa-vulnerability-test.outputs.active-issues }}
+      blocking-issues: ${{ steps.fossa-vulnerability-test.outputs.blocking-issues }}
+    steps:
+      - name: run fossa vulnerability test
+        id: fossa-vulnerability-test
+        shell: bash
+        env:
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
+          FOSSA_PROJECT_LOCATOR: git+github.com/${{ github.repository }}
+          FOSSA_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          issues_file="fossa-vulnerability-issues.json"
+          blocking_issues_file="fossa-vulnerability-blocking-issues.json"
+          tmp_dir="$(mktemp -d)"
+          page=1
+          count=1000
+          max_attempts=6
+          retry_sleep_seconds=20
+
+          resolved_project_locator=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+
+          url = os.environ.get("FOSSA_REPORT_URL", "")
+          if not url:
+              raise SystemExit
+
+          parsed_url = urllib.parse.urlparse(url)
+          project_path = parsed_url.path
+          next_values = urllib.parse.parse_qs(parsed_url.query).get("next")
+          if next_values:
+              project_path = next_values[0]
+
+          for _ in range(3):
+              decoded_path = urllib.parse.unquote(project_path)
+              if decoded_path == project_path:
+                  break
+              project_path = decoded_path
+
+          if "/projects/" not in project_path:
+              raise SystemExit
+
+          locator = project_path.split("/projects/", 1)[1].split("/refs/", 1)[0]
+          if locator:
+              print(locator)
+          PY
+          )
+
+          if [[ -n "$resolved_project_locator" ]]; then
+            FOSSA_PROJECT_LOCATOR="$resolved_project_locator"
+          fi
+
+          echo "Using FOSSA project locator: ${FOSSA_PROJECT_LOCATOR}"
+          echo '{"issues":[]}' > "$issues_file"
+
+          write_api_failure_summary() {
+            local reason="$1"
+            local response_file="$2"
+            {
+              echo "## FOSSA Vulnerability Test"
+              echo ""
+              echo "| Field | Value |"
+              echo "| --- | --- |"
+              echo "| Status | Failed |"
+              echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+              echo "| Revision | \`${FOSSA_REVISION}\` |"
+              echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+              echo "| Failure reason | ${reason} |"
+              echo ""
+              echo "### FOSSA API Response"
+              echo '```json'
+              cat "$response_file"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          fetch_issues_page() {
+            local response_file="$1"
+            local description="$2"
+            shift 2
+
+            local attempt
+            local http_status
+            local reason
+            for attempt in $(seq 1 "$max_attempts"); do
+              : > "$response_file"
+              http_status=$(curl -sS -G "https://app.fossa.com/api/v2/issues" \
+                -H "Authorization: Bearer ${FOSSA_API_KEY}" \
+                -H "Accept: application/json" \
+                "$@" \
+                -o "$response_file" \
+                -w "%{http_code}") || http_status="000"
+
+              if [[ "$http_status" == "200" ]]; then
+                return 0
+              fi
+
+              if [[ "$http_status" == "202" && "$attempt" -lt "$max_attempts" ]]; then
+                echo "::warning::FOSSA ${description} are not ready yet; retrying in ${retry_sleep_seconds}s (attempt ${attempt}/${max_attempts})."
+                sleep "$retry_sleep_seconds"
+                continue
+              fi
+
+              if [[ "$http_status" == "202" ]]; then
+                reason="FOSSA ${description} are not ready after ${max_attempts} attempts."
+              else
+                reason="FOSSA ${description} API returned HTTP ${http_status}."
+              fi
+
+              echo "::error::${reason}"
+              write_api_failure_summary "$reason" "$response_file"
+              cat "$response_file"
+              exit 1
+            done
+          }
+
+          while true; do
+            response_file="$tmp_dir/vulnerability-issues-page-${page}.json"
+            fetch_issues_page "$response_file" "vulnerability issues" \
+              --data-urlencode "category=vulnerability" \
+              --data-urlencode "status=active" \
+              --data-urlencode "scope[type]=project" \
+              --data-urlencode "scope[id]=${FOSSA_PROJECT_LOCATOR}" \
+              --data-urlencode "scope[revision]=${FOSSA_REVISION}" \
+              --data-urlencode "page=${page}" \
+              --data-urlencode "count=${count}"
+
+            page_issue_count=$(jq '(.issues // []) | length' "$response_file")
+            jq -s '{issues: ((.[0].issues // []) + (.[1].issues // []))}' "$issues_file" "$response_file" > "$issues_file.next"
+            mv "$issues_file.next" "$issues_file"
+
+            if [[ "$page_issue_count" -lt "$count" ]]; then
+              break
+            fi
+
+            page=$((page + 1))
+          done
+
+          issue_count=$(jq '(.issues // []) | length' "$issues_file")
+
+          page=1
+          echo '{"issues":[]}' > "$blocking_issues_file"
+
+          while true; do
+            response_file="$tmp_dir/vulnerability-blocking-issues-page-${page}.json"
+            fetch_issues_page "$response_file" "critical/high/medium vulnerability issues" \
+              --data-urlencode "category=vulnerability" \
+              --data-urlencode "status=active" \
+              --data-urlencode "scope[type]=project" \
+              --data-urlencode "scope[id]=${FOSSA_PROJECT_LOCATOR}" \
+              --data-urlencode "scope[revision]=${FOSSA_REVISION}" \
+              --data-urlencode "filter[severity][0]=critical" \
+              --data-urlencode "filter[severity][1]=high" \
+              --data-urlencode "filter[severity][2]=medium" \
+              --data-urlencode "page=${page}" \
+              --data-urlencode "count=${count}"
+
+            page_issue_count=$(jq '(.issues // []) | length' "$response_file")
+            jq -s '{issues: ((.[0].issues // []) + (.[1].issues // []))}' "$blocking_issues_file" "$response_file" > "$blocking_issues_file.next"
+            mv "$blocking_issues_file.next" "$blocking_issues_file"
+
+            if [[ "$page_issue_count" -lt "$count" ]]; then
+              break
+            fi
+
+            page=$((page + 1))
+          done
+
+          blocking_issue_count=$(jq '(.issues // []) | length' "$blocking_issues_file")
+          echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
+          echo "blocking-issues=$blocking_issue_count" >> "$GITHUB_OUTPUT"
+
+          summary_file="$tmp_dir/fossa-vulnerability-summary.txt"
+          {
+            if [[ "$blocking_issue_count" -gt 0 ]]; then
+              echo "Error:"
+              echo ""
+            fi
+            echo "========================================================================"
+            echo "Tested Following Project:"
+            echo "========================================================================"
+            echo ""
+            echo "Project Title: ${GITHUB_REPOSITORY#*/}"
+            echo "Project Revision: ${FOSSA_REVISION}"
+            echo "Project Locator: ${FOSSA_PROJECT_LOCATOR}"
+            echo "FOSSA Report: ${FOSSA_REPORT_URL:-Not available}"
+            echo ""
+            echo ""
+            echo "SECURITY ISSUES (Total ${issue_count})"
+            echo "Release-blocking critical/high/medium vulnerabilities: ${blocking_issue_count}"
+            echo ""
+            echo "========================================================================"
+            echo "Vulnerability (Total ${issue_count})"
+            echo "========================================================================"
+            if [[ "$issue_count" -gt 0 ]]; then
+              jq -r --arg reportUrl "${FOSSA_REPORT_URL:-}" '
+                def scalar($value):
+                  if ($value != null and $value != "" and ($value | type) != "array" and ($value | type) != "object") then $value else empty end;
+                def field($value; $key):
+                  if ($value | type) == "object" then $value[$key] else empty end;
+                def array_first($value):
+                  if ($value | type) == "array" then $value[0] else $value end;
+                def first($values):
+                  ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
+                def capitalize:
+                  tostring as $s | ($s[0:1] | ascii_upcase) + ($s[1:] | ascii_downcase);
+                def severity_raw:
+                  first([.severity, field(.vulnerability; "severity"), .vulnerabilitySeverity]) | ascii_downcase;
+                def severity_rank:
+                  {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}[severity_raw] // 4;
+                def source_package:
+                  if ((field(.source; "name") // "") != "" and (field(.source; "version") // "") != "") then
+                    "\(field(.source; "name"))@\(field(.source; "version"))"
+                  else
+                    empty
+                  end;
+                def package_name:
+                  first([source_package, field(.source; "id"), field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
+                def severity_name:
+                  severity_raw | capitalize;
+                def cve_id:
+                  first([.cve, .cveId, .cve_id, field(.vulnerability; "cve"), field(.vulnerability; "cveId"), field(.vulnerability; "id"), array_first(field(.vulnerability; "cves")), array_first(.cves)]);
+                def fixed_in:
+                  first([field(.remediation; "completeFix"), field(.remediation; "partialFix"), array_first(.patchedVersionRanges), .fixedIn, .fixed_in, .fixedVersion, .fixVersion, field(.vulnerability; "fixedIn"), field(.vulnerability; "fixedVersion"), array_first(field(.vulnerability; "fixedVersions"))]);
+                def issue_url($category):
+                  first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
+                  | if $direct != "unknown" then $direct
+                    elif (((.id // "") | tostring) != "" and $reportUrl != "") then
+                      (($reportUrl | sub("\\?.*$"; "") | sub("/$"; "")) + "/issues/\($category)/\(.id)")
+                    else
+                      "unknown"
+                    end;
+                .issues | sort_by(severity_rank, package_name, cve_id, ((.id // "") | tostring))[]? |
+                  "- \(severity_name) vulnerability was detected on \(package_name)\n  CVE ID: \(cve_id)\n  Fixed in: \(fixed_in)\n  More information: \(issue_url("security"))\n"
+              ' "$issues_file"
+              if [[ "$blocking_issue_count" -gt 0 ]]; then
+                echo ""
+                echo "[DEBUG] An issue occurred"
+                echo ""
+                echo "  *** Relevant Errors ***"
+                echo ""
+                echo "      Error: The scan has revealed release-blocking vulnerability issues. Number of critical/high/medium vulnerability issues found: ${blocking_issue_count}"
+                echo ""
+                echo "      Traceback:"
+                echo "        (none)"
+              fi
+            else
+              echo "No active vulnerability issues were reported by FOSSA."
+            fi
+          } > "$summary_file"
+
+          cat "$summary_file"
+
+          {
+            echo "## FOSSA Vulnerability Test"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            if [[ "$blocking_issue_count" -gt 0 ]]; then
+              echo "| Status | Failed |"
+            else
+              echo "| Status | Passed |"
+            fi
+            echo "| Project locator | \`${FOSSA_PROJECT_LOCATOR}\` |"
+            echo "| Revision | \`${FOSSA_REVISION}\` |"
+            echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+            echo "| Active vulnerability issues | \`${issue_count}\` |"
+            echo "| Release blocking critical/high/medium vulnerability issues | \`${blocking_issue_count}\` |"
+            echo ""
+            echo "### Vulnerability Issues"
+            echo ""
+            echo '```text'
+            cat "$summary_file"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$blocking_issue_count" -gt 0 ]]; then
+            echo "::error::Found ${blocking_issue_count} active critical/high/medium FOSSA vulnerability issue(s)."
+            exit 1
+          fi
+      - name: upload FOSSA vulnerability issues
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fossa-vulnerability-issues
+          path: |
+            fossa-vulnerability-issues.json
+            fossa-vulnerability-blocking-issues.json
+          if-no-files-found: ignore
 
   fossa-test:
     continue-on-error: true
@@ -555,8 +1111,8 @@ jobs:
             echo "No poetry.lock found, make sure your dependencies are managed through poetry, exiting"
             exit 1
           fi
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
           python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
           ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
@@ -632,8 +1188,8 @@ jobs:
           java-version: '17'
       - name: create requirements file for pip
         run: |
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
@@ -998,7 +1554,7 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
+          JOB_NAME=$(echo "$ADDON_NAME" | tail -c 8)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           LABELS="addon-name=${ADDON_NAME}"
           ADDON_UPLOAD_PATH="s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/${{ needs.build.outputs.buildname }}"
@@ -1037,8 +1593,8 @@ jobs:
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ steps.app-token.outputs.token }}
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
@@ -1302,7 +1858,7 @@ jobs:
       - name: Run spl2 tests
         run: |
           echo "Running SPL2 Tests"
-          spl2_tests_run cli -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
+          spl2_tests_run cli -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
@@ -3006,8 +3562,7 @@ jobs:
         run: |
           RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME}-${{ env.SPL2_TEST_TYPE }}
+          JOB_NAME=${JOB_NAME//TEST-TYPE/spl2-inte}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
@@ -3221,6 +3776,8 @@ jobs:
       - run-ui-tests
       - validate-pr-title
       - run-gs-scorecard
+      - fossa-license-test
+      - fossa-vulnerability-test
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
@@ -3228,21 +3785,80 @@ jobs:
       - name: check if tests have passed or skipped
         id: check
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          CUSTOM_VERSION: ${{ github.event.inputs['custom-version'] }}
+          DOCS_ONLY: ${{ needs.check-docs-changes.outputs.docs-only }}
         run: |
           # GS Scorecard: must have run for PRs to main (result doesn't matter, but skipped = blocked)
           GS_RESULT=$(echo "$NEEDS" | jq -r '.["run-gs-scorecard"].result')
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$BASE_REF" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]] && [[ "$DOCS_ONLY" != "true" ]]; then
             echo "::error::GS Scorecard is required for merging PRs to main. To unblock merging please add the 'execute_gs_scorecard' label and re-run the workflow."
-            echo "## GS Scorecard Required" >> "$GITHUB_STEP_SUMMARY"
-            echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## GS Scorecard Required"
+              echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "run-publish=false" >> "$GITHUB_OUTPUT"
             echo "Publish conditions are not met."
             exit 1
           fi
 
-          # Exclude run-gs-scorecard from the general check since it has its own handling above
-          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
-          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
+          FOSSA_LICENSE_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].outputs["active-issues"] // ""')
+          FOSSA_BLOCKING_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["blocking-issues"] // ""')
+          FOSSA_LICENSE_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].result // "missing"')
+          FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].result // "missing"')
+          FOSSA_RELEASE_GATING=false
+
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" ]]; then
+            FOSSA_RELEASE_GATING=true
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            case "$REF_NAME" in
+              main|develop|release/*)
+                FOSSA_RELEASE_GATING=true
+                ;;
+            esac
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$CUSTOM_VERSION" ]]; then
+            FOSSA_RELEASE_GATING=true
+          fi
+
+          if [[ "$FOSSA_RELEASE_GATING" == "true" && "$DOCS_ONLY" != "true" ]]; then
+            if [[ "$FOSSA_LICENSE_RESULT" == "skipped" || "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ || ! "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
+              echo "::error::FOSSA split scan results are required for release readiness."
+              {
+                echo "## FOSSA Release Gate"
+                echo "FOSSA split scan results are required for release readiness. License job result: \`${FOSSA_LICENSE_RESULT}\`; vulnerability job result: \`${FOSSA_VULNERABILITY_RESULT}\`."
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "run-publish=false" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are not met."
+              exit 1
+            fi
+
+            if [[ "$FOSSA_LICENSE_ISSUES" -gt 0 || "$FOSSA_BLOCKING_VULNERABILITIES" -gt 0 ]]; then
+              echo "::error::FOSSA release blockers found. License issues: ${FOSSA_LICENSE_ISSUES}. Critical/high/medium vulnerability issues: ${FOSSA_BLOCKING_VULNERABILITIES}."
+              {
+                echo "## FOSSA Release Gate"
+                echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`"
+                echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`"
+                echo "Resolve or approve the FOSSA findings before release."
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "run-publish=false" >> "$GITHUB_OUTPUT"
+              echo "Publish conditions are not met."
+              exit 1
+            fi
+          elif [[ "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ && "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
+            {
+              echo "## FOSSA Release Gate"
+              echo "FOSSA release gating is not enforced for this workflow path."
+              echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`"
+              echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Exclude run-gs-scorecard and FOSSA split jobs from the general check since they have their own handling above
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-license-test"], .["fossa-vulnerability-test"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
+          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "$DOCS_ONLY" == "false" ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are met."
