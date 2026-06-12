@@ -3785,13 +3785,21 @@ jobs:
       - name: check if tests have passed or skipped
         id: check
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          CUSTOM_VERSION: ${{ github.event.inputs['custom-version'] }}
+          DOCS_ONLY: ${{ needs.check-docs-changes.outputs.docs-only }}
         run: |
           # GS Scorecard: must have run for PRs to main (result doesn't matter, but skipped = blocked)
           GS_RESULT=$(echo "$NEEDS" | jq -r '.["run-gs-scorecard"].result')
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$BASE_REF" == "main" ]] && [[ "$GS_RESULT" == "skipped" ]] && [[ "$DOCS_ONLY" != "true" ]]; then
             echo "::error::GS Scorecard is required for merging PRs to main. To unblock merging please add the 'execute_gs_scorecard' label and re-run the workflow."
-            echo "## GS Scorecard Required" >> "$GITHUB_STEP_SUMMARY"
-            echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## GS Scorecard Required"
+              echo "Add the \`execute_gs_scorecard\` label to this PR and re-run the workflow. GS Scorecard must complete before merging to main (result does not need to pass)."
+            } >> "$GITHUB_STEP_SUMMARY"
             echo "run-publish=false" >> "$GITHUB_OUTPUT"
             echo "Publish conditions are not met."
             exit 1
@@ -3803,19 +3811,25 @@ jobs:
           FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].result // "missing"')
           FOSSA_RELEASE_GATING=false
 
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "main" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" ]]; then
             FOSSA_RELEASE_GATING=true
-          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "develop" || "${{ github.ref_name }}" == release/* ]]; then
-            FOSSA_RELEASE_GATING=true
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.custom-version }}" != "" ]]; then
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            case "$REF_NAME" in
+              main|develop|release/*)
+                FOSSA_RELEASE_GATING=true
+                ;;
+            esac
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$CUSTOM_VERSION" ]]; then
             FOSSA_RELEASE_GATING=true
           fi
 
-          if [[ "$FOSSA_RELEASE_GATING" == "true" && "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]]; then
+          if [[ "$FOSSA_RELEASE_GATING" == "true" && "$DOCS_ONLY" != "true" ]]; then
             if [[ "$FOSSA_LICENSE_RESULT" == "skipped" || "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ || ! "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
               echo "::error::FOSSA split scan results are required for release readiness."
-              echo "## FOSSA Release Gate" >> "$GITHUB_STEP_SUMMARY"
-              echo "FOSSA split scan results are required for release readiness. License job result: \`${FOSSA_LICENSE_RESULT}\`; vulnerability job result: \`${FOSSA_VULNERABILITY_RESULT}\`." >> "$GITHUB_STEP_SUMMARY"
+              {
+                echo "## FOSSA Release Gate"
+                echo "FOSSA split scan results are required for release readiness. License job result: \`${FOSSA_LICENSE_RESULT}\`; vulnerability job result: \`${FOSSA_VULNERABILITY_RESULT}\`."
+              } >> "$GITHUB_STEP_SUMMARY"
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
               exit 1
@@ -3823,24 +3837,28 @@ jobs:
 
             if [[ "$FOSSA_LICENSE_ISSUES" -gt 0 || "$FOSSA_BLOCKING_VULNERABILITIES" -gt 0 ]]; then
               echo "::error::FOSSA release blockers found. License issues: ${FOSSA_LICENSE_ISSUES}. Critical/high/medium vulnerability issues: ${FOSSA_BLOCKING_VULNERABILITIES}."
-              echo "## FOSSA Release Gate" >> "$GITHUB_STEP_SUMMARY"
-              echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`" >> "$GITHUB_STEP_SUMMARY"
-              echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`" >> "$GITHUB_STEP_SUMMARY"
-              echo "Resolve or approve the FOSSA findings before release." >> "$GITHUB_STEP_SUMMARY"
+              {
+                echo "## FOSSA Release Gate"
+                echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`"
+                echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`"
+                echo "Resolve or approve the FOSSA findings before release."
+              } >> "$GITHUB_STEP_SUMMARY"
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
               exit 1
             fi
           elif [[ "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ && "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
-            echo "## FOSSA Release Gate" >> "$GITHUB_STEP_SUMMARY"
-            echo "FOSSA release gating is not enforced for this workflow path." >> "$GITHUB_STEP_SUMMARY"
-            echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`" >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## FOSSA Release Gate"
+              echo "FOSSA release gating is not enforced for this workflow path."
+              echo "- Active license compliance issues: \`${FOSSA_LICENSE_ISSUES}\`"
+              echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
           # Exclude run-gs-scorecard and FOSSA split jobs from the general check since they have their own handling above
           RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-license-test"], .["fossa-vulnerability-test"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
-          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
+          if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "$DOCS_ONLY" == "false" ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are met."
