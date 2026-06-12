@@ -630,8 +630,14 @@ jobs:
                   if ($value | type) == "array" then $value[0] else $value end;
                 def first($values):
                   ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
+                def source_package:
+                  if ((field(.source; "name") // "") != "" and (field(.source; "version") // "") != "") then
+                    "\(field(.source; "name"))@\(field(.source; "version"))"
+                  else
+                    empty
+                  end;
                 def package_name:
-                  first([field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
+                  first([source_package, field(.source; "id"), field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
                 def license_name:
                   array_first(.licenses) as $license_entry
                   | first([field(.license; "spdxId"), field(.license; "name"), .licenseId, scalar(.license), field($license_entry; "spdxId"), field($license_entry; "name"), scalar($license_entry), .type, .issueType]);
@@ -916,14 +922,20 @@ jobs:
                   first([.severity, field(.vulnerability; "severity"), .vulnerabilitySeverity]) | ascii_downcase;
                 def severity_rank:
                   {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}[severity_raw] // 4;
+                def source_package:
+                  if ((field(.source; "name") // "") != "" and (field(.source; "version") // "") != "") then
+                    "\(field(.source; "name"))@\(field(.source; "version"))"
+                  else
+                    empty
+                  end;
                 def package_name:
-                  first([field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
+                  first([source_package, field(.source; "id"), field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
                 def severity_name:
                   severity_raw | capitalize;
                 def cve_id:
                   first([.cve, .cveId, .cve_id, field(.vulnerability; "cve"), field(.vulnerability; "cveId"), field(.vulnerability; "id"), array_first(field(.vulnerability; "cves")), array_first(.cves)]);
                 def fixed_in:
-                  first([.fixedIn, .fixed_in, .fixedVersion, .fixVersion, field(.vulnerability; "fixedIn"), field(.vulnerability; "fixedVersion"), array_first(field(.vulnerability; "fixedVersions"))]);
+                  first([field(.remediation; "completeFix"), field(.remediation; "partialFix"), array_first(.patchedVersionRanges), .fixedIn, .fixed_in, .fixedVersion, .fixVersion, field(.vulnerability; "fixedIn"), field(.vulnerability; "fixedVersion"), array_first(field(.vulnerability; "fixedVersions"))]);
                 def issue_url($category):
                   first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
                   | if $direct != "unknown" then $direct
