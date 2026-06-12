@@ -622,12 +622,19 @@ jobs:
             echo "========================================================================"
             if [[ "$issue_count" -gt 0 ]]; then
               jq -r --arg reportUrl "${FOSSA_REPORT_URL:-}" '
+                def scalar($value):
+                  if ($value != null and $value != "" and ($value | type) != "array" and ($value | type) != "object") then $value else empty end;
+                def field($value; $key):
+                  if ($value | type) == "object" then $value[$key] else empty end;
+                def array_first($value):
+                  if ($value | type) == "array" then $value[0] else $value end;
                 def first($values):
                   ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
                 def package_name:
-                  first([.package.name, .dependency.name, .packageName, .dependency.locator]);
+                  first([field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
                 def license_name:
-                  first([.license.spdxId, .license.name, .licenseId, .license, .licenses[0].spdxId, .licenses[0].name, .type, .issueType]);
+                  array_first(.licenses) as $license_entry
+                  | first([field(.license; "spdxId"), field(.license; "name"), .licenseId, scalar(.license), field($license_entry; "spdxId"), field($license_entry; "name"), scalar($license_entry), .type, .issueType]);
                 def issue_url($category):
                   first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
                   | if $direct != "unknown" then $direct
@@ -895,22 +902,28 @@ jobs:
             echo "========================================================================"
             if [[ "$issue_count" -gt 0 ]]; then
               jq -r --arg reportUrl "${FOSSA_REPORT_URL:-}" '
+                def scalar($value):
+                  if ($value != null and $value != "" and ($value | type) != "array" and ($value | type) != "object") then $value else empty end;
+                def field($value; $key):
+                  if ($value | type) == "object" then $value[$key] else empty end;
+                def array_first($value):
+                  if ($value | type) == "array" then $value[0] else $value end;
                 def first($values):
                   ($values | map(select(. != null and . != "" and (type != "array") and (type != "object"))) | .[0] // "unknown" | tostring);
                 def capitalize:
                   tostring as $s | ($s[0:1] | ascii_upcase) + ($s[1:] | ascii_downcase);
                 def severity_raw:
-                  first([.severity, .vulnerability.severity, .vulnerabilitySeverity]) | ascii_downcase;
+                  first([.severity, field(.vulnerability; "severity"), .vulnerabilitySeverity]) | ascii_downcase;
                 def severity_rank:
                   {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}[severity_raw] // 4;
                 def package_name:
-                  first([.package.name, .dependency.name, .packageName, .dependency.locator]);
+                  first([field(.package; "name"), field(.dependency; "name"), .packageName, field(.dependency; "locator"), scalar(.package), scalar(.dependency)]);
                 def severity_name:
                   severity_raw | capitalize;
                 def cve_id:
-                  first([.cve, .cveId, .cve_id, .vulnerability.cve, .vulnerability.cveId, .vulnerability.id, .vulnerability.cves[0], .cves[0]]);
+                  first([.cve, .cveId, .cve_id, field(.vulnerability; "cve"), field(.vulnerability; "cveId"), field(.vulnerability; "id"), array_first(field(.vulnerability; "cves")), array_first(.cves)]);
                 def fixed_in:
-                  first([.fixedIn, .fixed_in, .fixedVersion, .fixVersion, .vulnerability.fixedIn, .vulnerability.fixedVersion, .vulnerability.fixedVersions[0]]);
+                  first([.fixedIn, .fixed_in, .fixedVersion, .fixVersion, field(.vulnerability; "fixedIn"), field(.vulnerability; "fixedVersion"), array_first(field(.vulnerability; "fixedVersions"))]);
                 def issue_url($category):
                   first([.url, .link, .issueUrl, .htmlUrl, .fossaUrl]) as $direct
                   | if $direct != "unknown" then $direct
