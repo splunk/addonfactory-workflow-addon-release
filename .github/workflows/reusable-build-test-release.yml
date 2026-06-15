@@ -45,7 +45,7 @@ on:
         description: "list of OS used for scripted input tests"
         type: string
         default: >-
-          ["ubuntu:16.04", "ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8", "redhat:9.5"]
+          ["ubuntu:18.04", "ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04", "redhat:8.4", "redhat:8.5", "redhat:8.6", "redhat:8.8", "redhat:9.5"]
       upgrade-tests-ta-versions:
         required: false
         description: "List with TA versions (in 'X.X.X' format) that should be used as starting points for upgrade tests. Example: ['7.6.0', '7.7.0']"
@@ -78,6 +78,9 @@ on:
         type: string
         default: "0.3"
     secrets:
+      GH_TOKEN_ADMIN:
+        description: Github admin token
+        required: true
       GH_APP_CLIENT_ID:
         description: GitHub App Client ID for authentication
         required: true
@@ -555,8 +558,8 @@ jobs:
             echo "No poetry.lock found, make sure your dependencies are managed through poetry, exiting"
             exit 1
           fi
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
           python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
           ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
@@ -632,8 +635,8 @@ jobs:
           java-version: '17'
       - name: create requirements file for pip
         run: |
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
           if [ -f "poetry.lock" ]
           then
             echo " poetry.lock found "
@@ -998,7 +1001,7 @@ jobs:
           then
               ADDON_NAME=$(echo "${ADDON_NAME}" | awk -F '_FOR_SPLUNK' '{print $1}')
           fi
-          JOB_NAME=$(echo "$ADDON_NAME" | tail -c 16)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
+          JOB_NAME=$(echo "$ADDON_NAME" | tail -c 8)-$(echo "${GITHUB_SHA}" | tail -c 8)-TEST-TYPE-${GITHUB_RUN_ID}
           JOB_NAME=${JOB_NAME//[_.]/-}
           LABELS="addon-name=${ADDON_NAME}"
           ADDON_UPLOAD_PATH="s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/${{ needs.build.outputs.buildname }}"
@@ -1037,8 +1040,8 @@ jobs:
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ steps.app-token.outputs.token }}
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
-          git config --global --add url."https://${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
       - name: modinput-test-prerequisites
         if: steps.download-openapi.conclusion != 'skipped'
         shell: bash
@@ -1302,7 +1305,7 @@ jobs:
       - name: Run spl2 tests
         run: |
           echo "Running SPL2 Tests"
-          spl2_tests_run cli -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
+          spl2_tests_run cli -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
@@ -3006,8 +3009,7 @@ jobs:
         run: |
           RANDOM_STRING=$(head -3 /dev/urandom | tr -cd '[:lower:]' | cut -c -4)
           JOB_NAME=${{ needs.setup.outputs.job-name }}-${RANDOM_STRING}
-          JOB_NAME=${JOB_NAME//TEST-TYPE/${{ env.TEST_TYPE }}}
-          JOB_NAME=${JOB_NAME}-${{ env.SPL2_TEST_TYPE }}
+          JOB_NAME=${JOB_NAME//TEST-TYPE/spl2-inte}
           JOB_NAME=${JOB_NAME//[_.]/-}
           JOB_NAME=$(echo "$JOB_NAME" | tr '[:upper:]' '[:lower:]')
           echo "job-name=$JOB_NAME" >> "$GITHUB_OUTPUT"
@@ -3264,12 +3266,6 @@ jobs:
       pull-requests: read
       statuses: write
     steps:
-      - uses: actions/create-github-app-token@v3
-        id: app-token
-        with:
-          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -3280,7 +3276,7 @@ jobs:
         id: semantic
         uses: splunk/semantic-release-action@v1.3
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_ADMIN }}
         with:
           git_committer_name: ${{ secrets.SA_GH_USER_NAME }}
           git_committer_email: ${{ secrets.SA_GH_USER_EMAIL }}
@@ -3291,7 +3287,7 @@ jobs:
         id: custom
         uses: "softprops/action-gh-release@v2"
         with:
-          token: "${{ steps.app-token.outputs.token }}"
+          token: "${{ secrets.GH_TOKEN_ADMIN }}"
           tag_name: v${{ github.event.inputs.custom-version }}
           target_commitish: "${{github.ref_name}}"
           make_latest: false
