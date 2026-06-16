@@ -229,7 +229,7 @@ Workflow validation:
 - Verify PR-to-main path passes when all active license findings have approved Jira-linked dispositions.
 - Verify non-release workflow paths can report Legal state without publishing.
 
-## Open Questions For Leads
+## Open Questions
 
 - Should Jira tracking be required on every PR to `main`, only when FOSSA fails, or only for release branches/custom releases?
 - What Jira fields or labels should represent Legal approval, pending Legal review, rejected usage, and false positive resolution?
