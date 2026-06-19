@@ -3806,7 +3806,6 @@ jobs:
 
           FOSSA_LICENSE_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].outputs["active-issues"] // ""')
           FOSSA_BLOCKING_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["blocking-issues"] // ""')
-          FOSSA_LICENSE_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].result // "missing"')
           FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].result // "missing"')
           FOSSA_RELEASE_GATING=false
 
