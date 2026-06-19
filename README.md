@@ -332,11 +332,11 @@ THIRDPARTY
 
 **Pass/fail behaviour:**
 
-- This stage fails if active FOSSA licensing issues are found, or if FOSSA cannot return issue results for the scanned revision. The job is allowed to continue so non-release workflow paths can remain usable, while `pre-publish` enforces release gating.
+- This stage fails if active FOSSA licensing issues are found, or if FOSSA cannot return issue results for the scanned revision. The job result is informational only — license issues do not block release. `pre-publish` enforces release gating on vulnerabilities only.
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job summary. It includes the FOSSA report link, active license issue count, release-blocking issue count, and all active license findings in a `fossa test`-style format. License issues should be checked by the legal team.
+- Review the job summary. It includes the FOSSA report link, active license issue count, and all active license findings in a `fossa test`-style format. License issues should be checked by the legal team.
 
 - Raw FOSSA API responses are uploaded as the `fossa-license-issues` artifact.
 
@@ -1049,7 +1049,7 @@ argo-logs
 
 - If this stage is failing and PR is merged to main/develop Publsih stage will not get executed in the pipeline run.
 
-- Release readiness is blocked when `fossa-license-test` reports active license compliance issues or when `fossa-vulnerability-test` reports active critical/high/medium vulnerability issues.
+- Release readiness is blocked when `fossa-vulnerability-test` reports active critical/high/medium vulnerability issues. License compliance issues from `fossa-license-test` are informational and do not block release.
 
 - FOSSA split scan findings are reported without release gating on non-release workflow paths so merge-to-develop workflows remain usable.
 
