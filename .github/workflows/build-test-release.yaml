@@ -1,11 +1,5 @@
 name: "build-test-release"
 on:
-  push:
-    branches:
-      - "main"
-      - "develop"
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
     branches: [main, develop]
 
