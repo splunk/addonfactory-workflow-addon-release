@@ -34,7 +34,7 @@ on:
         required: false
         description: Specifies which environment to use for k8s testing. ["production", "staging"]
         type: string
-        default: "staging"
+        default: "production"
       k8s-manifests-branch:
         required: false
         description: "branch for k8s manifests to run the tests on"
@@ -412,13 +412,13 @@ jobs:
             fi
           fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
-            MATRIX='${{ steps.matrix.outputs.latestSplunk }}'
+            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunkBase=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
-            MATRIX='${{ steps.matrix.outputs.supportedSplunk }}'
+            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+            MATRIX_BASE=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -c '[unique_by(.version) | .[] | del(.serverConfPythonVersion)]')
+            echo "matrixSplunkBase=$MATRIX_BASE" >> "$GITHUB_OUTPUT"
           fi
-          echo "matrixSplunk=$MATRIX" >> "$GITHUB_OUTPUT"
-          MATRIX_BASE=$(echo "$MATRIX" | jq '[unique_by(.version) | .[] | del(.serverConfPythonVersion)]')
-          echo "matrixSplunkBase=$MATRIX_BASE" >> "$GITHUB_OUTPUT"
 
       - name: job summary
         run: |
