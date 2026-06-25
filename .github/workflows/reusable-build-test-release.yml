@@ -39,7 +39,7 @@ on:
         required: false
         description: "branch for k8s manifests to run the tests on"
         type: string
-        default: "feat/splunk-9-4-python-version"
+        default: "v4.2"
       scripted-inputs-os-list:
         required: false
         description: "list of OS used for scripted input tests"
@@ -393,7 +393,7 @@ jobs:
           submodules: false
           persist-credentials: false
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@feat/splunk-9-4-python-version
+        uses: splunk/addonfactory-test-matrix-action@v3.1
         with:
           features: PYTHON39
       - id: determine_splunk
@@ -412,12 +412,13 @@ jobs:
             fi
           fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
-            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
-            echo "matrixSplunkBase=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+            MATRIX='${{ steps.matrix.outputs.latestSplunk }}'
           else
-            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
-            echo "matrixSplunkBase=${{ toJson(steps.matrix.outputs.supportedSplunkBase) }}" >> "$GITHUB_OUTPUT"
+            MATRIX='${{ steps.matrix.outputs.supportedSplunk }}'
           fi
+          echo "matrixSplunk=$MATRIX" >> "$GITHUB_OUTPUT"
+          MATRIX_BASE=$(echo "$MATRIX" | jq '[unique_by(.version) | .[] | del(.serverConfPythonVersion)]')
+          echo "matrixSplunkBase=$MATRIX_BASE" >> "$GITHUB_OUTPUT"
 
       - name: job summary
         run: |
@@ -1148,7 +1149,7 @@ jobs:
         timeout-minutes: 20
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1392,7 +1393,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1677,7 +1678,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1955,7 +1956,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2231,7 +2232,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2495,7 +2496,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2771,7 +2772,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -3029,7 +3030,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@feat/splunk-9-4-python-version
+        uses: splunk/wfe-test-runner-action@v5.2
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
