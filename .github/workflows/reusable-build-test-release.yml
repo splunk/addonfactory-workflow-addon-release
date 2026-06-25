@@ -412,10 +412,10 @@ jobs:
             fi
           fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
-            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
-            echo "matrixSplunkBase=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{ steps.matrix.outputs.latestSplunk }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunkBase=${{ steps.matrix.outputs.latestSplunk }}" >> "$GITHUB_OUTPUT"
           else
-            echo "matrixSplunk=${{ toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunk=${{ steps.matrix.outputs.supportedSplunk }}" >> "$GITHUB_OUTPUT"
             MATRIX_BASE=$(echo '${{ steps.matrix.outputs.supportedSplunk }}' | jq -c '[unique_by(.version) | .[] | del(.serverConfPythonVersion)]')
             echo "matrixSplunkBase=$MATRIX_BASE" >> "$GITHUB_OUTPUT"
           fi
