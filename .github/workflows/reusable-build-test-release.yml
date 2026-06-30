@@ -1314,6 +1314,11 @@ jobs:
           name: spl2 test report
           path: "test-results/*.xml"
           reporter: java-junit
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: spl2 test results
+          path: test-results/
 
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-knowledge == 'true' }}
