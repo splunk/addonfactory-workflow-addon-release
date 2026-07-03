@@ -758,7 +758,7 @@ jobs:
       - name: Slim Package
         id: slim
         run: |
-          pip install splunk-packaging-toolkit==1.2.4
+          pip install splunk-packaging-toolkit==1.2.8
           INPUT_SOURCE=${{ steps.uccgen.outputs.OUTPUT }}
           SOURCE_REGEX='^.*/$'
           if [[ $INPUT_SOURCE =~ $SOURCE_REGEX ]];then
