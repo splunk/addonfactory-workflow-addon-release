@@ -303,6 +303,8 @@ gitGraph
 
 - Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated per job and printed in logs
 
+- Also runs `fossa test --debug` in a dedicated step (only when analyze succeeds) and uploads its output as the `fossa-test-output` artifact for downstream parsing by `fossa-license-test` and `fossa-vulnerability-test`
+
 **Pass/fail behaviour:**
 
 - This stage fails if FOSSA cannot create report - for example some internal FOSSA error
@@ -316,53 +318,42 @@ gitGraph
 
 ```
 THIRDPARTY
+fossa-test-output
 ```
 
 ## [Job] fossa-license-test
 
 **Description:**
 
-- This action checks the FOSSA Issues API for active licensing issues on the project revision created by `fossa-scan`.
+- This job parses the `fossa-test-output` artifact produced by `fossa-scan` and extracts the `COMPLIANCE ISSUES` section to identify active license findings.
 
-- It publishes license-only results in the CI job summary so CI can distinguish license compliance findings from vulnerability findings.
-
-- It derives the FOSSA project locator from the `fossa-scan` report URL and falls back to the GitHub repository locator if the report URL does not contain one.
-
-- It retries for a bounded period when the FOSSA Issues API reports that results are not ready yet.
+- It publishes license-only results in the CI job summary and job log so CI can distinguish license compliance findings from vulnerability findings.
 
 **Pass/fail behaviour:**
 
-- This stage fails if active FOSSA licensing issues are found, or if FOSSA cannot return issue results for the scanned revision. The job result is informational only — license issues do not block release. `pre-publish` enforces release gating on vulnerabilities only.
+- This stage fails if active FOSSA licensing issues are found. The job result is informational only — license issues do not block release. `pre-publish` enforces release gating on vulnerabilities only.
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job summary. It includes the FOSSA report link, active license issue count, and all active license findings in a `fossa test`-style format. License issues should be checked by the legal team.
-
-- Raw FOSSA API responses are uploaded as the `fossa-license-issues` artifact.
+- Review the job log and job summary. Both display the project details and all active license findings in the same format as `fossa-test`. License issues should be checked by the legal team.
 
 ## [Job] fossa-vulnerability-test
 
 **Description:**
 
-- This action checks the FOSSA Issues API for active vulnerability issues on the project revision created by `fossa-scan`.
+- This job parses the `fossa-test-output` artifact produced by `fossa-scan` and extracts the `SECURITY ISSUES` section to identify active vulnerability findings.
 
-- It publishes vulnerability-only results in the CI job summary so CI can distinguish security findings from license compliance findings.
+- It publishes vulnerability-only results in the CI job summary and job log so CI can distinguish security findings from license compliance findings.
 
-- It uses FOSSA severity filtering to identify critical/high/medium vulnerabilities for release gating.
-
-- It derives the FOSSA project locator from the `fossa-scan` report URL and falls back to the GitHub repository locator if the report URL does not contain one.
-
-- It retries for a bounded period when the FOSSA Issues API reports that results are not ready yet.
+- It identifies critical/high/medium vulnerabilities for release gating by matching severity from the `fossa test` output.
 
 **Pass/fail behaviour:**
 
-- This stage fails if active critical, high, or medium FOSSA vulnerability issues are found, or if FOSSA cannot return issue results for the scanned revision. Low and unknown severity vulnerabilities are reported in the job summary without failing this split job.
+- This stage fails if active critical, high, or medium FOSSA vulnerability issues are found. Low and unknown severity vulnerabilities are reported in the job summary and log without failing this split job.
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job summary. It includes the FOSSA report link, active vulnerability count, release-blocking critical/high/medium vulnerability count, and all active vulnerability findings in a `fossa test`-style format. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
-
-- Raw FOSSA API responses are uploaded as the `fossa-vulnerability-issues` artifact.
+- Review the job log and job summary. Both display the project details and all active vulnerability findings in the same format as `fossa-test`. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
 
 ## [Job] fossa-test
 
