@@ -483,8 +483,8 @@ jobs:
           FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
         run: |
           set -euo pipefail
-          header=$(awk '/^ *SECURITY ISSUES/{exit} /^ *Tested Following Project/{found=1} found{print}' fossa-test-output.txt || true)
-          section=$(awk '/^ *COMPLIANCE ISSUES/{found=1} found{print} /^\[DEBUG\]/{if(found) exit}' fossa-test-output.txt || true)
+          header=$(awk '/^ *Using project name:|^ *Using revision:/{print}' fossa-test-output.txt || true)
+          section=$(awk '/^ *COMPLIANCE ISSUES/{found=1} found{print} /^\[/{if(found) exit}' fossa-test-output.txt || true)
           issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
           echo "$header"
@@ -544,7 +544,7 @@ jobs:
           FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
         run: |
           set -euo pipefail
-          header=$(awk '/^ *SECURITY ISSUES/{exit} /^ *Tested Following Project/{found=1} found{print}' fossa-test-output.txt || true)
+          header=$(awk '/^ *Using project name:|^ *Using revision:/{print}' fossa-test-output.txt || true)
           section=$(awk '/^ *COMPLIANCE ISSUES/{if(found) exit} /^ *SECURITY ISSUES/{found=1} found{print}' fossa-test-output.txt || true)
           issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
           blocking_count=$(echo "$section" | grep -icE "^ *⚑ (Critical|High|Medium)" || true)
