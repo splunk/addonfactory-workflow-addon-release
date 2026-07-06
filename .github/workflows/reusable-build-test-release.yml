@@ -476,7 +476,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: fossa-test-output
-      - name: parse compliance issues
+      - name: run fossa license test
         id: fossa-license-test
         shell: bash
         env:
@@ -487,6 +487,8 @@ jobs:
           section=$(awk '/^ *COMPLIANCE ISSUES/{found=1} found{print} /^\[DEBUG\]/{if(found) exit}' fossa-test-output.txt || true)
           issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
+          echo "$header"
+          echo "$section"
           {
             echo "## FOSSA License Test"
             echo ""
@@ -526,7 +528,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: fossa-test-output
-      - name: parse vulnerability issues
+      - name: run fossa vulnerability test
         id: fossa-vulnerability-test
         shell: bash
         env:
@@ -539,6 +541,8 @@ jobs:
           blocking_count=$(echo "$section" | grep -icE "^ *⚑ (Critical|High|Medium)" || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
           echo "blocking-issues=$blocking_count" >> "$GITHUB_OUTPUT"
+          echo "$header"
+          echo "$section"
           {
             echo "## FOSSA Vulnerability Test"
             echo ""
