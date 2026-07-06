@@ -438,8 +438,13 @@ jobs:
           echo "url=$FOSSA_REPORT_URL"
           echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
-          fossa test --debug 2>&1 | tee fossa-test-output.txt || true
           exit "$exit_code"
+        env:
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+      - name: run fossa test and capture output
+        if: success()
+        run: |
+          fossa test --debug 2>&1 | tee fossa-test-output.txt || true
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
@@ -478,8 +483,8 @@ jobs:
           FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
         run: |
           set -euo pipefail
-          section=$(awk '/^COMPLIANCE ISSUES/{found=1} found{print} /^={10,}/{if(found && nr>0) exit} {nr++}' fossa-test-output.txt || true)
-          issue_count=$(echo "$section" | grep -c "^  - " || true)
+          section=$(awk '/^ *COMPLIANCE ISSUES/{found=1} found{print} /^\[DEBUG\]/{if(found) exit}' fossa-test-output.txt || true)
+          issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
           {
             echo "## FOSSA License Test"
@@ -525,9 +530,9 @@ jobs:
           FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
         run: |
           set -euo pipefail
-          section=$(awk '/^SECURITY ISSUES/{found=1} found{print} /^={10,}/{if(found && nr>0) exit} {nr++}' fossa-test-output.txt || true)
-          issue_count=$(echo "$section" | grep -c "^  - " || true)
-          blocking_count=$(echo "$section" | grep -iE "^  - .*(Critical|High|Medium)" | wc -l | tr -d ' ')
+          section=$(awk '/^ *SECURITY ISSUES/{found=1} found{print} /^ *COMPLIANCE ISSUES/{if(found) exit}' fossa-test-output.txt || true)
+          issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
+          blocking_count=$(echo "$section" | grep -icE "^ *⚑ (Critical|High|Medium)" || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
           echo "blocking-issues=$blocking_count" >> "$GITHUB_OUTPUT"
           {
