@@ -292,7 +292,7 @@ gitGraph
 
 - Runs only on push events to `main` or `develop`.
 - Scans the commit messages in the push for an `ADDON-XXXXX` Jira ticket reference (5-6 digits) and posts a comment on each referenced ticket linking back to the commit (and originating PR, if found).
-- Requires the `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, and `JIRA_API_TOKEN` secrets to be configured; the Jira user needs comment permission on the referenced tickets.
+- Requires the `ATLASSIAN_EMAIL` and `ATLASSIAN_TOKEN` secrets to be configured; the Atlassian user needs comment permission on the referenced tickets in `https://splunk.atlassian.net`.
 
 **Pass/fail behaviour:**
 

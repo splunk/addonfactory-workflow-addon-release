@@ -129,14 +129,11 @@ on:
       GSSA_AWS_SECRET_ACCESS_KEY:
         description: GSSA AWS secret access key
         required: true
-      JIRA_BASE_URL:
-        description: Jira base URL, e.g. https://mycompany.atlassian.net
+      ATLASSIAN_EMAIL:
+        description: Email of the Atlassian user used to post Jira ticket comments
         required: true
-      JIRA_USER_EMAIL:
-        description: Email of the Jira user used to post ticket comments
-        required: true
-      JIRA_API_TOKEN:
-        description: API token for the Jira user used to post ticket comments
+      ATLASSIAN_TOKEN:
+        description: API token for the Atlassian user used to post Jira ticket comments
         required: true
 permissions:
   contents: read
@@ -404,9 +401,9 @@ jobs:
           COMMITS: ${{ toJson(github.event.commits) }}
           REPO: ${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_BASE_URL: https://splunk.atlassian.net
+          ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
+          ATLASSIAN_TOKEN: ${{ secrets.ATLASSIAN_TOKEN }}
         run: |
           SEEN=""
           echo "$COMMITS" | jq -c '.[]' | while read -r commit; do
@@ -438,7 +435,7 @@ jobs:
 
             echo "Commenting on $TICKET for commit ${SHA:0:7}"
             curl --fail --silent --show-error \
-              -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" \
+              -u "$ATLASSIAN_EMAIL:$ATLASSIAN_TOKEN" \
               -H "Content-Type: application/json" \
               -X POST "$JIRA_BASE_URL/rest/api/3/issue/$TICKET/comment" \
               -d "$BODY" || echo "::warning::Failed to comment on $TICKET for commit ${SHA:0:7}"
