@@ -270,8 +270,14 @@ jobs:
 
               declare -a SPL2_SHARD_DIRS
               while read -r SHARD_DIR; do
-                SPL2_SHARD_DIRS+=("$SHARD_DIR")
-              done < <(find package/default/data/spl2 -mindepth 1 -maxdepth 1 -type d \( -exec test -e '{}/module.test.json' \; -o -exec sh -c 'find "$1" -mindepth 1 -maxdepth 1 -name "*.test.spl2" -print -quit | grep -q .' _ {} \; \) -print | sed 's|^package/default/data/spl2/||' | sort)
+                # spl2_tests_run scopes --test_dir/--code_dir to a shard directory and discovers
+                # *.test.json/*.test.spl2 recursively beneath it (BoxTestDiscovery/UTDiscovery use
+                # rglob), so a shard must be included if a match exists at ANY depth underneath it,
+                # not just directly inside it.
+                if find "$SHARD_DIR" \( -name '*.test.json' -o -name '*.test.spl2' \) -print -quit | grep -q .; then
+                  SPL2_SHARD_DIRS+=("$(basename "$SHARD_DIR")")
+                fi
+              done < <(find package/default/data/spl2 -mindepth 1 -maxdepth 1 -type d | sort)
               # Top-level *.test.json/*.test.spl2 files (e.g. cross-pipeline reduction fixtures) don't live
               # under a subdirectory, so discovery can't be scoped to them alone without also pulling in
               # every subdirectory's tests. Stage them into a dedicated "__root__" shard instead.
