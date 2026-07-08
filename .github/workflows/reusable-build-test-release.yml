@@ -374,9 +374,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Validate ADDON Jira ticket in PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          if [[ ! "$PR_TITLE" =~ ADDON-[0-9]{5,6} ]]; then
+          if [[ ! "$PR_TITLE" =~ ADDON-[0-9]{5,6}([^0-9]|$) ]]; then
             echo "::error::PR title must contain a Jira ticket in the format ADDON-XXXXX (5-6 digits). Got: $PR_TITLE"
             exit 1
           fi
