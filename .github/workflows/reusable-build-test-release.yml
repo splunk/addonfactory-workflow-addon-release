@@ -394,6 +394,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - name: Comment on referenced ADDON ticket(s)
         env:
@@ -419,7 +420,9 @@ jobs:
             SEEN="$SEEN $TICKET"
 
             COMMIT_URL="https://github.com/$REPO/commit/$SHA"
-            PR_URL=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0].html_url // ""' || true)
+            if ! PR_URL=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0].html_url // ""' 2>/dev/null); then
+              PR_URL=""
+            fi
             BODY=$(jq -n \
               --arg branch "$BRANCH" --arg repo "$REPO" \
               --arg commit_url "$COMMIT_URL" --arg sha "${SHA:0:7}" --arg pr_url "$PR_URL" \
