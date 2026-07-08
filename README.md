@@ -291,7 +291,7 @@ gitGraph
 **Description:**
 
 - Runs only on push events to `main` or `develop`.
-- Scans the commit messages in the push for an `ADDON-XXXXX` Jira ticket reference (5-6 digits) and posts a comment on each referenced ticket linking back to the commit (and originating PR, if found).
+- Scans the commit messages in the push for an `ADDON-XXXXX` Jira ticket reference (5-6 digits) and posts a comment on each referenced ticket (e.g. "*author* mentioned this issue in a commit of *repo* on branch *branch*:") linking back to the commit (and originating PR, if found).
 - Requires the `ATLASSIAN_EMAIL` and `ATLASSIAN_TOKEN` secrets to be configured; the Atlassian user needs comment permission on the referenced tickets in `https://splunk.atlassian.net`.
 
 **Pass/fail behaviour:**

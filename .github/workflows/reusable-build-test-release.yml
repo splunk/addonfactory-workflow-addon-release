@@ -410,6 +410,7 @@ jobs:
           echo "$COMMITS" | jq -c '.[]' | while read -r commit; do
             TITLE=$(jq -r '.message' <<<"$commit" | head -n1)
             SHA=$(jq -r '.id' <<<"$commit")
+            AUTHOR=$(jq -r '.author.username // .author.name' <<<"$commit")
             if [[ ! "$TITLE" =~ (ADDON-[0-9]{5,6})([^0-9]|$) ]]; then
               continue
             fi
@@ -424,17 +425,21 @@ jobs:
               PR_URL=""
             fi
             BODY=$(jq -n \
-              --arg branch "$BRANCH" --arg repo "$REPO" \
+              --arg author "$AUTHOR" --arg branch "$BRANCH" --arg repo "$REPO" \
               --arg commit_url "$COMMIT_URL" --arg sha "${SHA:0:7}" --arg pr_url "$PR_URL" \
-              '{body: {type: "doc", version: 1, content: [{type: "paragraph", content: (
-                [{type: "text", text: ("Pushed to " + $branch + " in " + $repo + ": ")},
-                 {type: "text", text: $sha, marks: [{type: "link", attrs: {href: $commit_url}}]}]
-                + (if $pr_url != "" then
-                    [{type: "text", text: " (via "},
-                     {type: "text", text: "PR", marks: [{type: "link", attrs: {href: $pr_url}}]},
-                     {type: "text", text: ")"}]
-                  else [] end)
-              )}]}}')
+              '{body: {type: "doc", version: 1, content: [
+                {type: "paragraph", content: [
+                  {type: "text", text: ($author + " mentioned this issue in a commit of " + $repo + " on branch " + $branch + ":")}
+                ]},
+                {type: "paragraph", content: (
+                  [{type: "text", text: $sha, marks: [{type: "link", attrs: {href: $commit_url}}]}]
+                  + (if $pr_url != "" then
+                      [{type: "text", text: " (via "},
+                       {type: "text", text: "PR", marks: [{type: "link", attrs: {href: $pr_url}}]},
+                       {type: "text", text: ")"}]
+                    else [] end)
+                )}
+              ]}}')
 
             echo "Commenting on $TICKET for commit ${SHA:0:7}"
             curl --fail --silent --show-error \
