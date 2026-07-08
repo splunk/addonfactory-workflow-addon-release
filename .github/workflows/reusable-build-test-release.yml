@@ -1331,6 +1331,7 @@ jobs:
           mkdir -p "$ROOT_SHARD_DIR"
           find package/default/data/spl2 -mindepth 1 -maxdepth 1 \( -name '*.spl2' -o -name '*.test.json' \) -exec cp {} "$ROOT_SHARD_DIR/" \;
       - name: Run spl2 tests
+        shell: bash
         run: |
           echo "Running SPL2 Tests for shard: ${{ matrix.shard }}"
           if [[ "${{ matrix.shard }}" == "__root__" ]]; then
