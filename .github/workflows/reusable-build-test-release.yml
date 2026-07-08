@@ -213,7 +213,7 @@ jobs:
       exit-first: ${{ steps.determine-test-execution-flags.outputs.exit-first }}
       execute-unit: ${{ steps.determine-test-execution-flags.outputs.execute_unit }}
       execute-gs-scorecard: ${{ steps.determine-test-execution-flags.outputs.execute_gs_scorecard }}
-      spl2-shards: ${{ steps.determine-test-execution-flags.outputs.spl2_shards }}
+      spl2-pipelines: ${{ steps.determine-test-execution-flags.outputs.spl2_pipelines }}
       s3_bucket_k8s: ${{ steps.k8s-environment.outputs.s3_bucket }}
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
@@ -250,7 +250,7 @@ jobs:
             EXECUTION_FLAGS["$test_type"]="false"
           done
 
-          SPL2_SHARDS="[]"
+          SPL2_PIPELINES="[]"
           if [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == "true" ]]; then
             echo "Docs-only changes detected. No tests will be executed."
           else
@@ -268,24 +268,19 @@ jobs:
               TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_spl2")
               echo "spl2::true"
 
-              declare -a SPL2_SHARD_DIRS
-              while read -r SHARD_DIR; do
-                # spl2_tests_run scopes --test_dir/--code_dir to a shard directory and discovers
-                # *.test.json/*.test.spl2 recursively beneath it (BoxTestDiscovery/UTDiscovery use
-                # rglob), so a shard must be included if a match exists at ANY depth underneath it,
-                # not just directly inside it.
-                if find "$SHARD_DIR" \( -name '*.test.json' -o -name '*.test.spl2' \) -print -quit | grep -q .; then
-                  SPL2_SHARD_DIRS+=("$(basename "$SHARD_DIR")")
+              declare -a SPL2_PIPELINE_DIRS
+              while read -r PIPELINE_DIR; do
+                # Tests can live at any depth under a pipeline dir (rglob), not just directly inside it.
+                if find "$PIPELINE_DIR" \( -name '*.test.json' -o -name '*.test.spl2' \) -print -quit | grep -q .; then
+                  SPL2_PIPELINE_DIRS+=("$(basename "$PIPELINE_DIR")")
                 fi
               done < <(find package/default/data/spl2 -mindepth 1 -maxdepth 1 -type d | sort)
-              # Top-level *.test.json/*.test.spl2 files (e.g. cross-pipeline reduction fixtures) don't live
-              # under a subdirectory, so discovery can't be scoped to them alone without also pulling in
-              # every subdirectory's tests. Stage them into a dedicated "__root__" shard instead.
+              # Test files directly under data/spl2 (no pipeline subdir) get their own "__root__" entry.
               if find package/default/data/spl2 -mindepth 1 -maxdepth 1 \( -name '*.test.json' -o -name '*.test.spl2' \) -print -quit | grep -q .; then
-                SPL2_SHARD_DIRS+=("__root__")
+                SPL2_PIPELINE_DIRS+=("__root__")
               fi
-              if [[ ${#SPL2_SHARD_DIRS[@]} -gt 0 ]]; then
-                SPL2_SHARDS=$(printf '%s\n' "${SPL2_SHARD_DIRS[@]}" | jq -R . | jq -sc .)
+              if [[ ${#SPL2_PIPELINE_DIRS[@]} -gt 0 ]]; then
+                SPL2_PIPELINES=$(printf '%s\n' "${SPL2_PIPELINE_DIRS[@]}" | jq -R . | jq -sc .)
               fi
             fi
 
@@ -366,8 +361,8 @@ jobs:
               EXECUTION_FLAGS["execute_gs_scorecard"]="true"
             fi
           fi
-          echo "spl2_shards=${SPL2_SHARDS}" >> "$GITHUB_OUTPUT"
-          echo "spl2 shards: ${SPL2_SHARDS}"
+          echo "spl2_pipelines=${SPL2_PIPELINES}" >> "$GITHUB_OUTPUT"
+          echo "spl2 pipelines: ${SPL2_PIPELINES}"
           echo "Tests to be executed:"
           for test_type in "${TESTSET[@]}"; do
             echo "$test_type""=${EXECUTION_FLAGS["$test_type"]}" >> "$GITHUB_OUTPUT"
@@ -1308,7 +1303,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.setup-workflow.outputs.spl2-shards) }}
+        pipeline: ${{ fromJSON(needs.setup-workflow.outputs.spl2-pipelines) }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/splunk/spl2-testing-base:latest
@@ -1330,31 +1325,29 @@ jobs:
           git_path="$(pwd)"
           echo "$git_path"
           git config --global --add safe.directory "$git_path"
-      - name: Stage root-level spl2 tests  # *.test.json/*.test.spl2/*.spl2 files directly under data/spl2 (not in a pipeline subdir) can't be scoped via --test_dir alone, so copy just those into their own dir
-        if: ${{ matrix.shard == '__root__' }}
+      - name: Stage root-level spl2 tests  # tests directly under data/spl2 (no pipeline subdir) get copied into their own dir
+        if: ${{ matrix.pipeline == '__root__' }}
         run: |
-          ROOT_SHARD_DIR="package/default/data/spl2-shard-root"
-          mkdir -p "$ROOT_SHARD_DIR"
-          find package/default/data/spl2 -mindepth 1 -maxdepth 1 \( -name '*.spl2' -o -name '*.test.json' \) -exec cp {} "$ROOT_SHARD_DIR/" \;
+          ROOT_PIPELINE_DIR="package/default/data/spl2-pipeline-root"
+          mkdir -p "$ROOT_PIPELINE_DIR"
+          find package/default/data/spl2 -mindepth 1 -maxdepth 1 \( -name '*.spl2' -o -name '*.test.json' \) -exec cp {} "$ROOT_PIPELINE_DIR/" \;
       - name: Run spl2 tests
         shell: bash
         run: |
-          echo "Running SPL2 Tests for shard: ${{ matrix.shard }}"
-          if [[ "${{ matrix.shard }}" == "__root__" ]]; then
-            TEST_DIR="package/default/data/spl2-shard-root"
+          echo "Running SPL2 Tests for pipeline: ${{ matrix.pipeline }}"
+          if [[ "${{ matrix.pipeline }}" == "__root__" ]]; then
+            TEST_DIR="package/default/data/spl2-pipeline-root"
           else
-            TEST_DIR="package/default/data/spl2/${{ matrix.shard }}"
+            TEST_DIR="package/default/data/spl2/${{ matrix.pipeline }}"
           fi
-          # --code_dir must match --test_dir: BoxTestDiscovery/UTDiscovery fall back to searching the
-          # *other* directory whenever code_dir != test_dir, which silently re-pulls in every other
-          # shard's tests (each shard's box_test/unit_test fixtures are always both requested).
-          spl2_tests_run cli --test_dir "$TEST_DIR" --code_dir "$TEST_DIR" -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml "test-results/report-${{ matrix.shard }}.xml"
+          # code_dir must match test_dir, otherwise discovery falls back to the other dir and re-pulls in every other pipeline's tests.
+          spl2_tests_run cli --test_dir "$TEST_DIR" --code_dir "$TEST_DIR" -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml "test-results/report-${{ matrix.pipeline }}.xml"
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v1.9.1
         if: ${{ !cancelled() }}
         with:
-          name: spl2 test report (${{ matrix.shard }})
+          name: spl2 test report (${{ matrix.pipeline }})
           path: "test-results/*.xml"
           reporter: java-junit
 
