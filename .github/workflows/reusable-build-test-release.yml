@@ -531,7 +531,6 @@ jobs:
       - fossa-scan
     outputs:
       active-issues: ${{ steps.fossa-vulnerability-test.outputs.active-issues }}
-      blocking-issues: ${{ steps.fossa-vulnerability-test.outputs.blocking-issues }}
     steps:
       - name: download fossa test output
         uses: actions/download-artifact@v4
@@ -547,9 +546,7 @@ jobs:
           header=$(awk '/^ *Using project name:|^ *Using revision:/{print}' fossa-test-output.txt || true)
           section=$(awk '/^ *COMPLIANCE ISSUES/{if(found) exit} /^ *SECURITY ISSUES/{found=1} found{print}' fossa-test-output.txt || true)
           issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
-          blocking_count=$(echo "$section" | grep -icE "^ *⚑ (Critical|High|Medium)" || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
-          echo "blocking-issues=$blocking_count" >> "$GITHUB_OUTPUT"
           echo "$header"
           if [[ "$issue_count" -gt 0 ]]; then
             echo "$section"
@@ -562,14 +559,13 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "| --- | --- |"
-            if [[ "$blocking_count" -gt 0 ]]; then
+            if [[ "$issue_count" -gt 0 ]]; then
               echo "| Status | Failed |"
             else
               echo "| Status | Passed |"
             fi
             echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
             echo "| Active vulnerability issues | \`${issue_count}\` |"
-            echo "| Release blocking critical/high/medium vulnerability issues | \`${blocking_count}\` |"
             echo ""
             echo "### Vulnerability Issues"
             echo ""
@@ -583,24 +579,10 @@ jobs:
             fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$blocking_count" -gt 0 ]]; then
-            echo "::error::Found ${blocking_count} active critical/high/medium FOSSA vulnerability issue(s)."
+          if [[ "$issue_count" -gt 0 ]]; then
+            echo "::error::Found ${issue_count} active FOSSA vulnerability issue(s)."
             exit 1
           fi
-
-  fossa-test:
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    needs:
-      - fossa-scan
-    steps:
-      - uses: actions/checkout@v5
-      - name: run fossa test
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa test --debug
-        env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
   compliance-copyrights:
     name: compliance-copyrights
@@ -3392,7 +3374,7 @@ jobs:
           fi
 
           FOSSA_LICENSE_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].outputs["active-issues"] // ""')
-          FOSSA_BLOCKING_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["blocking-issues"] // ""')
+          FOSSA_ACTIVE_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["active-issues"] // ""')
           FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].result // "missing"')
           FOSSA_RELEASE_GATING=false
 
@@ -3409,7 +3391,7 @@ jobs:
           fi
 
           if [[ "$FOSSA_RELEASE_GATING" == "true" && "$DOCS_ONLY" != "true" ]]; then
-            if [[ "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
+            if [[ "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_ACTIVE_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
               echo "::error::FOSSA vulnerability scan results are required for release readiness."
               {
                 echo "## FOSSA Release Gate"
@@ -3420,25 +3402,25 @@ jobs:
               exit 1
             fi
 
-            if [[ "$FOSSA_BLOCKING_VULNERABILITIES" -gt 0 ]]; then
-              echo "::error::FOSSA release blockers found. Critical/high/medium vulnerability issues: ${FOSSA_BLOCKING_VULNERABILITIES}."
+            if [[ "$FOSSA_ACTIVE_VULNERABILITIES" -gt 0 ]]; then
+              echo "::error::FOSSA release blockers found. Active vulnerability issues: ${FOSSA_ACTIVE_VULNERABILITIES}."
               {
                 echo "## FOSSA Release Gate"
-                echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`"
+                echo "- Active vulnerability issues: \`${FOSSA_ACTIVE_VULNERABILITIES}\`"
                 echo "Resolve or approve the FOSSA vulnerability findings before release."
               } >> "$GITHUB_STEP_SUMMARY"
               echo "run-publish=false" >> "$GITHUB_OUTPUT"
               echo "Publish conditions are not met."
               exit 1
             fi
-          elif [[ "$FOSSA_BLOCKING_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
+          elif [[ "$FOSSA_ACTIVE_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
             {
               echo "## FOSSA Release Gate"
               echo "FOSSA release gating is not enforced for this workflow path."
               if [[ "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ ]]; then
                 echo "- Active license compliance issues (informational): \`${FOSSA_LICENSE_ISSUES}\`"
               fi
-              echo "- Active critical/high/medium vulnerability issues: \`${FOSSA_BLOCKING_VULNERABILITIES}\`"
+              echo "- Active vulnerability issues: \`${FOSSA_ACTIVE_VULNERABILITIES}\`"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 

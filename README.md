@@ -18,7 +18,6 @@
   * [[Job] fossa-scan](#job-fossa-scan)
   * [[Job] fossa-license-test](#job-fossa-license-test)
   * [[Job] fossa-vulnerability-test](#job-fossa-vulnerability-test)
-  * [[Job] fossa-test](#job-fossa-test)
   * [[Job] compliance-copyrights](#job-compliance-copyrights)
   * [[Job] lint](#job-lint)
   * [[Job] security-detect-secrets](#job-security-detect-secrets)
@@ -335,7 +334,7 @@ fossa-test-output
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job log and job summary. Both display the project details and all active license findings in the same format as `fossa-test`. License issues should be checked by the legal team.
+- Review the job log and job summary. Both display the project details and all active license findings. License issues should be checked by the legal team.
 
 ## [Job] fossa-vulnerability-test
 
@@ -345,33 +344,15 @@ fossa-test-output
 
 - It publishes vulnerability-only results in the CI job summary and job log so CI can distinguish security findings from license compliance findings.
 
-- It identifies critical/high/medium vulnerabilities for release gating by matching severity from the `fossa test` output.
-
 **Pass/fail behaviour:**
 
-- This stage fails if active critical, high, or medium FOSSA vulnerability issues are found. Low and unknown severity vulnerabilities are reported in the job summary and log without failing this split job.
+- This stage fails if any active FOSSA vulnerability issues are found at any severity level. CI continues regardless (`continue-on-error: true`) — the failure is surfaced via the job summary and log.
+
+- Release is blocked in `pre-publish` when any active vulnerability issues are reported, regardless of severity.
 
 **Troubleshooting steps for failures if any:**
 
-- Review the job log and job summary. Both display the project details and all active vulnerability findings in the same format as `fossa-test`. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
-
-## [Job] fossa-test
-
-**Description:**
-
-- This action checks report created in fossa-scan job. This action checks license compliance and vulnerabilities. This job uses `.fossa.yml` configuration file
-
-**Pass/fail behaviour:**
-
-- This stage fails if FOSSA finds any license or security issues. Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated in fossa-scan job. License issues should be checked by legal team, vulnerabilities should be solved by TA-dev or TA-qa team with assist of prodsec team if needed (some issues with critical status for example).
-
-**Troubleshooting steps for failures if any:** 
-
-- The error log is present in the stage as well user should be able to reproduce that in local environment with FOSSA CLI tool https://github.com/fossas/fossa-cli
-
-**Artifacts:**
-
-- No additional Artifacts.
+- Review the job log and job summary. Both display the project details and all active vulnerability findings. Vulnerabilities should be triaged by TA-dev or TA-qa with prodsec support when needed.
 
 
 ## [Job] compliance-copyrights
@@ -1040,7 +1021,7 @@ argo-logs
 
 - If this stage is failing and PR is merged to main/develop Publsih stage will not get executed in the pipeline run.
 
-- Release readiness is blocked when `fossa-vulnerability-test` reports active critical/high/medium vulnerability issues. License compliance issues from `fossa-license-test` are informational and do not block release.
+- Release readiness is blocked when `fossa-vulnerability-test` reports any active vulnerability issues regardless of severity. License compliance issues from `fossa-license-test` are informational and do not block release.
 
 - FOSSA split scan findings are reported without release gating on non-release workflow paths so merge-to-develop workflows remain usable.
 
