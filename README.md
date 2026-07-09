@@ -1021,9 +1021,7 @@ argo-logs
 
 - If this stage is failing and PR is merged to main/develop Publsih stage will not get executed in the pipeline run.
 
-- Release readiness is blocked when `fossa-vulnerability-test` reports any active vulnerability issues regardless of severity. License compliance issues from `fossa-license-test` are informational and do not block release.
-
-- FOSSA split scan findings are reported without release gating on non-release workflow paths so merge-to-develop workflows remain usable.
+- Release readiness is blocked when `fossa-vulnerability-test` reports any active vulnerability issues on a PR targeting `main` (non-docs-only). No release gating is enforced on other workflow paths.
 
 **Troubleshooting steps for failures if any**
 
