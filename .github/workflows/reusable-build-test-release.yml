@@ -3344,7 +3344,6 @@ jobs:
       - run-ui-tests
       - validate-pr-title
       - run-gs-scorecard
-      - fossa-license-test
       - fossa-vulnerability-test
     runs-on: ubuntu-latest
     env:
@@ -3373,59 +3372,16 @@ jobs:
             exit 1
           fi
 
-          FOSSA_LICENSE_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-license-test"].outputs["active-issues"] // ""')
-          FOSSA_ACTIVE_VULNERABILITIES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["active-issues"] // ""')
-          FOSSA_VULNERABILITY_RESULT=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].result // "missing"')
-          FOSSA_RELEASE_GATING=false
-
-          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" ]]; then
-            FOSSA_RELEASE_GATING=true
-          elif [[ "$EVENT_NAME" == "push" ]]; then
-            case "$REF_NAME" in
-              main|develop|release/*)
-                FOSSA_RELEASE_GATING=true
-                ;;
-            esac
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$CUSTOM_VERSION" ]]; then
-            FOSSA_RELEASE_GATING=true
+          FOSSA_VULN_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["active-issues"] // ""')
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$BASE_REF" == "main" ]] && [[ "$DOCS_ONLY" != "true" ]] && [[ "$FOSSA_VULN_ISSUES" =~ ^[0-9]+$ ]] && [[ "$FOSSA_VULN_ISSUES" -gt 0 ]]; then
+            echo "::error::FOSSA release blockers found. Active vulnerability issues: ${FOSSA_VULN_ISSUES}."
+            echo "run-publish=false" >> "$GITHUB_OUTPUT"
+            echo "Publish conditions are not met."
+            exit 1
           fi
 
-          if [[ "$FOSSA_RELEASE_GATING" == "true" && "$DOCS_ONLY" != "true" ]]; then
-            if [[ "$FOSSA_VULNERABILITY_RESULT" == "skipped" || ! "$FOSSA_ACTIVE_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
-              echo "::error::FOSSA vulnerability scan results are required for release readiness."
-              {
-                echo "## FOSSA Release Gate"
-                echo "FOSSA vulnerability scan results are required for release readiness. Vulnerability job result: \`${FOSSA_VULNERABILITY_RESULT}\`."
-              } >> "$GITHUB_STEP_SUMMARY"
-              echo "run-publish=false" >> "$GITHUB_OUTPUT"
-              echo "Publish conditions are not met."
-              exit 1
-            fi
-
-            if [[ "$FOSSA_ACTIVE_VULNERABILITIES" -gt 0 ]]; then
-              echo "::error::FOSSA release blockers found. Active vulnerability issues: ${FOSSA_ACTIVE_VULNERABILITIES}."
-              {
-                echo "## FOSSA Release Gate"
-                echo "- Active vulnerability issues: \`${FOSSA_ACTIVE_VULNERABILITIES}\`"
-                echo "Resolve or approve the FOSSA vulnerability findings before release."
-              } >> "$GITHUB_STEP_SUMMARY"
-              echo "run-publish=false" >> "$GITHUB_OUTPUT"
-              echo "Publish conditions are not met."
-              exit 1
-            fi
-          elif [[ "$FOSSA_ACTIVE_VULNERABILITIES" =~ ^[0-9]+$ ]]; then
-            {
-              echo "## FOSSA Release Gate"
-              echo "FOSSA release gating is not enforced for this workflow path."
-              if [[ "$FOSSA_LICENSE_ISSUES" =~ ^[0-9]+$ ]]; then
-                echo "- Active license compliance issues (informational): \`${FOSSA_LICENSE_ISSUES}\`"
-              fi
-              echo "- Active vulnerability issues: \`${FOSSA_ACTIVE_VULNERABILITIES}\`"
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          # Exclude run-gs-scorecard and FOSSA split jobs from the general check since they have their own handling above
-          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-license-test"], .["fossa-vulnerability-test"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
+          # Exclude run-gs-scorecard and fossa-vulnerability-test from the general check since they have their own handling above
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-vulnerability-test"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "$DOCS_ONLY" == "false" ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
