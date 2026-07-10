@@ -525,7 +525,6 @@ jobs:
           fi
 
   fossa-vulnerability-test:
-    continue-on-error: true
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
