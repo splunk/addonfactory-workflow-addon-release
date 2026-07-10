@@ -3364,16 +3364,8 @@ jobs:
             exit 1
           fi
 
-          FOSSA_VULN_ISSUES=$(echo "$NEEDS" | jq -r '.["fossa-vulnerability-test"].outputs["active-issues"] // ""')
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.base_ref }}" == "main" ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" != "true" ]] && [[ "$FOSSA_VULN_ISSUES" =~ ^[0-9]+$ ]] && [[ "$FOSSA_VULN_ISSUES" -gt 0 ]]; then
-            echo "::error::FOSSA release blockers found. Active vulnerability issues: ${FOSSA_VULN_ISSUES}."
-            echo "run-publish=false" >> "$GITHUB_OUTPUT"
-            echo "Publish conditions are not met."
-            exit 1
-          fi
-
-          # Exclude run-gs-scorecard and fossa-vulnerability-test from the general check since they have their own handling above
-          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"], .["fossa-vulnerability-test"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
+          # Exclude run-gs-scorecard from the general check since it has its own handling above
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"

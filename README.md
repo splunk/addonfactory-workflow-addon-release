@@ -330,7 +330,7 @@ fossa-test-output
 
 **Pass/fail behaviour:**
 
-- This stage fails if active FOSSA licensing issues are found. The job result is informational only — license issues do not block release. `pre-publish` enforces release gating on vulnerabilities only.
+- This stage fails if active FOSSA licensing issues are found. The job result is informational only — license issues do not block release.
 
 **Troubleshooting steps for failures if any:**
 
@@ -1021,7 +1021,7 @@ argo-logs
 
 - If this stage is failing and PR is merged to main/develop Publsih stage will not get executed in the pipeline run.
 
-- Release readiness is blocked when `fossa-vulnerability-test` reports any active vulnerability issues on a PR targeting `main` (non-docs-only). No release gating is enforced on other workflow paths.
+- Release readiness is blocked when `fossa-vulnerability-test` fails, as `pre-publish` depends on it directly via the `needs` dependency.
 
 **Troubleshooting steps for failures if any**
 
