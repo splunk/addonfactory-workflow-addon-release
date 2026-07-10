@@ -443,6 +443,8 @@ jobs:
 
   fossa-scan:
     runs-on: ubuntu-latest
+    outputs:
+      report-url: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}
     steps:
       - uses: actions/checkout@v5
       - name: run fossa analyze and create report
@@ -458,29 +460,147 @@ jobs:
           exit "$exit_code"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+      - name: run fossa test and capture output
+        if: success()
+        run: |
+          fossa test --debug 2>&1 | tee fossa-test-output.txt || true
+        env:
+          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
       - name: upload THIRDPARTY file
         uses: actions/upload-artifact@v6
         with:
           name: THIRDPARTY
           path: /tmp/THIRDPARTY
+      - name: upload fossa test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fossa-test-output
+          path: fossa-test-output.txt
+          if-no-files-found: ignore
       - name: job summary
         if: success() || failure()
         run: |
           echo "FOSSA Report: ${{ steps.fossa-scan.outputs.FOSSA_REPORT_URL }}" >> "$GITHUB_STEP_SUMMARY"
 
-  fossa-test:
+  fossa-license-test:
     continue-on-error: true
     runs-on: ubuntu-latest
     needs:
       - fossa-scan
+    outputs:
+      active-issues: ${{ steps.fossa-license-test.outputs.active-issues }}
     steps:
-      - uses: actions/checkout@v5
-      - name: run fossa test
-        run: |
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa test --debug
+      - name: download fossa test output
+        uses: actions/download-artifact@v4
+        with:
+          name: fossa-test-output
+      - name: run fossa license test
+        id: fossa-license-test
+        shell: bash
         env:
-          FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
+        run: |
+          set -euo pipefail
+          header=$(awk '/^ *Using project name:|^ *Using revision:/{print}' fossa-test-output.txt || true)
+          section=$(awk '/^ *COMPLIANCE ISSUES/{found=1} found{print} /^\[/{if(found) exit}' fossa-test-output.txt || true)
+          issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
+          echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
+          echo "$header"
+          if [[ "$issue_count" -gt 0 ]]; then
+            echo "$section"
+          else
+            echo ""
+            echo "Test passed! 0 issues found"
+          fi
+          {
+            echo "## FOSSA License Test"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "| Status | Failed |"
+            else
+              echo "| Status | Passed |"
+            fi
+            echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+            echo "| Active license issues | \`${issue_count}\` |"
+            echo ""
+            echo "### License Issues"
+            echo ""
+            echo '```text'
+            echo "$header"
+            echo ""
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "$section"
+            else
+              echo "Test passed! 0 issues found"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$issue_count" -gt 0 ]]; then
+            echo "::error::Found ${issue_count} active FOSSA licensing issue(s)."
+            exit 1
+          fi
+
+  fossa-vulnerability-test:
+    runs-on: ubuntu-latest
+    needs:
+      - fossa-scan
+    outputs:
+      active-issues: ${{ steps.fossa-vulnerability-test.outputs.active-issues }}
+    steps:
+      - name: download fossa test output
+        uses: actions/download-artifact@v4
+        with:
+          name: fossa-test-output
+      - name: run fossa vulnerability test
+        id: fossa-vulnerability-test
+        shell: bash
+        env:
+          FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
+        run: |
+          set -euo pipefail
+          header=$(awk '/^ *Using project name:|^ *Using revision:/{print}' fossa-test-output.txt || true)
+          section=$(awk '/^ *COMPLIANCE ISSUES/{if(found) exit} /^ *SECURITY ISSUES/{found=1} found{print}' fossa-test-output.txt || true)
+          issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
+          echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
+          echo "$header"
+          if [[ "$issue_count" -gt 0 ]]; then
+            echo "$section"
+          else
+            echo ""
+            echo "Test passed! 0 issues found"
+          fi
+          {
+            echo "## FOSSA Vulnerability Test"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "| Status | Failed |"
+            else
+              echo "| Status | Passed |"
+            fi
+            echo "| FOSSA report | ${FOSSA_REPORT_URL:-Not available} |"
+            echo "| Active vulnerability issues | \`${issue_count}\` |"
+            echo ""
+            echo "### Vulnerability Issues"
+            echo ""
+            echo '```text'
+            echo "$header"
+            echo ""
+            if [[ "$issue_count" -gt 0 ]]; then
+              echo "$section"
+            else
+              echo "Test passed! 0 issues found"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$issue_count" -gt 0 ]]; then
+            echo "::error::Found ${issue_count} active FOSSA vulnerability issue(s)."
+            exit 1
+          fi
 
   compliance-copyrights:
     name: compliance-copyrights
@@ -3264,6 +3384,7 @@ jobs:
       - run-ui-tests
       - validate-pr-title
       - run-gs-scorecard
+      - fossa-vulnerability-test
     runs-on: ubuntu-latest
     env:
       NEEDS: ${{ toJson(needs) }}
