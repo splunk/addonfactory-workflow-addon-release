@@ -139,6 +139,7 @@ env:
   PYTHON_VERSION: ${{ inputs.python-version }}
   POETRY_VERSION: "2.1.4"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
+  SPL2_TESTING_FRAMEWORK_VERSION: "1.9.*"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
   GS_VERSION: ${{ inputs.gs-version }}
 jobs:
@@ -1425,8 +1426,6 @@ jobs:
       matrix:
         pipeline: ${{ fromJSON(needs.setup-workflow.outputs.spl2-pipelines) }}
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/splunk/spl2-testing-base:latest
     permissions:
       actions: read
       deployments: read
@@ -1445,6 +1444,13 @@ jobs:
           git_path="$(pwd)"
           echo "$git_path"
           git config --global --add safe.directory "$git_path"
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install spl2-testing-framework
+        run: |
+          python${{ env.PYTHON_VERSION }} -m pip install "spl2-testing-framework==${{ env.SPL2_TESTING_FRAMEWORK_VERSION }}"
       - name: Stage root-level spl2 tests  # tests directly under data/spl2 (no pipeline subdir) get copied into their own dir
         if: ${{ matrix.pipeline == '__root__' }}
         run: |
@@ -1461,7 +1467,7 @@ jobs:
             TEST_DIR="package/default/data/spl2/${{ matrix.pipeline }}"
           fi
           # code_dir must match test_dir, otherwise discovery falls back to the other dir and re-pulls in every other pipeline's tests.
-          spl2_tests_run cli --test_dir "$TEST_DIR" --code_dir "$TEST_DIR" -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml "test-results/report-${{ matrix.pipeline }}.xml"
+          spl2_tests_run cli --cli_cache --test_dir "$TEST_DIR" --code_dir "$TEST_DIR" -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml "test-results/report-${{ matrix.pipeline }}.xml"
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v3.0.0
