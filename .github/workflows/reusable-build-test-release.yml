@@ -1461,7 +1461,7 @@ jobs:
             TEST_DIR="package/default/data/spl2/${{ matrix.pipeline }}"
           fi
           # code_dir must match test_dir, otherwise discovery falls back to the other dir and re-pulls in every other pipeline's tests.
-          spl2_tests_run cli --test_dir "$TEST_DIR" --code_dir "$TEST_DIR" -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml "test-results/report-${{ matrix.pipeline }}.xml"
+          spl2_tests_run cli --cli_cache --test_dir "$TEST_DIR" --code_dir "$TEST_DIR" -n 8 --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml "test-results/report-${{ matrix.pipeline }}.xml"
       - name: Test Report
         id: test_report
         uses: dorny/test-reporter@v3.0.0
