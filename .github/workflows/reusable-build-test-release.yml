@@ -1426,7 +1426,7 @@ jobs:
         pipeline: ${{ fromJSON(needs.setup-workflow.outputs.spl2-pipelines) }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/splunk/spl2-testing-base:latest
+      image: ghcr.io/splunk/spl2-testing-framework:1.9
     permissions:
       actions: read
       deployments: read
