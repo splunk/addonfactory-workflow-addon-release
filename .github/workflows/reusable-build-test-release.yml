@@ -1426,6 +1426,8 @@ jobs:
       matrix:
         pipeline: ${{ fromJSON(needs.setup-workflow.outputs.spl2-pipelines) }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/splunk/spl2-testing-base:latest
     permissions:
       actions: read
       deployments: read
@@ -1444,13 +1446,9 @@ jobs:
           git_path="$(pwd)"
           echo "$git_path"
           git config --global --add safe.directory "$git_path"
-      - name: Setup python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
       - name: Install spl2-testing-framework
         run: |
-          python${{ env.PYTHON_VERSION }} -m pip install "spl2-testing-framework==${{ env.SPL2_TESTING_FRAMEWORK_VERSION }}"
+          pip install "spl2-testing-framework==${{ env.SPL2_TESTING_FRAMEWORK_VERSION }}"
       - name: Stage root-level spl2 tests  # tests directly under data/spl2 (no pipeline subdir) get copied into their own dir
         if: ${{ matrix.pipeline == '__root__' }}
         run: |
