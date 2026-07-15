@@ -129,6 +129,12 @@ on:
       GSSA_AWS_SECRET_ACCESS_KEY:
         description: GSSA AWS secret access key
         required: true
+      ATLASSIAN_EMAIL:
+        description: Email of the Atlassian user used to post Jira ticket comments
+        required: true
+      ATLASSIAN_TOKEN:
+        description: API token for the Atlassian user used to post Jira ticket comments
+        required: true
 permissions:
   contents: read
   packages: read
@@ -373,6 +379,77 @@ jobs:
           validateSingleCommit: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Validate ADDON Jira ticket in PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ ! "$PR_TITLE" =~ ADDON-[0-9]{5,6}([^0-9]|$) ]]; then
+            echo "::error::PR title must contain a Jira ticket in the format ADDON-XXXXX (5-6 digits). Got: $PR_TITLE"
+            exit 1
+          fi
+
+  comment-on-jira:
+    name: Comment on Jira ticket
+    if: ${{ github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'develop') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Comment on referenced ADDON ticket(s)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMITS: ${{ toJson(github.event.commits) }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          JIRA_BASE_URL: https://splunk.atlassian.net
+          ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
+          ATLASSIAN_TOKEN: ${{ secrets.ATLASSIAN_TOKEN }}
+        run: |
+          SEEN=""
+          echo "$COMMITS" | jq -c '.[]' | while read -r commit; do
+            MESSAGE=$(jq -r '.message' <<<"$commit")
+            SHA=$(jq -r '.id' <<<"$commit")
+            AUTHOR=$(jq -r '.author.username // .author.name' <<<"$commit")
+            TICKETS=$(grep -oP 'ADDON-[0-9]{5,6}(?![0-9])' <<<"$MESSAGE" | sort -u)
+            if [[ -z "$TICKETS" ]]; then
+              continue
+            fi
+            while read -r TICKET; do
+              if [[ " $SEEN " == *" $TICKET "* ]]; then
+                continue
+              fi
+              SEEN="$SEEN $TICKET"
+
+              COMMIT_URL="https://github.com/$REPO/commit/$SHA"
+              if ! PR_URL=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[0].html_url // ""' 2>/dev/null); then
+                PR_URL=""
+              fi
+              BODY=$(jq -n \
+                --arg author "$AUTHOR" --arg branch "$BRANCH" --arg repo "$REPO" \
+                --arg commit_url "$COMMIT_URL" --arg sha "${SHA:0:7}" --arg pr_url "$PR_URL" \
+                '{body: {type: "doc", version: 1, content: [
+                  {type: "paragraph", content: [
+                    {type: "text", text: ($author + " mentioned this issue in a commit of " + $repo + " on branch " + $branch + ":")}
+                  ]},
+                  {type: "paragraph", content: (
+                    [{type: "text", text: $sha, marks: [{type: "link", attrs: {href: $commit_url}}]}]
+                    + (if $pr_url != "" then
+                        [{type: "text", text: " (via "},
+                         {type: "text", text: "PR", marks: [{type: "link", attrs: {href: $pr_url}}]},
+                         {type: "text", text: ")"}]
+                      else [] end)
+                  )}
+                ]}}')
+
+              echo "Commenting on $TICKET for commit ${SHA:0:7}"
+              curl --fail --silent --show-error \
+                -u "$ATLASSIAN_EMAIL:$ATLASSIAN_TOKEN" \
+                -H "Content-Type: application/json" \
+                -X POST "$JIRA_BASE_URL/rest/api/3/issue/$TICKET/comment" \
+                -d "$BODY" || echo "::warning::Failed to comment on $TICKET for commit ${SHA:0:7}"
+            done <<<"$TICKETS"
+          done
 
   meta:
     runs-on: ubuntu-latest

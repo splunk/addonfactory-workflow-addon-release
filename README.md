@@ -14,6 +14,7 @@
   * [[Job] check-docs-changes](#job-check-docs-changes)
   * [[Job] setup-workflow](#job-setup-workflow)
   * [[Job] validate-pr-title](#job-validate-pr-title)
+  * [[Job] comment-on-jira](#job-comment-on-jira)
   * [[Job] meta](#job-meta)
   * [[Job] fossa-scan](#job-fossa-scan)
   * [[Job] fossa-license-test](#job-fossa-license-test)
@@ -280,6 +281,23 @@ gitGraph
 **Pass/fail behaviour:**
 
 - Fails if the PR title does not follow conventional commit format (e.g. `feat:`, `fix:`, `chore:`, etc.) or if it is marked as WIP.
+
+**Artifacts:**
+
+- No additional artifacts.
+
+
+## [Job] comment-on-jira
+
+**Description:**
+
+- Runs only on push events to `main` or `develop`.
+- Scans the commit messages in the push for an `ADDON-XXXXX` Jira ticket reference (5-6 digits) and posts a comment on each referenced ticket (e.g. "*author* mentioned this issue in a commit of *repo* on branch *branch*:") linking back to the commit (and originating PR, if found).
+- Requires the `ATLASSIAN_EMAIL` and `ATLASSIAN_TOKEN` secrets to be configured; the Atlassian user needs comment permission on the referenced tickets in `https://splunk.atlassian.net`.
+
+**Pass/fail behaviour:**
+
+- Never fails the workflow: a failed Jira API call only logs a warning.
 
 **Artifacts:**
 
