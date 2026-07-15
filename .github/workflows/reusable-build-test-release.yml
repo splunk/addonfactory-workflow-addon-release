@@ -3230,7 +3230,6 @@ jobs:
         id: check
         shell: bash
         run: |
-          # GS Scorecard: informational only, never blocks release
           RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
