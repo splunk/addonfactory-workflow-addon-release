@@ -77,6 +77,11 @@ on:
         description: "Version of the GS scorecard"
         type: string
         default: "0.3"
+      fossa-ignore-vulnerabilities:
+        required: false
+        description: 'JSON array of "package@version" strings identifying known false-positive FOSSA vulnerability issues to exclude from the fossa-vulnerability-test job. Example: ["urllib3@1.26.19"]'
+        type: string
+        default: "[]"
     secrets:
       GH_TOKEN_ADMIN:
         description: Github admin token
@@ -617,10 +622,31 @@ jobs:
         shell: bash
         env:
           FOSSA_REPORT_URL: ${{ needs.fossa-scan.outputs.report-url }}
+          FOSSA_IGNORE_VULNERABILITIES: ${{ inputs.fossa-ignore-vulnerabilities }}
         run: |
           set -euo pipefail
           header=$(awk '/^ *Using project name:|^ *Using revision:/{print}' fossa-test-output.txt || true)
-          section=$(awk '/^ *COMPLIANCE ISSUES/{if(found) exit} /^ *SECURITY ISSUES/{found=1} found{print}' fossa-test-output.txt || true)
+          raw_section=$(awk '/^ *COMPLIANCE ISSUES/{if(found) exit} /^ *SECURITY ISSUES/{found=1} found{print}' fossa-test-output.txt || true)
+          ignore_packages=$(echo "$FOSSA_IGNORE_VULNERABILITIES" | jq -r '.[]' 2>/dev/null || true)
+          section=$(echo "$raw_section" | awk -v ignore="$ignore_packages" '
+            BEGIN {
+              skip = 0
+              n = split(ignore, arr, "\n")
+              for (i = 1; i <= n; i++) if (arr[i] != "") ignored[arr[i]] = 1
+            }
+            /⚑/ {
+              skip = 0
+              if (match($0, /on [^ ]+@[^ ]+/)) {
+                pkg = substr($0, RSTART + 3, RLENGTH - 3)
+                if (pkg in ignored) {
+                  skip = 1
+                  print "::notice::Ignoring known false-positive FOSSA vulnerability on " pkg > "/dev/stderr"
+                }
+              }
+            }
+            !skip { print }
+            $0 == "" { skip = 0 }
+          ')
           issue_count=$(echo "$section" | grep -c "^ *⚑ " || true)
           echo "active-issues=$issue_count" >> "$GITHUB_OUTPUT"
           echo "$header"
