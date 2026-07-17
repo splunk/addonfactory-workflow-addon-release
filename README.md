@@ -310,7 +310,7 @@ gitGraph
 
 - Determines which Splunk and SC4S versions to run tests with.
 - Outputs matrices for supported and latest Splunk versions, SC4S versions, and vendor matrices for modinput/UI tests.
-- On schedule events, always uses latest Splunk only. On PRs to `main` or push to `main`/`develop`, uses the full supported matrix (unless overridden by `wfe-run-on-splunk-latest` input).
+- On schedule events, always uses latest Splunk only. On PRs to `main` or `release/*`, or push to `main`/`develop`/`release/*` (the latter only when `execute-tests-on-push-to-release` is `true`), uses the full supported matrix (unless overridden by `wfe-run-on-splunk-latest` input).
 
 ## [Job] fossa-scan
 
