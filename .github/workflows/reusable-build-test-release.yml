@@ -219,6 +219,7 @@ jobs:
       execute-ui: ${{ steps.determine-test-execution-flags.outputs.execute_ui }}
       execute-modinput: ${{ steps.determine-test-execution-flags.outputs.execute_modinput_functional }}
       execute-ucc_modinput: ${{ steps.determine-test-execution-flags.outputs.execute_ucc_modinput_functional }}
+      has-ucc_modinput-tests: ${{ steps.determine-test-execution-flags.outputs.has_ucc_modinput_tests }}
       execute-scripted_inputs: ${{ steps.determine-test-execution-flags.outputs.execute_scripted_inputs }}
       execute-upgrade: ${{ steps.determine-test-execution-flags.outputs.execute_upgrade }}
       exit-first: ${{ steps.determine-test-execution-flags.outputs.exit-first }}
@@ -256,6 +257,7 @@ jobs:
           set +e
           declare -A EXECUTION_FLAGS
           TESTSET=("execute_unit" "execute_knowledge" "execute_spl2" "execute_ui" "execute_modinput_functional" "execute_ucc_modinput_functional" "execute_scripted_inputs" "execute_upgrade" "execute_gs_scorecard")
+          HAS_UCC_MODINPUT_TESTS="false"
           for test_type in "${TESTSET[@]}"; do
             EXECUTION_FLAGS["$test_type"]="false"
           done
@@ -270,6 +272,9 @@ jobs:
               if [[ -d "tests/$TEST_BASE_NAME" ]]; then
                 TESTS_TO_CONSIDER_FOR_EXECUTION+=("execute_$TEST_BASE_NAME")
                 echo "$TEST_BASE_NAME::true"
+                if [[ "$TEST_BASE_NAME" == "ucc_modinput_functional" ]]; then
+                  HAS_UCC_MODINPUT_TESTS="true"
+                fi
               fi
             done < <(find tests -type d -maxdepth 1 -mindepth 1 | sed 's|^tests/||g')
 
@@ -360,6 +365,8 @@ jobs:
             echo "$test_type""=${EXECUTION_FLAGS["$test_type"]}" >> "$GITHUB_OUTPUT"
             echo "$test_type"": ${EXECUTION_FLAGS["$test_type"]}"
           done
+          echo "has_ucc_modinput_tests=${HAS_UCC_MODINPUT_TESTS}" >> "$GITHUB_OUTPUT"
+          echo "has_ucc_modinput_tests: ${HAS_UCC_MODINPUT_TESTS}"
           # exit first fail if label exit-first is present
           EXIT_FIRST=""
           if ${{ contains(github.event.pull_request.labels.*.name, 'exit-first') }}; then
@@ -1012,7 +1019,7 @@ jobs:
         with:
           name: artifact-openapi
           path: ${{ github.workspace }}/${{ steps.uccgen.outputs.OUTPUT }}/appserver/static/openapi.json
-        if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-ucc_modinput == 'true' }}
+        if: ${{ !cancelled() && needs.setup-workflow.outputs.has-ucc_modinput-tests == 'true' }}
       - name: artifact-splunk-base
         uses: actions/upload-artifact@v6
         with:
@@ -1246,7 +1253,7 @@ jobs:
           echo "k8s-manifests-branch=${{ inputs.k8s-manifests-branch }}"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v7
-        if: ${{ needs.setup-workflow.outputs.execute-ucc_modinput == 'true' }}
+        if: ${{ needs.setup-workflow.outputs.has-ucc_modinput-tests == 'true' }}
         id: download-openapi
         with:
           name: artifact-openapi
