@@ -702,7 +702,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v1.1
+        uses: fsfe/reuse-action@v6.0.0
 
   pre-commit:
     runs-on: ubuntu-22.04
@@ -742,7 +742,7 @@ jobs:
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
       - name: Secret Scanning Trufflehog
-        uses: trufflesecurity/trufflehog@v3.88.5
+        uses: trufflesecurity/trufflehog@v3.95.9
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
@@ -912,7 +912,7 @@ jobs:
         run: if [ -f dev_deps/requirements_dev.txt ]; then echo "ENABLED=true" >> "$GITHUB_OUTPUT"; fi
       - name: pip cache
         if: ${{ steps.checklibs.outputs.ENABLED == 'true' }}
-        uses: actions/cache@v5
+        uses: actions/cache@v6.1.0
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key: ${{ runner.os }}-pip-${{ hashFiles('dev_deps/requirements_dev.txt') }}
@@ -1069,7 +1069,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.11
+        uses: splunk/appinspect-cli-action@v2.13.0
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
