@@ -493,7 +493,9 @@ jobs:
             
           else
             if [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]] || \
-              [[ "${{ github.ref_name }}" == "develop" && "${{ github.event_name }}" == "push" ]]; then
+              [[ "${{ github.ref_name }}" == "develop" && "${{ github.event_name }}" == "push" ]] || \
+              [[ "${{ startsWith(github.base_ref, 'release/') }}" == "true" ]] || \
+              [[ "${{ startsWith(github.ref_name, 'release/') }}" == "true" && "${{ github.event_name }}" == "push" && "${{ inputs.execute-tests-on-push-to-release }}" == "true" ]]; then
               wfe_run_on_splunk_latest="false"
             else
               wfe_run_on_splunk_latest="true"
