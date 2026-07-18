@@ -188,7 +188,7 @@ gitGraph
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
-* `python-version` - Python version used for testing, default `3.9`
+* `python-version` - Python version used for testing, default `3.13`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.1`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
 
