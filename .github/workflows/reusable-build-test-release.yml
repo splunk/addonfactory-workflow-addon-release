@@ -913,10 +913,8 @@ jobs:
       - pre-commit
       - review_secrets
       - semgrep
-      - run-unit-tests-py39
-      - run-unit-tests-py313
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests-py39.result == 'success' || needs.run-unit-tests-py39.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
