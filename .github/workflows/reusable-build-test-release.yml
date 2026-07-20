@@ -1376,7 +1376,7 @@ jobs:
         timeout-minutes: 20
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@5.3
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
