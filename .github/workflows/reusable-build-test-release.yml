@@ -1545,6 +1545,7 @@ jobs:
           name: spl2 test report
           path: "test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
@@ -1763,6 +1764,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
@@ -2041,6 +2043,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
@@ -2317,6 +2320,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
@@ -2592,6 +2596,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
@@ -2856,6 +2861,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
@@ -3125,6 +3131,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
@@ -3387,6 +3394,7 @@ jobs:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ env.SPL2_TEST_TYPE }} test report
           path: "${{ needs.setup.outputs.directory-path }}/test-results/*.xml"
           reporter: java-junit
+          use-actions-summary: false
       - name: Parse JUnit XML
         if: ${{ !cancelled() }}
         run: |
