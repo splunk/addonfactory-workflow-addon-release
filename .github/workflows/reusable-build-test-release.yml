@@ -61,7 +61,7 @@ on:
         required: false
         description: "Python version to use for testing"
         type: string
-        default: "3.13"
+        default: "3.9"
       spl2-generate:
         required: false
         description: "Run spl2-generate hook during pre-commit step"
@@ -754,8 +754,8 @@ jobs:
     with:
       block_mode: "policy"
 
-  run-unit-tests:
-    name: run-unit-tests
+  run-unit-tests-py39:
+    name: run-unit-tests (3.9)
     runs-on: ubuntu-22.04
     needs:
       - setup-workflow
@@ -767,6 +767,8 @@ jobs:
       packages: read
       statuses: read
       checks: write
+    env:
+      UNIT_TESTS_PYTHON_VERSION: "3.9"
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -777,12 +779,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.UNIT_TESTS_PYTHON_VERSION }}
       - name: Setup addon
         run: |
           if [ -f "poetry.lock" ]
           then
-            python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
+            python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
             mkdir -p package/lib || true
             poetry check --lock
             poetry export --without-hashes --with dev -o package/lib/requirements.txt
@@ -792,8 +794,8 @@ jobs:
           fi
           git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
           git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
-          python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
-          ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
+          python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m venv ~/.dev_venv
+          ~/.dev_venv/bin/python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
       - name: Create directories
         run: |
           mkdir -p /opt/splunk/var/log/splunk
@@ -801,7 +803,7 @@ jobs:
       - name: Copy pytest ini
         run: cp tests/unit/pytest-ci.ini pytest.ini
       - name: Run Pytest with coverage
-        run: ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+        run: ~/.dev_venv/bin/python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
       - name: Job summary
         continue-on-error: true
         run: |
@@ -823,7 +825,81 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: success() || failure()
         with:
-          name: test-results-unit-python_${{ env.PYTHON_VERSION }}
+          name: test-results-unit-python_${{ env.UNIT_TESTS_PYTHON_VERSION }}
+          path: test-results/*
+
+  run-unit-tests-py313:
+    name: run-unit-tests (3.13)
+    runs-on: ubuntu-22.04
+    needs:
+      - setup-workflow
+    if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' }}
+    permissions:
+      actions: read
+      deployments: read
+      contents: read
+      packages: read
+      statuses: read
+      checks: write
+    env:
+      UNIT_TESTS_PYTHON_VERSION: "3.13"
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.UNIT_TESTS_PYTHON_VERSION }}
+      - name: Setup addon
+        run: |
+          if [ -f "poetry.lock" ]
+          then
+            python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }} poetry-plugin-export==${{ env.POETRY_EXPORT_PLUGIN_VERSION }}
+            mkdir -p package/lib || true
+            poetry check --lock
+            poetry export --without-hashes --with dev -o package/lib/requirements.txt
+          else
+            echo "No poetry.lock found, make sure your dependencies are managed through poetry, exiting"
+            exit 1
+          fi
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
+          git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf ssh://git@github.com
+          python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m venv ~/.dev_venv
+          ~/.dev_venv/bin/python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m pip install -r package/lib/requirements.txt
+      - name: Create directories
+        run: |
+          mkdir -p /opt/splunk/var/log/splunk
+          chmod -R 777 /opt/splunk/var/log/splunk
+      - name: Copy pytest ini
+        run: cp tests/unit/pytest-ci.ini pytest.ini
+      - name: Run Pytest with coverage
+        run: ~/.dev_venv/bin/python${{ env.UNIT_TESTS_PYTHON_VERSION }} -m pytest --cov=./ --cov-report=xml --junitxml=test-results/junit.xml tests/unit
+      - name: Job summary
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          junit_xml_file=$(find "test-results" -name "*.xml" -type f 2>/dev/null | head -n 1)
+
+          if [ -n "$junit_xml_file" ]; then
+            total_tests=$(xmllint --xpath "count(//testcase)" "$junit_xml_file")
+            failures=$(xmllint --xpath "count(//testcase[failure])" "$junit_xml_file")
+            errors=$(xmllint --xpath "count(//testcase[error and not(failure)])" "$junit_xml_file")
+            skipped=$(xmllint --xpath "count(//testcase[skipped])" "$junit_xml_file")
+            passed=$((total_tests - failures - errors - skipped))
+            echo -e "| Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests |\n| ----------- | ------------ | ------------ | ------------- | ------------- |\n| $total_tests | $passed | $failures | $errors | $skipped |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no XML File found, exiting"
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        if: success() || failure()
+        with:
+          name: test-results-unit-python_${{ env.UNIT_TESTS_PYTHON_VERSION }}
           path: test-results/*
 
   build:
@@ -837,9 +913,10 @@ jobs:
       - pre-commit
       - review_secrets
       - semgrep
-      - run-unit-tests
+      - run-unit-tests-py39
+      - run-unit-tests-py313
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() && (needs.run-unit-tests-py39.result == 'success' || needs.run-unit-tests-py39.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -3458,7 +3535,8 @@ jobs:
       - review_secrets
       - semgrep
       - build
-      - run-unit-tests
+      - run-unit-tests-py39
+      - run-unit-tests-py313
       - appinspect
       - setup
       - run-knowledge-tests
