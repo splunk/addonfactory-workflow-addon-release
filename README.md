@@ -184,12 +184,14 @@ gitGraph
 * `custom-version` - version used for release on manual workflow trigger (format: `x.x.x`)
 * `execute-tests-on-push-to-release` - enable tests on push to `release/*` branch - default `false`
 * `k8s-environment` - k8s environment for testing, choices: `production` (default) or `staging`
-* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.0`
+* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.3`
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
-* `python-version` - Python version used for testing, default `3.13`
-* `gs-image-version` - version of the GS Scorecard Docker image, default `1.1`
+* `python-version` - Python version used for testing, default `3.9`
+* `spl2-generate` - when `true` enables SPL2 generation, default `false`
+* `fossa-ignore-vulnerabilities` - JSON list of FOSSA vulnerability IDs to ignore, default `[]`
+* `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
 
 ## General troubleshooting
@@ -309,7 +311,7 @@ gitGraph
 **Description:** 
 
 - Determines which Splunk and SC4S versions to run tests with.
-- Outputs matrices for supported and latest Splunk versions, SC4S versions, and vendor matrices for modinput/UI tests.
+- Outputs matrices for supported and latest Splunk versions, SC4S versions, and vendor matrices for modinput/UI tests. The modinput matrix may expand a Splunk version into multiple entries when `server_conf_python_versions` variants (e.g. `python3`, `force_python3`) are configured, each run with the matching `python.version` set in `server.conf`.
 - On schedule events, always uses latest Splunk only. On PRs to `main` or `release/*`, or push to `main`/`develop`/`release/*` (the latter only when `execute-tests-on-push-to-release` is `true`), uses the full supported matrix (unless overridden by `wfe-run-on-splunk-latest` input).
 
 ## [Job] fossa-scan
@@ -667,7 +669,7 @@ appinspect-api-html-report-self-service
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.1`) exists in the ECR registry. The GS Scorecard tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.2`) exists in the ECR registry. The GS Scorecard tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
 - Review the job logs for specific error messages from the GS Scorecard tool.
 
@@ -692,7 +694,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Description:**
 
-- This stage does the setup for executing unit tests and reports the results
+- Unit tests run in two parallel jobs, `run-unit-tests-py39` and `run-unit-tests-py313`, executing the same suite against Python 3.9 and 3.13 respectively.
 
 **Action used:** NA
 
