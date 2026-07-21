@@ -467,6 +467,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix_Splunk: ${{ steps.determine_splunk.outputs.matrixSplunk }}
+      matrix_splunkModinput: ${{ steps.determine_splunk.outputs.matrixSplunkModinput }}
       matrix_supportedSplunk: ${{ steps.matrix.outputs.supportedSplunk }}
       matrix_latestSplunk: ${{ steps.matrix.outputs.latestSplunk }}
       matrix_supportedSC4S: ${{ steps.matrix.outputs.supportedSC4S }}
@@ -503,8 +504,10 @@ jobs:
           fi
           if [[ "$wfe_run_on_splunk_latest" == "true" ]]; then
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunkModinput=${{ toJson(steps.matrix.outputs.latestSplunk) }}" >> "$GITHUB_OUTPUT"
           else
             echo "matrixSplunk=${{ toJson(steps.matrix.outputs.supportedSplunk) }}" >> "$GITHUB_OUTPUT"
+            echo "matrixSplunkModinput=${{ toJson(steps.matrix.outputs.supportedSplunkModinput) }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: job summary
@@ -1584,6 +1587,7 @@ jobs:
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -1818,7 +1822,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -1833,6 +1837,7 @@ jobs:
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2103,7 +2108,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2119,6 +2124,7 @@ jobs:
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           test-browser: ${{ env.TEST_BROWSER }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2305,7 +2311,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_splunkModinput) }}
         modinput-type: [ "modinput_functional" ]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
@@ -2381,7 +2387,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2396,6 +2402,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ${{ matrix.splunk.serverConfPythonVersion || '' }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2582,7 +2589,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
+        splunk: ${{ fromJson(needs.meta.outputs.matrix_splunkModinput) }}
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
@@ -2657,7 +2664,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2672,6 +2679,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ${{ matrix.splunk.serverConfPythonVersion || '' }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -2921,7 +2929,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -2937,6 +2945,7 @@ jobs:
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           ta-upgrade-version: ${{ matrix.ta-version-from-upgrade }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
@@ -3197,7 +3206,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -3213,6 +3222,7 @@ jobs:
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ''
       - name: calculate timeout
         id: calculate-timeout
         run: |
@@ -3455,7 +3465,7 @@ jobs:
         continue-on-error: true
         env:
           ARGO_TOKEN: ${{ steps.get-argo-token.outputs.argo-token }}
-        uses: splunk/wfe-test-runner-action@main
+        uses: splunk/wfe-test-runner-action@v5.3
         with:
           splunk: ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }}
           test-type: ${{ env.TEST_TYPE }}
@@ -3470,6 +3480,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
+          server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
         if: ${{ !cancelled() }}
