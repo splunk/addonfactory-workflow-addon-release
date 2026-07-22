@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v3.2
+        uses: splunk/addonfactory-test-matrix-action@v3.3
         with:
           features: PYTHON39
   publish:
