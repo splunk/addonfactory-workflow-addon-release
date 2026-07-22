@@ -190,7 +190,6 @@ gitGraph
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
 * `python-version` - Python version used for testing, default `3.9`
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
-* `fossa-ignore-vulnerabilities` - JSON list of FOSSA vulnerability IDs to ignore, default `[]`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
 
@@ -363,6 +362,8 @@ fossa-test-output
 - This job parses the `fossa-test-output` artifact produced by `fossa-scan` and extracts the `SECURITY ISSUES` section to identify active vulnerability findings.
 
 - It publishes vulnerability-only results in the CI job summary and job log so CI can distinguish security findings from license compliance findings.
+
+- Known false positives are read from the calling repository's `package/lib/exclude.txt`, with one package name per line (for example, `urllib3`). Repositories without this file use no exceptions.
 
 **Pass/fail behaviour:**
 
