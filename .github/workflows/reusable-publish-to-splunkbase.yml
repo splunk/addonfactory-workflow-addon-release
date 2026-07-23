@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v3.1
+        uses: splunk/addonfactory-test-matrix-action@v3.3
         with:
           features: PYTHON39
   publish:
@@ -35,7 +35,7 @@ jobs:
     needs:
       - inputs-validator
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
