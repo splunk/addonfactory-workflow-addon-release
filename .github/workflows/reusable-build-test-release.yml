@@ -480,10 +480,10 @@ jobs:
       - id: determine_splunk
         env:
           wfe_run_on_splunk_latest: ${{ inputs.wfe-run-on-splunk-latest }}
-        run: |  
+        run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             wfe_run_on_splunk_latest="true"
-            
+
           else
             if [[ "${{ github.base_ref }}" == "main" || "${{ github.ref_name }}" == "main" ]] || \
               [[ "${{ github.ref_name }}" == "develop" && "${{ github.event_name }}" == "push" ]] || \
@@ -971,7 +971,7 @@ jobs:
               echo "ucc-gen not found after installing requirements from dev_deps/requirements_ucc.txt"
               exit 1
             fi
-          
+
             echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
           else
             echo "No UCC requirements file found, skipping UCC setup"
@@ -1076,7 +1076,7 @@ jobs:
           cp /tmp/app.manifest "${INPUT_SOURCE}"/app.manifest
           mkdir -p build/package/splunkbase
           mkdir -p build/package/deployment
-          slim package -o build/package/splunkbase "${INPUT_SOURCE}" 
+          slim package -o build/package/splunkbase "${INPUT_SOURCE}"
           for f in build/package/splunkbase/*.tar.gz; do
             n=$(echo "${f}" | awk '{gsub("-[0-9]+.[0-9]+.[0-9]+-[a-f0-9]+-?", "");print}' | sed 's/.tar.gz/.spl/')
             mv "${f}" "${n}"
@@ -1336,8 +1336,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
       - name: Pull GS Scorecard image
-        run:
-          docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+        run: docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
       - name: Run GS Scorecard
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -1719,7 +1718,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -1780,7 +1779,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2028,7 +2027,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
-        browser: [ "chrome" ]
+        browser: ["chrome"]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
     container:
@@ -2054,7 +2053,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2308,7 +2307,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_splunkModinput) }}
-        modinput-type: [ "modinput_functional" ]
+        modinput-type: ["modinput_functional"]
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
     container:
@@ -2333,7 +2332,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2610,7 +2609,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -2887,7 +2886,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -3151,7 +3150,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
@@ -3399,7 +3398,7 @@ jobs:
       fail-fast: false
       matrix:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
-        spl2-test-type: [ "CIM", "TA" ]
+        spl2-test-type: ["CIM", "TA"]
     container:
       image: ghcr.io/splunk/workflow-engine-base:4.1.0
     env:
@@ -3423,7 +3422,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - name: configure git  # This step configures git to omit "dubious git ownership error" in later test-reporter stage
+      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
         id: configure-git
         run: |
           git --version
