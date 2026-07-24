@@ -16,3 +16,20 @@ repos:
         language: script
         types: ["yaml"]
         files: ^.github/workflows/
+      - id: workflow-hygiene
+        name: workflow hygiene (naming + dead inputs)
+        description: "CI-only: enforces kebab-case naming and flags unused workflow_call inputs/secrets. Does not run on local commit."
+        entry: python scripts/check_workflow_hygiene.py
+        language: python
+        additional_dependencies: ["pyyaml"]
+        files: ^\.github/workflows/reusable-build-test-release\.yml$
+        stages: [manual]
+      - id: template-compat
+        name: template compatibility (secrets + required inputs)
+        description: "CI-only: verifies declared-compatible addonfactory-repository-template refs still pass secrets/inputs this workflow supports. Needs gh auth + network; does not run on local commit."
+        entry: python scripts/check_template_compat.py
+        language: python
+        additional_dependencies: ["pyyaml"]
+        files: ^(\.github/workflows/reusable-build-test-release\.yml|\.github/template-compatibility\.yml)$
+        pass_filenames: false
+        stages: [manual]
