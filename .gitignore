@@ -1,2 +1,20 @@
+# Tooling
 actionlint
-.idea
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local env / secrets
+.env
+.env.*
+*.local
+
+# Logs / temp
+*.log
+tmp/

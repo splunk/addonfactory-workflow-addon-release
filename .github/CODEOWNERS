@@ -1,1 +1,15 @@
-* @splunk/products-gdi-addons-adminrepo
+# Explicit per-area ownership (union covers the full repo surface)
+/.github/                 @splunk/products-gdi-addons-adminrepo
+/runbooks/                @splunk/products-gdi-addons-adminrepo
+/images/                  @splunk/products-gdi-addons-adminrepo
+/README.md                @splunk/products-gdi-addons-adminrepo
+/LICENSE                  @splunk/products-gdi-addons-adminrepo
+/.releaserc               @splunk/products-gdi-addons-adminrepo
+/renovate.json            @splunk/products-gdi-addons-adminrepo
+/.gitignore               @splunk/products-gdi-addons-adminrepo
+/.licenserc.yaml          @splunk/products-gdi-addons-adminrepo
+/.pre-commit-config.yaml  @splunk/products-gdi-addons-adminrepo
+/.yamlfmt                 @splunk/products-gdi-addons-adminrepo
+
+# Fallback for anything not matched above
+*                         @splunk/products-gdi-addons-adminrepo
