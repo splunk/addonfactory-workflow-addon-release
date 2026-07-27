@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: matrix
-        uses: splunk/addonfactory-test-matrix-action@v3.1
+        uses: splunk/addonfactory-test-matrix-action@v3.3
         with:
           features: PYTHON39
   publish:
@@ -35,24 +35,24 @@ jobs:
     needs:
       - inputs-validator
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install splunk_add_on_ucc_framework-5.69.1-py3-none-any.whl
       - name: Fetch build
         env:
-            GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-            gh release download v${{ inputs.addon_version }} --pattern "*${{ inputs.addon_version }}.spl" --output release.spl
-      - run: |
-            APP_ID=$(cat .splunkbase)
-            export APP_ID
-            ucc-gen publish \
-                --stage \
-                --app-id "$APP_ID" \
-                --package-path release.spl \
-                --splunk-versions ${{ inputs.splunk_versions }} \
-                --cim-versions ${{ inputs.cim_versions }} \
-                --username ${{ secrets.SPL_COM_USERNAME }} \
-                --password ${{ secrets.SPL_COM_PASSWORD }}
+          gh release download v${{ inputs.addon_version }} --pattern "*${{ inputs.addon_version }}.spl" --output release.spl
+      - run: |-
+          APP_ID=$(cat .splunkbase)
+          export APP_ID
+          ucc-gen publish \
+              --stage \
+              --app-id "$APP_ID" \
+              --package-path release.spl \
+              --splunk-versions ${{ inputs.splunk_versions }} \
+              --cim-versions ${{ inputs.cim_versions }} \
+              --username ${{ secrets.SPL_COM_USERNAME }} \
+              --password ${{ secrets.SPL_COM_PASSWORD }}
