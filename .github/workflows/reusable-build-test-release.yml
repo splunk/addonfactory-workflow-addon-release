@@ -527,10 +527,9 @@ jobs:
       - name: run fossa test and capture output
         if: success()
         run: |
-          fossa test --branch "$FOSSA_BRANCH" --debug 2>&1 | tee fossa-test-output.txt || true
+          fossa test --debug 2>&1 | tee fossa-test-output.txt || true
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
-          FOSSA_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: upload THIRDPARTY file
         uses: actions/upload-artifact@v6
         with:
