@@ -518,7 +518,7 @@ jobs:
         id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
+          fossa analyze --branch "$FOSSA_BRANCH" --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
           exit_code="${PIPESTATUS[0]}"
           FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
           echo "url=$FOSSA_REPORT_URL"
@@ -527,12 +527,14 @@ jobs:
           exit "$exit_code"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          FOSSA_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: run fossa test and capture output
         if: success()
         run: |
-          fossa test --debug 2>&1 | tee fossa-test-output.txt || true
+          fossa test --branch "$FOSSA_BRANCH" --debug 2>&1 | tee fossa-test-output.txt || true
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          FOSSA_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: upload THIRDPARTY file
         uses: actions/upload-artifact@v7
         with:
