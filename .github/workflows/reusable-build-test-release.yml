@@ -3694,8 +3694,14 @@ jobs:
     needs:
       - pre-publish
       - validate-custom-version
+      - build
     runs-on: ubuntu-latest
     steps:
+      - name: Verify required build
+        if: ${{ needs.build.result != 'success' }}
+        run: |
+          echo "::error::The build job must succeed and cannot be overridden."
+          exit 1
       - name: Generate app token
         id: app-token
         uses: actions/create-github-app-token@v3
