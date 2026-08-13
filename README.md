@@ -1069,6 +1069,8 @@ argo-logs
 
 - It releases a new release tag in the repository and uploads the assets to the release.
 
+- After a manual override approval, publishing verifies that the approved commit is still the current branch tip. Superseded runs fail before creating a tag or release.
+
 **Troubleshooting steps for failures if any**
 
 - This stage depends majorly on Semantic release action so if Publish is failing check for logs or issues raised recently in Semantic release action.

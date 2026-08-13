@@ -3753,6 +3753,23 @@ jobs:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+      - name: Verify approved commit is still current
+        if: ${{ needs.manual-publish-approval.result == 'success' && github.ref_type == 'branch' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APPROVED_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ENCODED_BRANCH=$(jq -rn --arg branch "$BRANCH_NAME" '$branch | @uri')
+          CURRENT_SHA=$(gh api "repos/$REPOSITORY/git/ref/heads/$ENCODED_BRANCH" --jq '.object.sha') || {
+            echo "::error::Unable to verify the current branch tip."
+            exit 1
+          }
+          if [[ "$CURRENT_SHA" != "$APPROVED_SHA" ]]; then
+            echo "::error::This approval is for $APPROVED_SHA, but $BRANCH_NAME now points to $CURRENT_SHA. Run and approve the latest workflow instead."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -3776,7 +3793,7 @@ jobs:
         with:
           token: "${{ steps.app-token.outputs.token }}"
           tag_name: v${{ github.event.inputs.custom-version }}
-          target_commitish: "${{github.ref_name}}"
+          target_commitish: "${{ github.sha }}"
           make_latest: false
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' || steps.custom.outputs.upload_url  != '' }}
