@@ -1071,8 +1071,6 @@ argo-logs
 
 - After a manual override approval, publishing verifies that the approved commit is still the current branch tip. Superseded runs fail before creating a tag or release.
 
-- A newer push to the same branch cancels any older in-progress run of this workflow, including a run waiting for manual publish approval.
-
 **Troubleshooting steps for failures if any**
 
 - This stage depends majorly on Semantic release action so if Publish is failing check for logs or issues raised recently in Semantic release action.
