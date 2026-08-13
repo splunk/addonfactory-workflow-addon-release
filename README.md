@@ -1044,6 +1044,8 @@ argo-logs
 
 - Release readiness is blocked when `fossa-vulnerability-test` fails, as `pre-publish` depends on it directly via the `needs` dependency.
 
+- For a publish-capable run where the pre-publish conditions are not met, the workflow first requires the `build` job to have succeeded, as that job cannot be overridden. It then verifies that the `publish-override` environment exists and has required reviewers. If either requirement is not met, the override fails. Otherwise, `manual-publish-approval` waits for environment approval before publishing proceeds.
+
 **Troubleshooting steps for failures if any**
 
 - In the logs it outputs a json with the info of stages and their pass/fail status. <br /> 
@@ -1066,6 +1068,8 @@ argo-logs
 **Pass/fail behaviour:** 
 
 - It releases a new release tag in the repository and uploads the assets to the release.
+
+- After a manual override approval, publishing verifies that the approved commit is still the current branch tip. Superseded runs fail before creating a tag or release.
 
 **Troubleshooting steps for failures if any**
 
