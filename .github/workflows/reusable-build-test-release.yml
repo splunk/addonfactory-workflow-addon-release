@@ -3688,12 +3688,38 @@ jobs:
               echo "Publish conditions are not met."
           fi
 
-  manual-publish-approval:
+  verify-publish-override:
     if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish != 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
-    name: Approve publish without successful pre-publish
+    name: Verify publish override environment
     needs:
       - pre-publish
       - validate-custom-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: Verify environment and required reviewers
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          ENVIRONMENT=$(gh api "repos/${{ github.repository }}/environments/publish-override") || {
+            echo "::error::The publish-override environment does not exist."
+            exit 1
+          }
+          if [[ $(jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length' <<< "$ENVIRONMENT") -eq 0 ]]; then
+            echo "::error::The publish-override environment has no required reviewers."
+            exit 1
+          fi
+
+  manual-publish-approval:
+    if: ${{ !cancelled() && needs.verify-publish-override.result == 'success' }}
+    name: Approve publish without successful pre-publish
+    needs: verify-publish-override
     runs-on: ubuntu-latest
     environment: publish-override
     steps:
