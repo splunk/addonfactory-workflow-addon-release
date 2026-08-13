@@ -3688,12 +3688,25 @@ jobs:
               echo "Publish conditions are not met."
           fi
 
+  manual-publish-approval:
+    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish != 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    name: Approve publish without successful pre-publish
+    needs:
+      - pre-publish
+      - validate-custom-version
+    runs-on: ubuntu-latest
+    environment: publish-override
+    steps:
+      - name: Record approval
+        run: echo "Publish was manually approved despite unmet pre-publish conditions."
+
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish == 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    if: ${{ !cancelled() && (needs.pre-publish.outputs.run-publish == 'true' || needs.manual-publish-approval.result == 'success') && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
     needs:
       - pre-publish
       - validate-custom-version
+      - manual-publish-approval
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -1044,6 +1044,8 @@ argo-logs
 
 - Release readiness is blocked when `fossa-vulnerability-test` fails, as `pre-publish` depends on it directly via the `needs` dependency.
 
+- For a publish-capable run where the pre-publish conditions are not met, `manual-publish-approval` waits for approval through the `publish-override` environment. After approval, publishing proceeds. Configure that environment with the appropriate required reviewers before using the override.
+
 **Troubleshooting steps for failures if any**
 
 - In the logs it outputs a json with the info of stages and their pass/fail status. <br /> 
