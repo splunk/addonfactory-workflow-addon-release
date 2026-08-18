@@ -2003,13 +2003,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-ko*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ko*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No knowledge-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2283,13 +2289,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-ui*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ui-*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No UI-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2561,13 +2573,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-modinput*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-modinput*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No modinput-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2838,13 +2856,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-ucc_modinput*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ucc_modinput*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No UCC modinput-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -3104,13 +3128,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-upgrade*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-upgrade*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No upgrade-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -3375,13 +3405,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-scripted*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-scripted*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No scripted-input-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -3628,13 +3664,19 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: summary-spl2_integration_tests*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-spl2_integration_tests*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No SPL2 integration-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
