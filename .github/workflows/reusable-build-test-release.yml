@@ -518,7 +518,7 @@ jobs:
         id: fossa-scan
         run: |
           curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/master/install-latest.sh | bash
-          fossa analyze --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
+          fossa analyze --branch "$FOSSA_BRANCH" --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
           exit_code="${PIPESTATUS[0]}"
           FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)
           echo "url=$FOSSA_REPORT_URL"
@@ -527,6 +527,7 @@ jobs:
           exit "$exit_code"
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+          FOSSA_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: run fossa test and capture output
         if: success()
         run: |
@@ -1261,7 +1262,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.13.0
+        uses: splunk/appinspect-cli-action@v2.15.0
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -3687,12 +3688,57 @@ jobs:
               echo "Publish conditions are not met."
           fi
 
+  verify-publish-override:
+    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish != 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    name: Verify publish override environment
+    needs:
+      - pre-publish
+      - validate-custom-version
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required build
+        if: ${{ needs.build.result != 'success' }}
+        run: |
+          echo "::error::The build job must succeed and cannot be overridden."
+          exit 1
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: Verify environment and required reviewers
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          ENVIRONMENT=$(gh api "repos/${{ github.repository }}/environments/publish-override") || {
+            echo "::error::The publish-override environment does not exist."
+            exit 1
+          }
+          if [[ $(jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length' <<< "$ENVIRONMENT") -eq 0 ]]; then
+            echo "::error::The publish-override environment has no required reviewers."
+            exit 1
+          fi
+
+  manual-publish-approval:
+    if: ${{ !cancelled() && needs.verify-publish-override.result == 'success' }}
+    name: Approve publish without successful pre-publish
+    needs: verify-publish-override
+    runs-on: ubuntu-latest
+    environment: publish-override
+    steps:
+      - name: Record approval
+        run: echo "Publish was manually approved despite unmet pre-publish conditions."
+
   publish:
-    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish == 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    if: ${{ !cancelled() && (needs.pre-publish.outputs.run-publish == 'true' || needs.manual-publish-approval.result == 'success') && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: ${{ github.event.inputs.custom-version == '' &&  'publish' ||  'publish-custom-version' }}
     needs:
       - pre-publish
       - validate-custom-version
+      - manual-publish-approval
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -3707,6 +3753,23 @@ jobs:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+      - name: Verify approved commit is still current
+        if: ${{ needs.manual-publish-approval.result == 'success' && github.ref_type == 'branch' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APPROVED_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ENCODED_BRANCH=$(jq -rn --arg branch "$BRANCH_NAME" '$branch | @uri')
+          CURRENT_SHA=$(gh api "repos/$REPOSITORY/git/ref/heads/$ENCODED_BRANCH" --jq '.object.sha') || {
+            echo "::error::Unable to verify the current branch tip."
+            exit 1
+          }
+          if [[ "$CURRENT_SHA" != "$APPROVED_SHA" ]]; then
+            echo "::error::This approval is for $APPROVED_SHA, but $BRANCH_NAME now points to $CURRENT_SHA. Run and approve the latest workflow instead."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -3730,7 +3793,7 @@ jobs:
         with:
           token: "${{ steps.app-token.outputs.token }}"
           tag_name: v${{ github.event.inputs.custom-version }}
-          target_commitish: "${{github.ref_name}}"
+          target_commitish: "${{ github.sha }}"
           make_latest: false
       - name: Download package-deployment
         if: ${{ steps.semantic.outputs.new_release_published == 'true' || steps.custom.outputs.upload_url  != '' }}
