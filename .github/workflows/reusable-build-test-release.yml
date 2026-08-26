@@ -64,9 +64,9 @@ on:
         default: "3.9"
       test-python-version:
         required: false
-        description: "Python version to use for WFE test tooling and test dependencies"
+        description: "Python version to use for WFE test tooling and test dependencies; defaults to python-version"
         type: string
-        default: "3.9"
+        default: ""
       spl2-generate:
         required: false
         description: "Run spl2-generate hook during pre-commit step"
@@ -145,7 +145,7 @@ concurrency:
   cancel-in-progress: true
 env:
   PYTHON_VERSION: ${{ inputs.python-version }}
-  TEST_PYTHON_VERSION: ${{ inputs.test-python-version }}
+  TEST_PYTHON_VERSION: ${{ inputs.test-python-version || inputs.python-version }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
