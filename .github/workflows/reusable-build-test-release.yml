@@ -760,7 +760,7 @@ jobs:
       block_mode: "policy"
 
   run-unit-tests-py39:
-    name: run-unit-tests (3.9)
+    name: run-unit-tests (${{ inputs.python-version }})
     runs-on: ubuntu-22.04
     needs:
       - setup-workflow
@@ -773,7 +773,7 @@ jobs:
       statuses: read
       checks: write
     env:
-      UNIT_TESTS_PYTHON_VERSION: "3.9"
+      UNIT_TESTS_PYTHON_VERSION: ${{ inputs.python-version }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
