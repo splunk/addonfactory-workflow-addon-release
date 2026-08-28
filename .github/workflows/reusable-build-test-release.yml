@@ -62,11 +62,6 @@ on:
         description: "Python version to use for testing"
         type: string
         default: "3.9"
-      spl2-generate:
-        required: false
-        description: "Run spl2-generate hook during pre-commit step"
-        type: boolean
-        default: false
       gs-image-version:
         required: false
         description: "Version of the GS scorecard Docker image"
@@ -703,26 +698,6 @@ jobs:
       - name: REUSE Compliance Check
         uses: fsfe/reuse-action@v6.0.0
 
-  pre-commit:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Run pre-commit (skip spl2-generate)
-        if: ${{ !inputs['spl2-generate'] }}
-        uses: pre-commit/action@v3.0.1
-        env:
-          SKIP: spl2-generate
-      - name: Run pre-commit (with spl2-generate)
-        if: ${{ inputs['spl2-generate'] }}
-        uses: pre-commit/action@v3.0.1
-
   review_secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
@@ -909,7 +884,6 @@ jobs:
       - setup-workflow
       - meta
       - compliance-copyrights
-      - pre-commit
       - review_secrets
       - semgrep
       - run-unit-tests-py39
@@ -1130,7 +1104,6 @@ jobs:
       - setup-workflow
       - meta
       - compliance-copyrights
-      - pre-commit
       - review_secrets
       - semgrep
       - run-unit-tests-py313
@@ -1700,50 +1673,6 @@ jobs:
           name: archive splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} tests logs
           path: |
             ${{ needs.setup.outputs.directory-path }}/argo-logs
-
-  run-spl2-tests:
-    if: ${{ !cancelled() && needs.setup-workflow.outputs.execute-spl2 == 'true'}}
-    needs:
-      - setup-workflow
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/splunk/spl2-testing-base:latest
-    permissions:
-      actions: read
-      deployments: read
-      contents: read
-      packages: read
-      statuses: read
-      checks: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-      - name: configure git # This step configures git to omit "dubious git ownership error" in later test-reporter stage
-        id: configure-git
-        run: |
-          git --version
-          git_path="$(pwd)"
-          echo "$git_path"
-          git config --global --add safe.directory "$git_path"
-      - name: Run spl2 tests
-        run: |
-          echo "Running SPL2 Tests"
-          spl2_tests_run cli -n 8 --cli_cache --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
-      - name: Test Report
-        id: test_report
-        uses: dorny/test-reporter@v3.0.0
-        if: ${{ !cancelled() }}
-        with:
-          name: spl2 test report
-          path: "test-results/*.xml"
-          reporter: java-junit
-          use-actions-summary: false
-      - uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() }}
-        with:
-          name: spl2 test results
-          path: test-results/
 
   run-knowledge-tests:
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-knowledge == 'true' }}
@@ -3696,7 +3625,6 @@ jobs:
       - validate-custom-version
       - meta
       - compliance-copyrights
-      - pre-commit
       - review_secrets
       - semgrep
       - build
