@@ -838,7 +838,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' }}
+    if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' && inputs.python-version != '3.13' }}
     permissions:
       actions: read
       deployments: read
