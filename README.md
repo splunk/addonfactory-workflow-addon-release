@@ -30,7 +30,6 @@
   * [[Job] setup](#job-setup)
   * [[Job] test-unit-python3](#job-test-unit-python3)
   * [[Job] run-btool-check](#job-run-btool-check)
-  * [[Job] run-spl2-tests](#job-run-spl2-tests)
   * [[Job] run-knowledge-tests](#job-run-knowledge-tests)
   * [[Job] run-ui-tests](#job-run-ui-tests-)
   * [[Job] run-modinput-tests](#job-run-modinput-tests-)
@@ -189,7 +188,6 @@ gitGraph
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
 * `python-version` - Python version used for testing, default `3.9`
-* `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
 
@@ -410,31 +408,6 @@ i.e <img src="images/compliance-copyrights/license.png" alt="license" style="wid
 **Artifacts:**
 
 - No additional Artifacts.
-
-
-## [Job] lint
-
-**Description:** 
-
-- Uses [pre-commit](https://pre-commit.com) to run linters (Python, Java, JS and others)
-
-**Action used** https://github.com/pre-commit/action
-
-**Pass/fail behaviour:**
-
-- If the stage detects a linting error in the code the stage would fail with error information.
-
-**Troubleshooting steps for failures if any**
-
-- User can install `pre-commit` locally and run all the linters locally (`pre-commit run --all-files`) and resolve all the issues without the necessity to test changes in the CI.
-
-- User can look through the details for failures in logs and browse how to resolve a specific linters error i.e for flake8 failures one in install flake8 in local env and fix the failures and push to the repository.
-
-- If your add-on has some Java code, you need to have Java installed locally, so Java linter will work.
-
-**Artifacts:**
-
-- No additional artifacts, failure details are available in the logs.
 
 
 ## [Job] security-detect-secrets
@@ -735,25 +708,6 @@ gs-scorecard-report (gs_scorecard.html)
 ```
 btool-output.txt
 ```
-
-## [Job] run-spl2-tests
-
-**Description:**
-
-- Executes SPL2 tests for add-ons that ship SPL2 modules under `package/default/data/spl2/`.
-- Runs inside the `ghcr.io/splunk/spl2-testing-base:latest` container using the `spl2_tests_run` CLI.
-- Triggered when `package/default/data/spl2/` directory is detected in the repository.
-
-**Pass/fail behaviour:**
-
-- Fails if any SPL2 test case fails.
-
-**Artifacts:**
-
-```
-Junit XML test report
-```
-
 
 ## [Job] run-knowledge-tests
 
