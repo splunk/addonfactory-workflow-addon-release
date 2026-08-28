@@ -189,7 +189,7 @@ gitGraph
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
 * `python-version` - Python version used to build the package and run the package-version unit-test job, default `3.9`
-* `test-python-version` - Python version used for pre-commit, WFE test tooling, and test dependencies; defaults to `python-version`
+* `test-python-version` - Python version used for pre-commit, WFE test tooling, and test dependencies, default `3.13`
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`

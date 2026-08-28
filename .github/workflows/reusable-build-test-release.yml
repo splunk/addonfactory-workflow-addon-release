@@ -64,9 +64,9 @@ on:
         default: "3.9"
       test-python-version:
         required: false
-        description: "Python version to use for pre-commit, WFE test tooling, and test dependencies; defaults to python-version"
+        description: "Python version to use for pre-commit, WFE test tooling, and test dependencies"
         type: string
-        default: ""
+        default: "3.13"
       spl2-generate:
         required: false
         description: "Run spl2-generate hook during pre-commit step"
@@ -145,7 +145,7 @@ concurrency:
   cancel-in-progress: true
 env:
   PYTHON_VERSION: ${{ inputs.python-version }}
-  TEST_PYTHON_VERSION: ${{ inputs.test-python-version || inputs.python-version }}
+  TEST_PYTHON_VERSION: ${{ inputs.test-python-version }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
@@ -759,7 +759,7 @@ jobs:
     with:
       block_mode: "policy"
 
-  run-unit-tests-py39:
+  run-unit-tests:
     name: run-unit-tests (${{ inputs.python-version }})
     runs-on: ubuntu-22.04
     needs:
@@ -918,10 +918,10 @@ jobs:
       - pre-commit
       - review_secrets
       - semgrep
-      - run-unit-tests-py39
+      - run-unit-tests
       - run-unit-tests-py313
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests-py39.result == 'success' || needs.run-unit-tests-py39.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -3665,7 +3665,7 @@ jobs:
       - semgrep
       - build
       - build-py313
-      - run-unit-tests-py39
+      - run-unit-tests
       - run-unit-tests-py313
       - appinspect
       - setup
