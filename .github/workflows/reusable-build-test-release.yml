@@ -59,12 +59,12 @@ on:
         default: "false"
       python-version:
         required: false
-        description: "Python version to use for package build and pre-commit"
+        description: "Python version to use for package build"
         type: string
         default: "3.9"
       test-python-version:
         required: false
-        description: "Python version to use for WFE test tooling and test dependencies; defaults to python-version"
+        description: "Python version to use for pre-commit, WFE test tooling, and test dependencies; defaults to python-version"
         type: string
         default: ""
       spl2-generate:
@@ -715,7 +715,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
       - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
