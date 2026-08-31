@@ -59,9 +59,14 @@ on:
         default: "false"
       python-version:
         required: false
-        description: "Python version to use for testing"
+        description: "Python version to use for package build"
         type: string
         default: "3.9"
+      test-python-version:
+        required: false
+        description: "Python version to use for pre-commit, WFE test tooling, and test dependencies"
+        type: string
+        default: "3.13"
       spl2-generate:
         required: false
         description: "Run spl2-generate hook during pre-commit step"
@@ -140,6 +145,7 @@ concurrency:
   cancel-in-progress: true
 env:
   PYTHON_VERSION: ${{ inputs.python-version }}
+  TEST_PYTHON_VERSION: ${{ inputs.test-python-version }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
@@ -709,7 +715,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
       - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
@@ -753,8 +759,8 @@ jobs:
     with:
       block_mode: "policy"
 
-  run-unit-tests-py39:
-    name: run-unit-tests (3.9)
+  run-unit-tests:
+    name: run-unit-tests (${{ inputs.python-version }})
     runs-on: ubuntu-22.04
     needs:
       - setup-workflow
@@ -767,7 +773,7 @@ jobs:
       statuses: read
       checks: write
     env:
-      UNIT_TESTS_PYTHON_VERSION: "3.9"
+      UNIT_TESTS_PYTHON_VERSION: ${{ inputs.python-version }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -832,7 +838,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - setup-workflow
-    if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' }}
+    if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' && inputs.python-version != '3.13' }}
     permissions:
       actions: read
       deployments: read
@@ -912,10 +918,10 @@ jobs:
       - pre-commit
       - review_secrets
       - semgrep
-      - run-unit-tests-py39
+      - run-unit-tests
       - run-unit-tests-py313
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests-py39.result == 'success' || needs.run-unit-tests-py39.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
@@ -1454,12 +1460,12 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
       - name: setup-poetry
         id: setup-poetry
         shell: bash
         run: |
-          python${{ env.PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }}
+          python${{ env.TEST_PYTHON_VERSION }} -m pip install poetry==${{ env.POETRY_VERSION }}
           export POETRY_REPOSITORIES_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_URL=https://github.com/splunk/addonfactory-ucc-test.git
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_USERNAME=${{ secrets.SA_GH_USER_NAME }}
           export POETRY_HTTP_BASIC_SPLUNK_ADD_ON_UCC_MODINPUT_TEST_PASSWORD=${{ steps.app-token.outputs.token }}
@@ -1471,8 +1477,8 @@ jobs:
         env:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
         run: |
-          python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
-          ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
+          python${{ env.TEST_PYTHON_VERSION }} -m venv ~/.dev_venv
+          ~/.dev_venv/bin/python${{ env.TEST_PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
           if [ -f "tests/ucc_modinput_functional/tmp/openapi.json" ]; then
             ~/.dev_venv/bin/ucc-test-modinput gen -o tests/ucc_modinput_functional/tmp/openapi.json -t ${{ steps.download-openapi.outputs.download-path }}/tmp/
           else
@@ -1485,11 +1491,11 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          python${{ env.PYTHON_VERSION }} -m venv ~/.dev_venv
+          python${{ env.TEST_PYTHON_VERSION }} -m venv ~/.dev_venv
           echo "Found requirements_dev.txt. Installing dev dependencies in an isolated environment"
-          ~/.dev_venv/bin/python${{ env.PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
+          ~/.dev_venv/bin/python${{ env.TEST_PYTHON_VERSION }} -m pip install -r dev_deps/requirements_dev.txt
           libs_archive=libs_$(basename "$BUILD_NAME" .spl).tgz
-          cp -r ~/.dev_venv/lib/python${{ env.PYTHON_VERSION }}/site-packages/ libs/
+          cp -r ~/.dev_venv/lib/python${{ env.TEST_PYTHON_VERSION }}/site-packages/ libs/
           tar -czf "$libs_archive" libs
           aws s3 cp "$libs_archive" "s3://${{ needs.setup-workflow.outputs.s3_bucket_k8s }}/ta-apps/$libs_archive" --only-show-errors
       - name: upload-swagger-artifacts-to-s3
@@ -1582,7 +1588,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -1832,7 +1838,7 @@ jobs:
           sc4s-version: ${{ matrix.sc4s.version }}
           sc4s-docker-registry: ${{ matrix.sc4s.docker_registry }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -2119,7 +2125,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           test-browser: ${{ env.TEST_BROWSER }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -2397,7 +2403,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ${{ matrix.splunk.serverConfPythonVersion || '' }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -2674,7 +2680,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ${{ matrix.splunk.serverConfPythonVersion || '' }}
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -2940,7 +2946,7 @@ jobs:
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           ta-upgrade-version: ${{ matrix.ta-version-from-upgrade }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -3217,7 +3223,7 @@ jobs:
           os-name: ${{ steps.os-name-version.outputs.os-name }}
           os-version: ${{ steps.os-name-version.outputs.os-version }}
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ''
       - name: calculate timeout
         id: calculate-timeout
@@ -3475,7 +3481,7 @@ jobs:
           vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.TEST_PYTHON_VERSION }}
           server-conf-python-version: ''
       - name: Read secrets from AWS Secrets Manager again into environment variables in case credential rotation
         id: update-argo-token
@@ -3659,7 +3665,7 @@ jobs:
       - semgrep
       - build
       - build-py313
-      - run-unit-tests-py39
+      - run-unit-tests
       - run-unit-tests-py313
       - appinspect
       - setup
