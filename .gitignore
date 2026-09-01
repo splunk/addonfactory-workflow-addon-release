@@ -1,5 +1,7 @@
 # Tooling
 actionlint
+__pycache__/
+*.pyc
 
 # Editors / IDEs
 .idea/

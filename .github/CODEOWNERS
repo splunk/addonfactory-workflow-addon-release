@@ -1,5 +1,6 @@
 # Explicit per-area ownership (union covers the full repo surface)
 /.github/                 @splunk/products-gdi-addons-adminrepo
+/scripts/                 @splunk/products-gdi-addons-adminrepo
 /runbooks/                @splunk/products-gdi-addons-adminrepo
 /images/                  @splunk/products-gdi-addons-adminrepo
 /README.md                @splunk/products-gdi-addons-adminrepo

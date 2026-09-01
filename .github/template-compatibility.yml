@@ -1,0 +1,13 @@
+# Declares which refs of the consumer template repo
+# (splunk/addonfactory-repository-template) this reusable workflow is
+# compatible with. Checked by scripts/check_template_compat.py, wired in as
+# the CI-only "template-compat" pre-commit hook.
+#
+# During development, list the branch(es) you're integrating against (e.g.
+# "develop" or a feature branch). For a release, first merge/tag the
+# template, then update this list to the matching template tag(s) before
+# tagging this repo — if the check reports incompatibility against a
+# declared ref, that ref must not be declared as compatible until fixed.
+template_repo: splunk/addonfactory-repository-template
+compatible_template_refs:
+  - develop

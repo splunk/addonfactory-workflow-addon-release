@@ -8,6 +8,9 @@
   * [[Internal] Development flow](#internal-development-flow)
 * [Spec reusable-build-test-release](#spec-reusable-build-test-release)
   * [Workflow Inputs](#workflow-inputs)
+  * [Workflow Secrets](#workflow-secrets)
+  * [Local validation and build command](#local-validation-and-build-command)
+  * [Validation depth by change class](#validation-depth-by-change-class)
   * [General troubleshooting](#general-troubleshooting)
   * [[Job] validate-custom-version](#job-validate-custom-version)
   * [[Job] check-splunktafunctionaltests-exists](#job-check-splunktafunctionaltests-exists)
@@ -193,6 +196,63 @@ gitGraph
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
+
+## Workflow Secrets
+
+All secrets below are declared `required: true` under `on.workflow_call.secrets` and must be passed by
+the calling repository's workflow (see [addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)).
+
+* `GH_APP_CLIENT_ID`, `GH_APP_PRIVATE_KEY` - GitHub App credentials used to mint short-lived installation
+  tokens (`actions/create-github-app-token`) for the `run-gs-scorecard` and `publish` jobs, replacing a
+  long-lived PAT.
+* `SEMGREP_PUBLISH_TOKEN` - Semgrep token used by the `semgrep` job to run SAST scanning.
+* `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` - AWS credentials used across the
+  `build`, `run-btool-check`, `run-knowledge-tests`, `run-ui-tests`, `run-modinput-tests`,
+  `run-ucc-modinput-tests`, `run-upgrade-tests`, and `run-scripted-input-tests-full-matrix` jobs to upload
+  build/test artifacts to S3 and to configure AWS for k8s-based test execution.
+* `OTHER_TA_REQUIRED_CONFIGS` - suffix appended to the Splunk version string (e.g. in artifact/job-summary
+  names) across the same k8s-based test jobs listed above, to disambiguate a TA-specific Splunk
+  configuration variant.
+* `FOSSA_API_KEY` - API token for the FOSSA app, used by the `fossa-scan` job for license/vulnerability
+  scanning.
+* `SA_GH_USER_NAME`, `SA_GH_USER_EMAIL`, `SA_GPG_PRIVATE_KEY`, `SA_GPG_PASSPHRASE` - service-account git
+  identity and GPG signing key used to sign the semantic-release commit in the `publish` job (also used by
+  `SA_GH_USER_NAME` alone as the AppInspect API username in `run-gs-scorecard`).
+* `SPL_COM_USER`, `SPL_COM_PASSWORD` - splunk.com credentials used by the `appinspect-api` job (AppInspect
+  API submission) and by the `run-gs-scorecard` job (as `APPINSPECT_USER`/`APPINSPECT_PASS`).
+* `GSSA_AWS_ACCESS_KEY_ID`, `GSSA_AWS_SECRET_ACCESS_KEY` - separate AWS credentials (distinct from the
+  `AWS_*` secrets above) scoped to the `run-gs-scorecard` job, used to pull the GS Scorecard Docker image
+  from its ECR registry.
+* `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` - Atlassian user credentials used by the `comment-on-jira` job to
+  post commit-reference comments on Jira tickets; the user needs comment permission on
+  `https://splunk.atlassian.net`.
+
+## Local validation and build command
+
+This repo's own "build" is the workflow YAML plus the invariant-checking scripts in `scripts/`; there is no
+application to compile. The local validation entrypoint before pushing a change to
+`.github/workflows/reusable-build-test-release.yml` is:
+
+```bash
+pre-commit run --all-files
+pre-commit run --hook-stage manual --all-files
+```
+
+The first command runs `actionlint` and `yamlfmt` (these run on every local commit). The second additionally
+runs the CI-only hooks — `python scripts/check_workflow_hygiene.py` (naming consistency, dead inputs/secrets)
+and `python scripts/check_template_compat.py` (cross-repo compatibility against
+[addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)) — which are
+pinned to `stages: [manual]` because `check_template_compat.py` needs network access and a `gh` token, so
+they don't run on a plain `git commit` and must be invoked explicitly (they do run in CI).
+
+## Validation depth by change class
+
+| Change class | Minimum validation |
+|---|---|
+| Docs-only (`README.md`, `runbooks/`, `AGENTS.md`) | `pre-commit run --all-files` (lint only) |
+| New/changed `workflow_call` input or secret | `pre-commit run --hook-stage manual --all-files` (adds hygiene + template-compat checks) |
+| Job logic change (steps, conditions, matrix) inside `reusable-build-test-release.yml` | Full manual pre-commit run, then push to a branch and confirm the affected job(s) via a real push-triggered workflow run before merging |
+| Change to `scripts/check_workflow_hygiene.py` or `scripts/check_template_compat.py` | Run the changed script directly against `.github/workflows/reusable-build-test-release.yml` and confirm it still reports pass on the current workflow, in addition to the above |
 
 ## General troubleshooting
 

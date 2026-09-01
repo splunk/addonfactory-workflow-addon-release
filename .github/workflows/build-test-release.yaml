@@ -34,6 +34,20 @@ jobs:
       - run: |
           bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.26/scripts/download-actionlint.bash)
       - uses: pre-commit/action@v3.0.1
+      - name: Run CI-only workflow hygiene hook
+        run: pre-commit run workflow-hygiene --hook-stage manual --all-files
+      - name: Mint token to read addonfactory-repository-template
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: splunk
+          repositories: addonfactory-repository-template
+      - name: Run CI-only template compatibility hook
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: pre-commit run template-compat --hook-stage manual --all-files
 
   publish:
     needs:

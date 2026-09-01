@@ -729,7 +729,7 @@ jobs:
         if: ${{ inputs['spl2-generate'] }}
         uses: pre-commit/action@v3.0.1
 
-  review_secrets:
+  review-secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
     steps:
@@ -916,7 +916,7 @@ jobs:
       - meta
       - compliance-copyrights
       - pre-commit
-      - review_secrets
+      - review-secrets
       - semgrep
       - run-unit-tests
       - run-unit-tests-py313
@@ -1137,7 +1137,7 @@ jobs:
       - meta
       - compliance-copyrights
       - pre-commit
-      - review_secrets
+      - review-secrets
       - semgrep
       - run-unit-tests-py313
       - fossa-scan
@@ -2281,7 +2281,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  UI-tests-report:
+  ui-tests-report:
     needs: run-ui-tests
     runs-on: ubuntu-latest
     if: ${{ !cancelled() && needs.run-ui-tests.result != 'skipped' }}
@@ -2559,7 +2559,7 @@ jobs:
           path: |
             ${{ needs.setup.outputs.directory-path }}/diag*
 
-  Modinput-tests-report:
+  modinput-tests-report:
     needs: run-modinput-tests
     runs-on: ubuntu-latest
     if: ${{ !cancelled() && needs.run-modinput-tests.result != 'skipped' }}
@@ -3661,7 +3661,7 @@ jobs:
       - meta
       - compliance-copyrights
       - pre-commit
-      - review_secrets
+      - review-secrets
       - semgrep
       - build
       - build-py313
