@@ -710,13 +710,13 @@ jobs:
         uses: fsfe/reuse-action@v6.0.0
 
   pre-commit:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.TEST_PYTHON_VERSION }}
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -747,7 +747,7 @@ jobs:
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
       - name: Secret Scanning Trufflehog
-        uses: trufflesecurity/trufflehog@v3.95.9
+        uses: trufflesecurity/trufflehog@v3.97.4
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
@@ -761,7 +761,7 @@ jobs:
 
   run-unit-tests:
     name: run-unit-tests (${{ inputs.python-version }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' }}
@@ -782,7 +782,7 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.UNIT_TESTS_PYTHON_VERSION }}
       - name: Setup addon
@@ -835,7 +835,7 @@ jobs:
 
   run-unit-tests-py313:
     name: run-unit-tests (3.13)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' && inputs.python-version != '3.13' }}
@@ -856,7 +856,7 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.UNIT_TESTS_PYTHON_VERSION }}
       - name: Setup addon
@@ -908,7 +908,7 @@ jobs:
           path: test-results/*
 
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - check-docs-changes
       - validate-custom-version
@@ -940,10 +940,10 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -1129,7 +1129,7 @@ jobs:
 
   build-py313:
     name: build (3.13)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - check-docs-changes
       - validate-custom-version
@@ -1158,10 +1158,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.BUILD_PYTHON_VERSION }}
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -1386,7 +1386,7 @@ jobs:
       - setup-workflow
       - build
     if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
@@ -1458,7 +1458,7 @@ jobs:
           name: artifact-openapi
           path: ${{ github.workspace }}
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.TEST_PYTHON_VERSION }}
       - name: setup-poetry
@@ -1523,7 +1523,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1765,7 +1765,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2038,7 +2038,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2318,7 +2318,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2595,7 +2595,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2872,7 +2872,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         ta-version-from-upgrade: ${{ fromJson(inputs.upgrade-tests-ta-versions) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -3137,7 +3137,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -3407,7 +3407,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
         spl2-test-type: ["CIM", "TA"]
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
