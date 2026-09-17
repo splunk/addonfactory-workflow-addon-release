@@ -206,6 +206,19 @@ class MainTests(unittest.TestCase):
             self.assertTrue(output_path.read_text(encoding="utf-8").endswith("\n"))
             self.assertIn('\n  "schema_version": 1,', output_path.read_text(encoding="utf-8"))
 
+    def test_failed_serialization_preserves_existing_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_path = Path(temporary_directory) / "manifest.json"
+            original_content = b'{"previous": "complete manifest"}\n'
+            output_path.write_bytes(original_content)
+
+            with mock.patch.object(collector.json, "dump", side_effect=OSError("write failed")):
+                with self.assertRaisesRegex(OSError, "write failed"):
+                    collector._write_manifest(output_path, {"replacement": "manifest"})
+
+            self.assertEqual(output_path.read_bytes(), original_content)
+            self.assertEqual(list(output_path.parent.glob(f".{output_path.name}.*")), [])
+
 
 if __name__ == "__main__":
     unittest.main()

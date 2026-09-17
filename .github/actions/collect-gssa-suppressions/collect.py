@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 from urllib import error, parse, request
 
@@ -199,16 +200,24 @@ def _workflow_message(level, message):
 def _write_manifest(output_path, manifest):
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    descriptor, temporary_path = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        dir=path.parent,
+    )
     try:
         os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as manifest_file:
             descriptor = None
             json.dump(manifest, manifest_file, indent=2)
             manifest_file.write("\n")
+        os.replace(temporary_path, path)
     finally:
         if descriptor is not None:
             os.close(descriptor)
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
 
 
 def main():
