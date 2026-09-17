@@ -1,50 +1,29 @@
 # AGENTS.md
 
-This repo publishes the reusable `build-test-release` GitHub Actions workflow
-consumed by Splunk add-on repositories (via [addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)).
-There is no application runtime, database, or product surface here — the
-"product" is CI/CD workflow YAML plus the scripts that guard its invariants.
+This repository publishes reusable GitHub Actions workflows for Splunk add-on repositories. Route to the narrowest source below before changing behavior.
 
-## Where to look
+## Routing: start here
 
-- [`README.md`](README.md) — the spec: workflow inputs, secrets, and a
-  per-job description (purpose, pass/fail behavior, artifacts,
-  troubleshooting) for every job in
-  `.github/workflows/reusable-build-test-release.yml`. Read this before
-  changing any job's behavior or its inputs/secrets contract.
-- [`runbooks/`](runbooks/) — operational procedures for recurring
-  maintenance tasks (backporting to older TA versions, updating the
-  AppInspect CLI action, rebuilding the Docker images this workflow depends
-  on).
-- [`scripts/`](scripts/) — invariant enforcement for the workflow YAML
-  itself: `check_workflow_hygiene.py` (naming consistency, dead
-  inputs/secrets) and `check_template_compat.py` (cross-repo compatibility
-  against the template's caller workflow). Both run as CI-only pre-commit
-  hooks (`stages: [manual]`) — see `.pre-commit-config.yaml`.
+- [`README.md`](README.md) — Start here for the workflow contract, inputs, secrets, job behavior, troubleshooting, and validation depth.
+- [`.github/workflows/reusable-build-test-release.yml`](.github/workflows/reusable-build-test-release.yml) — Inspect the primary reusable build, test, and release workflow.
+- [`.github/workflows/build-test-release.yaml`](.github/workflows/build-test-release.yaml) — Inspect this repository's own CI, unit-test, and release entrypoint.
+- [`.github/workflows/reusable-publish-to-splunkbase.yml`](.github/workflows/reusable-publish-to-splunkbase.yml) — Use for Splunkbase publishing workflow changes.
+- [`.github/workflows/reusable-validate-deploy-docs.yml`](.github/workflows/reusable-validate-deploy-docs.yml) — Use for deployment-document validation workflow changes.
+- [`pyproject.toml`](pyproject.toml) — Use for Python compatibility and direct validation dependencies.
+- [`poetry.lock`](poetry.lock) — Inspect the exact resolved Python dependency graph; regenerate it with Poetry after dependency changes.
+- [`tests/`](tests/) — Run the offline unit tests for repository-owned Python validation logic.
+- [`scripts/check_workflow_hygiene.py`](scripts/check_workflow_hygiene.py) — Use for workflow naming and unused input/secret enforcement.
+- [`tests/test_check_workflow_hygiene.py`](tests/test_check_workflow_hygiene.py) — Update when workflow-hygiene behavior changes.
+- [`scripts/check_template_compat.py`](scripts/check_template_compat.py) — Use for cross-repository caller-contract validation.
+- [`tests/test_check_template_compat.py`](tests/test_check_template_compat.py) — Update when template-compatibility behavior changes.
+- [`.github/template-compatibility.yml`](.github/template-compatibility.yml) — Use for the authoritative template refs covered by compatibility checks.
+- [`.pre-commit-config.yaml`](.pre-commit-config.yaml) — Inspect local and CI-only validation hook definitions.
+- [`renovate.json`](renovate.json) — Use for automated dependency and GitHub Action digest maintenance.
+- [`runbooks/`](runbooks/) — Read the relevant operational procedure before recurring release or dependency-maintenance work.
 
-## Local validation
+## Guardrails
 
-Run before pushing any change to `.github/workflows/reusable-build-test-release.yml`:
-
-```bash
-pre-commit run --all-files
-pre-commit run --hook-stage manual --all-files
-```
-
-The first command runs formatting and lint (`actionlint`, `yamlfmt`). The
-second additionally runs the CI-only hooks in `scripts/` (workflow hygiene,
-template compatibility) that don't run on a local `git commit` because
-`check_template_compat.py` needs network access and a `gh` token.
-
-See the change-class → validation-depth table in
-[README.md](README.md#validation-depth-by-change-class) for what depth of
-validation a given change requires beyond this.
-
-## Constraints
-
-- This workflow is consumed by many independent add-on repos. Renaming a
-  job id, input, or secret is a breaking change — `check_workflow_hygiene.py`
-  grandfathers pre-existing public-API names for this reason.
-- Job ids and new `workflow_call` input names must be kebab-case.
-- Every declared `workflow_call` input and secret must be referenced in the
-  workflow body, or the hygiene check fails.
+- Treat job IDs and `workflow_call` inputs and secrets as public API; rename them only with a consumer migration plan.
+- Use kebab-case for new job IDs and `workflow_call` input names.
+- Keep every declared `workflow_call` input and secret wired into the workflow body.
+- Run `poetry run python -m unittest discover -s tests -v` plus the validation depth required by [`README.md`](README.md#validation-depth-by-change-class).

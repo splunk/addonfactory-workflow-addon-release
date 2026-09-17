@@ -19,25 +19,31 @@ jobs:
   compliance-copyrights:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: apache/skywalking-eyes@v0.6.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: apache/skywalking-eyes@cd7b195c51fd3d6ad52afceb760719ddc6b3ee91 # v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   pre-commit:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: "3.7"
+          python-version: "3.13"
+      - name: Install Poetry
+        run: python -m pip install poetry==2.2.1
+      - name: Install repository validation dependencies
+        run: poetry install --no-root
+      - name: Run repository unit tests
+        run: poetry run python -m unittest discover -s tests -v
       - run: |
-          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.26/scripts/download-actionlint.bash)
-      - uses: pre-commit/action@v3.0.1
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/ea8102762106cdca9c88829f1295b39a544706f3/scripts/download-actionlint.bash)
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
       - name: Run CI-only workflow hygiene hook
         run: pre-commit run workflow-hygiene --hook-stage manual --all-files
       - name: Mint token to read addonfactory-repository-template
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
@@ -55,18 +61,18 @@ jobs:
       - pre-commit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           submodules: false
           persist-credentials: false
       - name: Semantic Release
-        uses: splunk/semantic-release-action@v1.3
+        uses: splunk/semantic-release-action@e51b04598818ef90688922ea2153fa99452eddf1 # v1.3
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
@@ -80,14 +86,14 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@v3
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-      - uses: actions/checkout@v7
-      - uses: splunk/addonfactory-update-semver@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: splunk/addonfactory-update-semver@da0301a1da3d66f2358d8d865d7475d248fee2d1 # v1
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         with:

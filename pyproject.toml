@@ -1,0 +1,15 @@
+[project]
+name = "addonfactory-workflow-addon-release"
+version = "0.0.0"
+description = "Development tooling for the reusable add-on build and release workflow"
+requires-python = ">=3.9,<3.14"
+dependencies = [
+  "pyyaml==6.0.3",
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
