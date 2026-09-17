@@ -663,6 +663,25 @@ appinspect-api-html-report-self-service
 
 - The job requires proper AWS credentials for accessing the ECR registry and GitHub credentials for repository analysis.
 
+**PR-scoped suppressions:**
+
+- A pull request participant can temporarily suppress a GSSA finding for that
+  pull request by posting this exact comment syntax:
+
+  ```text
+  /gssa-ignore
+  check: kvstore-state
+  detection: sensitive-data/credential-exposure
+  reason: Accepted limitation for this release; remediation tracked in ADDON-12345.
+  ```
+
+- Comments from all participants form a union, and every declaration requires
+  a reason. Comment edits and deletions take effect on the next scorecard run.
+  A declaration applies to every commit and rerun in that pull request; another
+  pull request must declare it again.
+- GSSA, not this workflow, validates whether the selected check or detection is
+  available.
+
 **Troubleshooting steps for failures if any:**
 
 - Verify that the required secrets are properly configured in GitHub Actions:
