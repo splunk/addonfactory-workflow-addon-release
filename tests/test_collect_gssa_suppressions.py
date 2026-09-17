@@ -22,6 +22,9 @@ SPEC.loader.exec_module(collector)
 
 
 CONTEXT = {"repository": "splunk/example-ta", "pullRequest": 123}
+WORKFLOW_PATH = (
+    Path(__file__).parents[1] / ".github" / "workflows" / "reusable-build-test-release.yml"
+)
 
 
 def comment(body, number=1, author="author"):
@@ -89,6 +92,27 @@ class ParseCommentTests(unittest.TestCase):
 
         self.assertIsNone(result["manifest"])
         self.assertEqual(len(result["warnings"]), len(invalid_comments))
+
+    def test_warns_when_a_directive_has_no_current_github_user(self):
+        result = collector.build_manifest(
+            [
+                {
+                    "body": "/gssa-ignore\ncheck: kvstore-state\nreason: Accepted.",
+                    "html_url": "https://github.com/splunk/example-ta/pull/123#issuecomment-1",
+                    "user": None,
+                }
+            ],
+            CONTEXT,
+        )
+
+        self.assertIsNone(result["manifest"])
+        self.assertEqual(
+            result["warnings"],
+            [
+                "/gssa-ignore requires an author and reference in "
+                "https://github.com/splunk/example-ta/pull/123#issuecomment-1"
+            ],
+        )
 
     def test_preserves_duplicates_slashes_and_shell_text_as_literal_data(self):
         unsafe_path = Path("/tmp/unsafe")
@@ -206,6 +230,25 @@ class MainTests(unittest.TestCase):
             self.assertTrue(output_path.read_text(encoding="utf-8").endswith("\n"))
             self.assertIn('\n  "schema_version": 1,', output_path.read_text(encoding="utf-8"))
 
+    def test_removes_stale_manifest_when_no_valid_declarations_exist(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_path = Path(temporary_directory) / "manifest.json"
+            output_path.write_text('{"stale": true}\n', encoding="utf-8")
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "INPUT_TOKEN": "token",
+                    "INPUT_REPOSITORY": "splunk/example-ta",
+                    "INPUT_PULL_REQUEST_NUMBER": "123",
+                    "INPUT_OUTPUT_PATH": str(output_path),
+                },
+                clear=False,
+            ), mock.patch.object(collector, "fetch_comments", return_value=[]):
+                collector.main()
+
+            self.assertFalse(output_path.exists())
+
     def test_failed_serialization_preserves_existing_manifest(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             output_path = Path(temporary_directory) / "manifest.json"
@@ -218,6 +261,34 @@ class MainTests(unittest.TestCase):
 
             self.assertEqual(output_path.read_bytes(), original_content)
             self.assertEqual(list(output_path.parent.glob(f".{output_path.name}.*")), [])
+
+
+class WorkflowStructureTests(unittest.TestCase):
+    def test_collector_action_is_checked_out_at_the_workflow_revision(self):
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        collector_checkout = (
+            "      - name: Checkout workflow actions\n"
+            "        uses: actions/checkout@v7\n"
+            "        with:\n"
+            "          repository: splunk/addonfactory-workflow-addon-release\n"
+            "          ref: ${{ github.workflow_sha }}\n"
+            "          path: .workflow-actions\n"
+            "          token: ${{ steps.app-token.outputs.token }}\n"
+            "          persist-credentials: false\n"
+        )
+        collector_use = (
+            "      - name: Collect PR-scoped GSSA suppressions\n"
+            "        if: github.event_name == 'pull_request'\n"
+            "        uses: ./.workflow-actions/.github/actions/collect-gssa-suppressions\n"
+        )
+        caller_checkout = "      - uses: actions/checkout@v7\n      - name: Configure AWS credentials\n"
+
+        self.assertIn(collector_checkout, workflow)
+        self.assertIn(collector_use, workflow)
+        self.assertIn(caller_checkout, workflow)
+        self.assertLess(workflow.index("id: app-token", workflow.index("run-gs-scorecard:")), workflow.index(collector_checkout))
+        self.assertLess(workflow.index(collector_checkout), workflow.index(collector_use))
+        self.assertLess(workflow.index(collector_use), workflow.index(caller_checkout))
 
 
 if __name__ == "__main__":

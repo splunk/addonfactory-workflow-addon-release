@@ -23,6 +23,10 @@ def _warning(comment, message):
     return f"{message} in {reference}"
 
 
+def _rejected(comment, message):
+    return {"entries": [], "warnings": [_warning(comment, message)]}
+
+
 def parse_comment(comment):
     """Parse one current GitHub comment into declarations or a rejection warning.
 
@@ -46,46 +50,28 @@ def parse_comment(comment):
         if not line:
             continue
         if ":" not in line:
-            return {
-                "entries": [],
-                "warnings": [_warning(comment, "Malformed /gssa-ignore line")],
-            }
+            return _rejected(comment, "Malformed /gssa-ignore line")
         field, value = line.split(":", 1)
         value = value.strip()
         if field not in {"check", "detection", "reason"}:
-            return {
-                "entries": [],
-                "warnings": [_warning(comment, "Unknown /gssa-ignore field")],
-            }
+            return _rejected(comment, "Unknown /gssa-ignore field")
         if not value:
-            return {
-                "entries": [],
-                "warnings": [_warning(comment, f"Blank {field} selector or reason")],
-            }
+            return _rejected(comment, f"Blank {field} selector or reason")
         if field == "reason":
             reasons.append(value)
         else:
             selectors.append((field, value))
 
     if not selectors:
-        return {
-            "entries": [],
-            "warnings": [_warning(comment, "/gssa-ignore requires at least one selector")],
-        }
+        return _rejected(comment, "/gssa-ignore requires at least one selector")
     if len(reasons) != 1:
-        return {
-            "entries": [],
-            "warnings": [_warning(comment, "/gssa-ignore requires exactly one reason")],
-        }
+        return _rejected(comment, "/gssa-ignore requires exactly one reason")
 
     user = comment.get("user")
     author = user.get("login") if isinstance(user, dict) else None
     reference = _comment_reference(comment)
     if not isinstance(author, str) or not author.strip() or not reference:
-        return {
-            "entries": [],
-            "warnings": [_warning(comment, "/gssa-ignore requires an author and reference")],
-        }
+        return _rejected(comment, "/gssa-ignore requires an author and reference")
 
     declaration = {
         "author": author.strip(),
@@ -106,10 +92,7 @@ def parse_comment(comment):
 
         check_slug, separator, detection_slug = value.partition("/")
         if not separator or not check_slug.strip() or not detection_slug.strip():
-            return {
-                "entries": [],
-                "warnings": [_warning(comment, "Malformed detection selector")],
-            }
+            return _rejected(comment, "Malformed detection selector")
         entries.append(
             {
                 "type": "detection",
@@ -242,11 +225,9 @@ def main():
         _workflow_message("warning", warning)
     if result["manifest"] is not None:
         _write_manifest(output_path, result["manifest"])
+    else:
+        Path(output_path).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:  # GitHub Actions needs a safe command message and failure.
-        _workflow_message("error", exc)
-        raise
+    main()

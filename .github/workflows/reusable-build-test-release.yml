@@ -1327,9 +1327,17 @@ jobs:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+      - name: Checkout workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: splunk/addonfactory-workflow-addon-release
+          ref: ${{ github.workflow_sha }}
+          path: .workflow-actions
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
       - name: Collect PR-scoped GSSA suppressions
         if: github.event_name == 'pull_request'
-        uses: $/.github/actions/collect-gssa-suppressions
+        uses: ./.workflow-actions/.github/actions/collect-gssa-suppressions
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
