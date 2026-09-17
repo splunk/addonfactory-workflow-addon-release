@@ -1,0 +1,22 @@
+name: Collect GSSA suppressions
+description: Build a GSSA suppression manifest from current pull-request comments
+inputs:
+  token:
+    required: true
+  repository:
+    required: true
+  pull_request_number:
+    required: true
+  output_path:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Collect current pull request comments
+      shell: sh
+      env:
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}
+        INPUT_OUTPUT_PATH: ${{ inputs.output_path }}
+      run: python3 "$GITHUB_ACTION_PATH/collect.py"
