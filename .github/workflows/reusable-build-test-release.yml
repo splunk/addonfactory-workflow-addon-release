@@ -1327,6 +1327,14 @@ jobs:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+      - name: Collect PR-scoped GSSA suppressions
+        if: github.event_name == 'pull_request'
+        uses: $/.github/actions/collect-gssa-suppressions
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.repository }}
+          pull_request_number: ${{ github.event.pull_request.number }}
+          output_path: ${{ runner.temp }}/gssa-suppressions.json
       - uses: actions/checkout@v7
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -1345,7 +1353,16 @@ jobs:
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
         run: |
+          suppression_args=()
+          if [[ -f "$RUNNER_TEMP/gssa-suppressions.json" ]]; then
+            suppression_args+=(
+              -e GSSA_SUPPRESSIONS_FILE=/run/gssa-suppressions.json
+              -v "$RUNNER_TEMP/gssa-suppressions.json:/run/gssa-suppressions.json:ro"
+            )
+          fi
+
           docker run --rm \
+            "${suppression_args[@]}" \
             -e GITHUB_TOKEN \
             -e GITHUB_USERNAME \
             -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
