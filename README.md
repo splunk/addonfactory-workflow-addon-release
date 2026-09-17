@@ -234,16 +234,18 @@ application to compile. The local validation entrypoint before pushing a change 
 
 ```bash
 poetry install --no-root
-poetry run python -m unittest discover -s tests -v
+poetry run pytest
 pre-commit run --all-files
 pre-commit run --hook-stage manual --all-files
 ```
 
-`pyproject.toml` and `poetry.lock` define the reproducible Python 3.9–3.13 validation environment. The unit-test
-command exercises both repository-owned validation scripts without network access. The first pre-commit command
-runs `actionlint` and `yamlfmt` (these run on every local commit). The manual pre-commit command additionally
-runs the CI-only hooks — `python scripts/check_workflow_hygiene.py` (naming consistency, dead inputs/secrets)
-and `python scripts/check_template_compat.py` (cross-repo compatibility against
+`pyproject.toml` and `poetry.lock` define the reproducible Python 3.9–3.13 validation environment. Pytest discovers
+the existing `unittest.TestCase` tests, reports line coverage for the repository-owned scripts in the terminal,
+and writes `coverage.xml`; CI publishes that file as the `repository-python-coverage` artifact. The tests run
+without network access. The first pre-commit command runs `actionlint` and `yamlfmt` (these run on every local
+commit). The manual pre-commit command additionally runs the CI-only hooks —
+`python scripts/check_workflow_hygiene.py` (naming consistency, dead inputs/secrets) and
+`python scripts/check_template_compat.py` (cross-repo compatibility against
 [addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)) — which are
 pinned to `stages: [manual]` because `check_template_compat.py` needs network access and a `gh` token, so
 they don't run on a plain `git commit` and must be invoked explicitly (they do run in CI).
@@ -255,7 +257,7 @@ they don't run on a plain `git commit` and must be invoked explicitly (they do r
 | Docs-only (`README.md`, `runbooks/`, `AGENTS.md`) | `pre-commit run --all-files` (lint only) |
 | New/changed `workflow_call` input or secret | `pre-commit run --hook-stage manual --all-files` (adds hygiene + template-compat checks) |
 | Job logic change (steps, conditions, matrix) inside `reusable-build-test-release.yml` | Full manual pre-commit run, then push to a branch and confirm the affected job(s) via a real push-triggered workflow run before merging |
-| Change to `scripts/check_workflow_hygiene.py` or `scripts/check_template_compat.py` | Run `poetry run python -m unittest discover -s tests -v`, then run the changed script directly against `.github/workflows/reusable-build-test-release.yml` and confirm it still reports pass on the current workflow, in addition to the above |
+| Change to `scripts/check_workflow_hygiene.py` or `scripts/check_template_compat.py` | Run `poetry run pytest`, confirm the changed script remains represented in the terminal coverage report and `coverage.xml`, then run it directly against `.github/workflows/reusable-build-test-release.yml` and confirm it still reports pass on the current workflow, in addition to the above |
 
 ## General troubleshooting
 

@@ -26,4 +26,4 @@ This repository publishes reusable GitHub Actions workflows for Splunk add-on re
 - Treat job IDs and `workflow_call` inputs and secrets as public API; rename them only with a consumer migration plan.
 - Use kebab-case for new job IDs and `workflow_call` input names.
 - Keep every declared `workflow_call` input and secret wired into the workflow body.
-- Run `poetry run python -m unittest discover -s tests -v` plus the validation depth required by [`README.md`](README.md#validation-depth-by-change-class).
+- Run `poetry run pytest` plus the validation depth required by [`README.md`](README.md#validation-depth-by-change-class). Pytest discovers the existing unittest-style tests and writes the repository coverage report to `coverage.xml`.

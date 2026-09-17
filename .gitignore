@@ -2,6 +2,9 @@
 actionlint
 __pycache__/
 *.pyc
+.coverage
+coverage.xml
+htmlcov/
 
 # Editors / IDEs
 .idea/

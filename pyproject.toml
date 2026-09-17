@@ -10,6 +10,23 @@ dependencies = [
 [tool.poetry]
 package-mode = false
 
+[tool.poetry.group.dev.dependencies]
+pytest = "8.4.2"
+pytest-cov = "7.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+  "--cov=.",
+  "--cov-report=term-missing",
+  "--cov-report=xml:coverage.xml",
+]
+
+[tool.coverage.run]
+relative_files = true
+omit = ["tests/*"]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
