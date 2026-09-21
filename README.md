@@ -693,7 +693,7 @@ exceptions:
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-45a04876a8d5`) exists in the ECR registry. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-45a04876a8d5-amd64`) exists in the ECR registry. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
 - Review the job logs for specific error messages from TA Validator.
 
