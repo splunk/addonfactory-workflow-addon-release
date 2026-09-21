@@ -106,6 +106,25 @@ exceptions: [not-active]
             prepare.write_pull_request_exception_document(output_path, body)
             self.assertEqual(output_path.read_text(encoding="utf-8"), "version: 1\nexceptions: []\n")
 
+    def test_writes_crlf_document_without_newline_translation(self):
+        def translating_write_text(path, data, encoding):
+            with io.open(path, "w", encoding=encoding) as output_file:
+                output_file.write(data.replace("\n", "\r\n"))
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "input.yaml"
+            body = (
+                f"{prepare.MARKER}\r\n{prepare.CONFIG_START_MARKER}\r\n```yaml\r\n"
+                "version: 1\r\nexceptions: []\r\n```\r\n"
+                f"{prepare.CONFIG_END_MARKER}"
+            )
+            with mock.patch.object(Path, "write_text", new=translating_write_text):
+                prepare.write_pull_request_exception_document(output_path, body)
+
+            self.assertEqual(
+                output_path.read_bytes(), b"version: 1\r\nexceptions: []\r\n"
+            )
+
     def test_annotations_escape_workflow_control_characters(self):
         with mock.patch("sys.stdout", new_callable=io.StringIO) as stream:
             prepare._workflow_message("error", "bad%\r\nmessage")

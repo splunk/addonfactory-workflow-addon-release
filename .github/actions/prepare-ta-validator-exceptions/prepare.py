@@ -49,7 +49,8 @@ def write_pull_request_exception_document(output_path, comment_body):
     """Write only the active canonical YAML document from a selected comment."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(extract_pull_request_exception_document(comment_body), encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as output_file:
+        output_file.write(extract_pull_request_exception_document(comment_body))
 
 
 def _required_input(name):
