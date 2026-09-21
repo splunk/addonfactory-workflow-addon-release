@@ -23,14 +23,13 @@ SPEC.loader.exec_module(prepare)
 WORKFLOW_PATH = Path(__file__).parents[1] / ".github" / "workflows" / "reusable-build-test-release.yml"
 
 
-def comment(body, number=456, pin=None):
+def comment(body, number=456):
     return {
         "id": number,
         "body": body,
         "html_url": f"https://github.com/splunk/example-ta/pull/123#issuecomment-{number}",
         "user": {"login": "automation"},
         "updated_at": "2026-09-21T00:00:00Z",
-        "pin": pin,
     }
 
 
@@ -90,45 +89,32 @@ class LifecycleTests(unittest.TestCase):
         self.assertTrue(requests[1].full_url.endswith("per_page=100&page=2"))
         self.assertEqual(requests[0].get_header("X-github-api-version"), "2026-03-10")
 
-    def test_creates_exact_template_then_pins_and_writes_private_envelope(self):
+    def test_creates_exact_template_without_pinning_and_writes_private_envelope(self):
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "envelope.json"
             created = comment(prepare.TEMPLATE, 456)
-            inspected = comment(prepare.TEMPLATE, 456, None)
-            requests = self._run([[], created, inspected, comment(prepare.TEMPLATE, 456, {"pinned_at": "now"})], output_path)
+            requests = self._run([[], created], output_path)
 
-            self.assertEqual([request.get_method() for request in requests], ["GET", "POST", "GET", "PUT"])
+            self.assertEqual([request.get_method() for request in requests], ["GET", "POST"])
             self.assertEqual(json.loads(requests[1].data.decode("utf-8")), {"body": prepare.TEMPLATE})
-            self.assertTrue(requests[3].full_url.endswith("/issues/comments/456/pin"))
             self.assertEqual(stat.S_IMODE(output_path.stat().st_mode), 0o600)
             envelope = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(envelope["source"], {"provider": "github", "repository": "splunk/example-ta", "pull_request": 123})
-            self.assertEqual(envelope["comment"], {"reference": inspected["html_url"], "body": prepare.TEMPLATE})
+            self.assertEqual(envelope["comment"], {"reference": created["html_url"], "body": prepare.TEMPLATE})
             self.assertNotIn("id", envelope["comment"])
             self.assertNotIn("author", envelope["comment"])
             self.assertNotIn("updated_at", envelope["comment"])
+            self.assertNotIn("PUT", [request.get_method() for request in requests])
 
-    def test_existing_marked_comment_is_never_overwritten_or_re_pinned(self):
+    def test_existing_marked_comment_is_never_overwritten_or_inspected(self):
         body = prepare.MARKER + "\ncustom content"
-        pinned = comment(body, pin={"pinned_at": "now"})
+        existing = comment(body)
         with tempfile.TemporaryDirectory() as directory:
-            requests = self._run([[pinned], pinned], Path(directory) / "envelope.json")
+            requests = self._run([[existing]], Path(directory) / "envelope.json")
 
-        self.assertEqual([request.get_method() for request in requests], ["GET", "GET"])
+        self.assertEqual([request.get_method() for request in requests], ["GET"])
         self.assertNotIn("PATCH", [request.get_method() for request in requests])
-        self.assertEqual(json.loads(requests[1].data.decode("utf-8")) if requests[1].data else None, None)
-
-    def test_re_pins_sole_unpinned_comment_without_updating_its_body(self):
-        body = prepare.MARKER + "\n$(touch /tmp/not-executed)"
-        listed = comment(body, 789)
-        inspected = comment(body, 789, None)
-        with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "envelope.json"
-            requests = self._run([[listed], inspected, comment(body, 789, {"pinned_at": "now"})], output_path)
-
-            self.assertEqual([request.get_method() for request in requests], ["GET", "GET", "PUT"])
-            self.assertEqual(json.loads(output_path.read_text())["comment"]["body"], body)
-        self.assertNotIn("PATCH", [request.get_method() for request in requests])
+        self.assertNotIn("PUT", [request.get_method() for request in requests])
 
     def test_multiple_marked_comments_fail_closed_and_remove_stale_output(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -147,16 +133,12 @@ class LifecycleTests(unittest.TestCase):
                 self._run([failure], output_path)
             self.assertFalse(output_path.exists())
 
-    def test_create_and_pin_errors_remain_explicit(self):
+    def test_create_errors_remain_explicit(self):
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "envelope.json"
             create_failure = prepare.error.HTTPError("https://example.test", 403, "Forbidden", {}, io.BytesIO())
             with self.assertRaisesRegex(RuntimeError, "create API returned 403"):
                 self._run([[], create_failure], output_path)
-
-            pin_failure = prepare.error.HTTPError("https://example.test", 403, "Forbidden", {}, io.BytesIO())
-            with self.assertRaisesRegex(RuntimeError, "pin API returned 403"):
-                self._run([[comment(prepare.MARKER)], comment(prepare.MARKER, pin=None), pin_failure], output_path)
 
 
 class FilesystemTests(unittest.TestCase):

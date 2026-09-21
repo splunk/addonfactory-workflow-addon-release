@@ -1,5 +1,5 @@
 name: Prepare TA Validator exceptions
-description: Create, pin, and transport the canonical TA Validator exception comment
+description: Create and transport the canonical TA Validator exception comment
 inputs:
   token:
     required: true

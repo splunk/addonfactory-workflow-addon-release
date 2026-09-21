@@ -1,4 +1,4 @@
-"""Prepare the pinned GitHub comment used for TA Validator exceptions."""
+"""Prepare the GitHub comment used for TA Validator exceptions."""
 
 import json
 import os
@@ -101,13 +101,6 @@ def _marked_comments(comments):
     ]
 
 
-def _comment_id(comment):
-    comment_id = comment.get("id") if isinstance(comment, dict) else None
-    if isinstance(comment_id, bool) or not isinstance(comment_id, int) or comment_id <= 0:
-        raise RuntimeError("GitHub canonical comment has no valid ID")
-    return comment_id
-
-
 def _canonical_comment(token, repository, pull_request_number):
     """Return one existing or newly-created canonical comment, or fail closed."""
     encoded_repository = parse.quote(repository, safe="/")
@@ -124,25 +117,9 @@ def _canonical_comment(token, repository, pull_request_number):
             "create",
             {"body": TEMPLATE},
         )
-    comment_id = _comment_id(candidate)
-    inspected = _api_request(
-        token,
-        "GET",
-        f"/repos/{encoded_repository}/issues/comments/{comment_id}",
-        "comment",
-    )
-    if not isinstance(inspected, dict):
-        raise RuntimeError("GitHub comment API returned non-object JSON")
-    if _comment_id(inspected) != comment_id:
-        raise RuntimeError("GitHub comment API returned a mismatched comment")
-    if inspected.get("pin") is None:
-        _api_request(
-            token,
-            "PUT",
-            f"/repos/{encoded_repository}/issues/comments/{comment_id}/pin",
-            "pin",
-        )
-    return inspected
+    if not isinstance(candidate, dict):
+        raise RuntimeError("GitHub canonical comment API returned non-object JSON")
+    return candidate
 
 
 def _comment_envelope(comment, repository, pull_request_number):
