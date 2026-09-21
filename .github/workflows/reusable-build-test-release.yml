@@ -1351,21 +1351,15 @@ jobs:
       - name: Login to Amazon ECR
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Pull TA Validator image
-        if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        run: docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
       - name: Validate TA Validator exception configuration
         id: validate-ta-validator-exceptions
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        run: |
-          if ! docker run --rm \
-            -v "$(pwd)":/addon:ro \
-            -v "$RUNNER_TEMP/ta-validator-pr-exceptions.json":/run/ta-validator-pr-exceptions.json:ro \
-            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}" \
-            validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json; then
-            echo "::error title=Invalid TA Validator exception configuration::Fix the TA Validator exception comment, then rerun failed jobs."
-            exit 1
-          fi
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: validate
+          pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
+          addon-read-only: true
       - name: Upload validated TA Validator exception input
         if: ${{ steps.validate-ta-validator-exceptions.outcome == 'success' }}
         uses: actions/upload-artifact@v7
@@ -1409,42 +1403,35 @@ jobs:
           aws-region: us-west-2
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
-      - name: Pull TA Validator image
-        run: docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
-      - name: Run TA Validator
+      - name: Run TA Validator for pull request
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            docker run --rm \
-              -e GITHUB_TOKEN \
-              -e GITHUB_USERNAME \
-              -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
-              -e AWS_SECRET_ACCESS_KEY="${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}" \
-              -e AWS_DEFAULT_REGION="us-west-2" \
-              -e APPINSPECT_USER \
-              -e APPINSPECT_PASS \
-              -e GS_VERSION="${{ env.GS_VERSION }}" \
-              -e TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json \
-              -v "$(pwd)":/addon \
-              -v "$RUNNER_TEMP/ta-validator-pr-exceptions.json":/run/ta-validator-pr-exceptions.json:ro \
-              956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
-          else
-            docker run --rm \
-              -e GITHUB_TOKEN \
-              -e GITHUB_USERNAME \
-              -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
-              -e AWS_SECRET_ACCESS_KEY="${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}" \
-              -e AWS_DEFAULT_REGION="us-west-2" \
-              -e APPINSPECT_USER \
-              -e APPINSPECT_PASS \
-              -e GS_VERSION="${{ env.GS_VERSION }}" \
-              -v "$(pwd)":/addon \
-              956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
-          fi
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: evaluate
+          pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
+      - name: Run TA Validator outside a pull request
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
+          APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
+          APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: evaluate
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:

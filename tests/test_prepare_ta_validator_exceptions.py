@@ -95,6 +95,7 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn('case "$mode" in', action)
         self.assertIn('validate)', action)
         self.assertIn('evaluate)', action)
+        self.assertIn("-e TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json", action)
         self.assertNotIn("eval ", action)
 
     def test_ta_validator_pr_exception_preflight_precedes_full_evaluation(self):
@@ -118,7 +119,14 @@ class WorkflowStructureTests(unittest.TestCase):
             "prepare-ta-validator-exceptions@8082fab41c5f6e13c2b71fd06c035dece86ca07a",
             preparation,
         )
-        self.assertIn("validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json", workflow)
+        self.assertIn(
+            "run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b",
+            preparation,
+        )
+        self.assertIn("mode: validate", preparation)
+        self.assertIn("addon-read-only: true", preparation)
+        self.assertNotIn("docker pull", preparation)
+        self.assertNotIn("docker run", preparation)
         self.assertLess(
             workflow.index("prepare-ta-validator-exceptions:"),
             workflow.index("run-gs-scorecard:"),
@@ -133,7 +141,14 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("- prepare-ta-validator-exceptions", run_scorecard)
         self.assertIn("needs.prepare-ta-validator-exceptions.result == 'success'", run_scorecard)
         self.assertIn("actions/download-artifact@v8", run_scorecard)
-        self.assertIn("TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json", run_scorecard)
+        self.assertIn("pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json", run_scorecard)
+        self.assertIn(
+            "run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b",
+            run_scorecard,
+        )
+        self.assertIn("mode: evaluate", run_scorecard)
+        self.assertNotIn("docker pull", run_scorecard)
+        self.assertNotIn("docker run", run_scorecard)
 
 
 if __name__ == "__main__":
