@@ -25,7 +25,7 @@ runs:
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_PULL_REQUEST_INPUT_PATH: ${{ inputs.pull-request-input-path }}
         INPUT_ADDON_READ_ONLY: ${{ inputs.addon-read-only }}
-      run: |
+      run: |-
         set -euo pipefail
 
         image="$INPUT_IMAGE"
@@ -39,13 +39,20 @@ runs:
           *) echo "addon-read-only must be true or false" >&2; exit 1 ;;
         esac
 
+        if [ -n "$pull_request_input_path" ]; then
+          if [ ! -f "$pull_request_input_path" ]; then
+            echo "pull-request-input-path must name an existing file" >&2
+            exit 1
+          fi
+          docker_options+=(-v "$pull_request_input_path:/run/ta-validator-pr-exceptions.json:ro")
+        fi
+
         case "$mode" in
           validate)
-            if [ -z "$pull_request_input_path" ] || [ ! -f "$pull_request_input_path" ]; then
-              echo "validate mode requires an existing pull-request-input-path" >&2
+            if [ -z "$pull_request_input_path" ]; then
+              echo "validate mode requires pull-request-input-path" >&2
               exit 1
             fi
-            docker_options+=(-v "$pull_request_input_path:/run/ta-validator-pr-exceptions.json:ro")
             command=(validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json)
             ;;
           evaluate)
@@ -60,6 +67,9 @@ runs:
               -e APPINSPECT_PASS
               -e GS_VERSION
             )
+            if [ -n "$pull_request_input_path" ]; then
+              docker_options+=(-e TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json)
+            fi
             ;;
           *) echo "mode must be validate or evaluate" >&2; exit 1 ;;
         esac
