@@ -659,26 +659,37 @@ appinspect-api-html-report-self-service
 
 ### Temporary pull-request exceptions
 
-For every pull request, automation creates one **TA Validator exceptions** comment. Edit only the YAML between its hidden configuration markers, then select **Re-run all jobs**. The comment is the only temporary-exception input; editing it alone does not start a workflow.
+For every pull request, automation creates one **TA Validator exceptions**
+comment. Edit only the active YAML fence between its hidden configuration
+markers, then select **Re-run all jobs**. The comment is the only
+temporary-exception input; editing it alone does not start a workflow.
 
-The comment accepts one of these forms:
-
-```yaml
-version: 1
-exceptions:
-  - check_slug: sensitive-data
-    reason: Accepted for this pull request while ADDON-12345 is addressed.
-```
+The active fence uses the same canonical YAML document as a permanent
+`.ta-validator-exceptions.yaml` file:
 
 ```yaml
 version: 1
 exceptions:
   - check_slug: sensitive-data
     detection_slug: credential-exposure
-    reason: This one detection is expected for this pull request.
+    category: false_positive
+    reason: This one detection is expected while ADDON-12345 is addressed.
 ```
 
-`reason` is required. A declaration may target an entire check or one exact detection. The preparation job validates malformed YAML and unknown check or detection targets before the full TA Validator container evaluation starts. A valid declaration that produces no suppressible result is reported as a warning only.
+Every declaration requires `check_slug`, `category` (`false_positive` or
+`accepted_gap`), and non-empty `reason`; `detection_slug` is optional. A
+declaration without `detection_slug` targets the entire check. The workflow
+only verifies the comment structure and extracts the active YAML fence
+unchanged. TA Validator validates the canonical schema and all check/detection
+targets against its complete configured catalog before full evaluation.
+
+TA Validator receives the temporary source through the paired
+`--pull-request-exceptions` and `--pull-request-exception-reference` CLI
+arguments; neither argument is valid alone. Existing temporary comments that
+lack `category` fail with the same TA Validator schema error as permanent
+files. Edit the comment to add `category`, then select **Re-run all jobs**. A
+valid declaration that produces no suppressible result is reported as a
+warning only.
 
 **Pass/fail behaviour:**
 
