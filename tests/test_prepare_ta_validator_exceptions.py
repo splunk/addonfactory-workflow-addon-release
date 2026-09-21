@@ -228,8 +228,9 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("permissions:\n      contents: read", preparation)
         self.assertNotIn("\n      issues: write", preparation)
         self.assertIn("permission-issues: write", preparation)
-        self.assertIn("app-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
-        self.assertNotIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
+        self.assertIn("permission-pull-requests: write", preparation)
+        self.assertIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
+        self.assertNotIn("app-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
         self.assertRegex(
             preparation,
             r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
