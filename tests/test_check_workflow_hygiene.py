@@ -25,6 +25,25 @@ from scripts import check_workflow_hygiene as hygiene
 
 
 class WorkflowHygieneTests(unittest.TestCase):
+    def test_load_workflow_preserves_boolean_like_identifiers(self):
+        raw = """on:
+  workflow_call:
+    inputs:
+      yes: {}
+      off: {}
+jobs:
+  on: {}
+  off: {}
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workflow = Path(temp_dir) / "workflow.yml"
+            workflow.write_text(raw, encoding="utf-8")
+
+            data, _ = hygiene.load_workflow(workflow)
+
+        self.assertEqual(set(hygiene.get_workflow_call(data)["inputs"]), {"yes", "off"})
+        self.assertEqual(set(data["jobs"]), {"on", "off"})
+
     def test_get_workflow_call_handles_yaml_boolean_on_key(self):
         data = yaml.safe_load(
             """
@@ -52,7 +71,13 @@ on:
                     }
                 }
             },
-            "jobs": {"valid-job": {}, "invalid_job": {}},
+            "jobs": {
+                "valid-job": {},
+                "invalid_job": {},
+                "review_secrets": {},
+                "UI-tests-report": {},
+                "Modinput-tests-report": {},
+            },
         }
         errors = []
 
@@ -62,6 +87,9 @@ on:
         self.assertTrue(any("input 'invalid_input'" in error for error in errors))
         self.assertTrue(any("job id 'invalid_job'" in error for error in errors))
         self.assertFalse(any("ui_marker" in error for error in errors))
+        self.assertFalse(any("review_secrets" in error for error in errors))
+        self.assertFalse(any("UI-tests-report" in error for error in errors))
+        self.assertFalse(any("Modinput-tests-report" in error for error in errors))
 
     def test_dead_input_and_secret_detection_reports_all_unused_declarations(self):
         raw = """on:
@@ -102,6 +130,61 @@ jobs:
         hygiene.check_dead_inputs_and_secrets(data, raw, errors)
 
         self.assertEqual(errors, [])
+
+    def test_bracket_secret_reference_counts_as_used(self):
+        raw = """on:
+  workflow_call:
+    secrets:
+      TOKEN: {}
+jobs:
+  validate:
+    steps:
+      - run: echo "${{ secrets['TOKEN'] }}"
+"""
+        data = yaml.safe_load(raw)
+        errors = []
+
+        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+
+        self.assertEqual(errors, [])
+
+    def test_hyphenated_input_does_not_mark_prefix_input_used(self):
+        raw = """on:
+  workflow_call:
+    inputs:
+      foo: {}
+      foo-bar: {}
+jobs:
+  validate:
+    steps:
+      - run: echo "${{ inputs.foo-bar }}"
+"""
+        data = yaml.safe_load(raw)
+        errors = []
+
+        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("input 'foo'", errors[0])
+
+    def test_comment_only_reference_does_not_mark_input_used(self):
+        raw = """on:
+  workflow_call:
+    inputs:
+      unused-input: {}
+jobs:
+  validate:
+    steps:
+      # - run: echo "${{ inputs.unused-input }}"
+      - run: echo "active step"
+"""
+        data = yaml.safe_load(raw)
+        errors = []
+
+        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("input 'unused-input'", errors[0])
 
     def test_main_returns_zero_for_clean_workflow(self):
         raw = """on:

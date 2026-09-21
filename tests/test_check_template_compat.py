@@ -38,6 +38,28 @@ CALLER = """jobs:
 
 
 class TemplateCompatibilityTests(unittest.TestCase):
+    def run_main_with_files(self, workflow_raw, compat_raw, caller_raw):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workflow = root / "workflow.yml"
+            config = root / "compat.yml"
+            workflow.write_text(workflow_raw, encoding="utf-8")
+            config.write_text(compat_raw, encoding="utf-8")
+            stdout = io.StringIO()
+
+            with (
+                mock.patch.object(compat, "COMPAT_FILE", str(config)),
+                mock.patch.object(compat, "gh_fetch_raw") as fetch_raw,
+                contextlib.redirect_stdout(stdout),
+            ):
+                fetch_raw.side_effect = [
+                    caller_raw,
+                    'REUSABLE_WF_VERSION="v5"\n',
+                ]
+                result = compat.main(["check_template_compat.py", str(workflow)])
+
+        return result, stdout.getvalue()
+
     def test_load_reusable_workflow_handles_yaml_boolean_on_key(self):
         raw = """on:
   workflow_call:
@@ -53,20 +75,27 @@ class TemplateCompatibilityTests(unittest.TestCase):
             workflow = Path(temp_dir) / "workflow.yml"
             workflow.write_text(raw, encoding="utf-8")
 
-            declared_inputs, declared_secrets, required_inputs = (
-                compat.load_reusable_workflow(workflow)
-            )
+            (
+                declared_inputs,
+                declared_secrets,
+                required_inputs,
+                required_secrets,
+                input_types,
+            ) = compat.load_reusable_workflow(workflow)
 
         self.assertEqual(declared_inputs, {"required-input", "optional-input"})
         self.assertEqual(declared_secrets, {"REQUIRED_SECRET"})
         self.assertEqual(required_inputs, {"required-input"})
+        self.assertEqual(required_secrets, set())
+        self.assertEqual(input_types, {"required-input": None, "optional-input": None})
 
     def test_parse_caller_extracts_only_matching_workflow_contract(self):
-        matched, passed_secrets, passed_inputs = compat.parse_caller(CALLER)
+        invocations = compat.parse_caller(CALLER)
 
-        self.assertTrue(matched)
-        self.assertEqual(passed_secrets, {"REQUIRED_SECRET"})
-        self.assertEqual(passed_inputs, {"required-input"})
+        self.assertEqual(len(invocations), 1)
+        self.assertEqual(invocations[0].job_id, "reusable")
+        self.assertEqual(invocations[0].passed_secrets, {"REQUIRED_SECRET"})
+        self.assertEqual(set(invocations[0].passed_inputs), {"required-input"})
 
     def test_parse_caller_accepts_inherited_secrets(self):
         raw = f"""jobs:
@@ -75,11 +104,105 @@ class TemplateCompatibilityTests(unittest.TestCase):
     secrets: inherit
 """
 
-        matched, passed_secrets, passed_inputs = compat.parse_caller(raw)
+        invocations = compat.parse_caller(raw)
 
-        self.assertTrue(matched)
-        self.assertEqual(passed_secrets, set())
-        self.assertEqual(passed_inputs, set())
+        self.assertEqual(len(invocations), 1)
+        self.assertTrue(invocations[0].inherits_secrets)
+        self.assertEqual(invocations[0].passed_secrets, set())
+        self.assertEqual(invocations[0].passed_inputs, {})
+
+    @mock.patch.object(compat, "gh_fetch_raw")
+    def test_check_ref_validates_each_matching_job_independently(self, fetch_raw):
+        caller = f"""jobs:
+  complete:
+    uses: example/repo/{compat.REUSABLE_WORKFLOW_PATH}@v1
+    with:
+      required-input: value
+  incomplete:
+    uses: example/repo/{compat.REUSABLE_WORKFLOW_PATH}@v1
+"""
+        fetch_raw.side_effect = [caller, "REUSABLE_WF_VERSION=v1\n"]
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            errors = compat.check_ref(
+                "splunk/template",
+                "main",
+                {"required-input"},
+                set(),
+                {"required-input"},
+            )
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("job 'incomplete'", errors[0])
+        self.assertIn("requires input 'required-input'", errors[0])
+
+    def test_main_reports_missing_required_secret(self):
+        workflow = """on:
+  workflow_call:
+    secrets:
+      REQUIRED_SECRET:
+        required: true
+jobs: {}
+"""
+        caller = f"""jobs:
+  reusable:
+    uses: example/repo/{compat.REUSABLE_WORKFLOW_PATH}@v1
+"""
+
+        result, output = self.run_main_with_files(
+            workflow,
+            "template_repo: splunk/template\ncompatible_template_refs: [main]\n",
+            caller,
+        )
+
+        self.assertEqual(result, 1)
+        self.assertIn("requires secret 'REQUIRED_SECRET'", output)
+
+    def test_main_reports_static_input_type_mismatch(self):
+        workflow = """on:
+  workflow_call:
+    inputs:
+      enabled:
+        type: boolean
+        required: true
+jobs: {}
+"""
+        caller = f"""jobs:
+  reusable:
+    uses: example/repo/{compat.REUSABLE_WORKFLOW_PATH}@v1
+    with:
+      enabled: "true"
+"""
+
+        result, output = self.run_main_with_files(
+            workflow,
+            "template_repo: splunk/template\ncompatible_template_refs: [main]\n",
+            caller,
+        )
+
+        self.assertEqual(result, 1)
+        self.assertIn("input 'enabled' expects type 'boolean'", output)
+
+    def test_main_rejects_empty_compatibility_ref_list(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workflow = root / "workflow.yml"
+            config = root / "compat.yml"
+            workflow.write_text("on:\n  workflow_call: {}\n", encoding="utf-8")
+            config.write_text(
+                "template_repo: splunk/template\ncompatible_template_refs: []\n",
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+
+            with (
+                mock.patch.object(compat, "COMPAT_FILE", str(config)),
+                contextlib.redirect_stdout(stdout),
+            ):
+                result = compat.main(["check_template_compat.py", str(workflow)])
+
+        self.assertEqual(result, 1)
+        self.assertIn("at least one ref", stdout.getvalue())
 
     def test_parse_sync_version_handles_quotes_and_missing_value(self):
         self.assertEqual(

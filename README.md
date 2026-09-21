@@ -253,12 +253,14 @@ the existing `unittest.TestCase` tests, enforces an 80% line-coverage floor for 
 writes `coverage.xml`; CI publishes that file as the `repository-python-coverage` artifact. The tests run without
 network access. The first pre-commit command enforces a Ruff C901 complexity limit of 10, rejects newly added files
 larger than 3 MiB, and runs `actionlint` and `yamlfmt` (these run on every local commit). The manual pre-commit command
-additionally runs the CI-only hooks —
+additionally runs the manual-stage hooks —
 `python scripts/check_workflow_hygiene.py` (naming consistency, dead inputs/secrets) and
-`python scripts/check_template_compat.py` (cross-repo compatibility against
+`python scripts/check_template_compat.py` (per-caller-job secrets, inputs, and static input-type compatibility against
 [addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)) — which are
 pinned to `stages: [manual]` because `check_template_compat.py` needs network access and a `gh` token, so
-they don't run on a plain `git commit` and must be invoked explicitly (they do run in CI).
+they don't run on a plain `git commit` and must be invoked explicitly. Repository CI runs workflow hygiene on
+pull requests, but mints the private-template GitHub App token and runs template compatibility only on trusted
+push refs so pull-request-controlled code never receives that token.
 
 Repository CI also scans proposed changes for secrets with TruffleHog and runs the governed Splunk Semgrep
 policy. Both security jobs must succeed before the publish job can run.

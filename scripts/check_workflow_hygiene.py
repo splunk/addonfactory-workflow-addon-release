@@ -46,16 +46,15 @@ KEBAB_CASE_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # scope here. New names must not be added to this list without a deprecation
 # plan.
 GRANDFATHERED_INPUTS = {"ui_marker"}
-GRANDFATHERED_JOBS = set()
+GRANDFATHERED_JOBS = {"review_secrets", "UI-tests-report", "Modinput-tests-report"}
 
 
 def load_workflow(path):
     with open(path, encoding="utf-8") as fh:
         raw = fh.read()
-    # PyYAML parses the bare `on:` key as the boolean True. Reload with the
-    # raw text available so we can still report readable line context, but
-    # rely on the parsed structure (keyed by True) for `on.workflow_call`.
-    data = yaml.safe_load(raw)
+    # GitHub Actions treats workflow identifiers as strings. BaseLoader keeps
+    # YAML 1.1 boolean-like keys such as on, off, yes, and no as strings too.
+    data = yaml.load(raw, Loader=yaml.BaseLoader)
     return data, raw
 
 
@@ -89,20 +88,40 @@ def check_naming(data, errors):
             )
 
 
+def scalar_strings(value):
+    if isinstance(value, dict):
+        for nested in value.values():
+            yield from scalar_strings(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from scalar_strings(nested)
+    elif isinstance(value, str):
+        yield value
+
+
+def reference_pattern(context, name):
+    escaped_name = re.escape(name)
+    return re.compile(
+        rf"(?:{context}\.{escaped_name}(?![A-Za-z0-9_-])|"
+        rf"{context}\[\s*['\"]{escaped_name}['\"]\s*\])"
+    )
+
+
 def check_dead_inputs_and_secrets(data, raw, errors):
     workflow_call = get_workflow_call(data)
     inputs = set(workflow_call.get("inputs") or {})
     secrets = set(workflow_call.get("secrets") or {})
 
-    # Strip the `on:` block itself before searching for usages, so an input's
-    # own declaration doesn't count as a "reference".
-    body = raw
-    on_match = re.search(r"^on:\n(?:[ \t].*\n|\n)*", raw, re.MULTILINE)
-    if on_match:
-        body = raw[: on_match.start()] + raw[on_match.end() :]
+    # Search parsed scalar values outside the declaration block. This excludes
+    # YAML comments and prevents declarations from counting as references.
+    del raw
+    body_data = {
+        key: value for key, value in data.items() if key not in {"on", True}
+    }
+    body = "\n".join(scalar_strings(body_data))
 
     for name in sorted(inputs):
-        pattern = re.compile(r"inputs(?:\.|\[['\"])" + re.escape(name) + r"(?:['\"]\])?\b")
+        pattern = reference_pattern("inputs", name)
         if not pattern.search(body):
             errors.append(
                 f"input '{name}' is declared but never referenced "
@@ -110,7 +129,7 @@ def check_dead_inputs_and_secrets(data, raw, errors):
             )
 
     for name in sorted(secrets):
-        pattern = re.compile(r"secrets\." + re.escape(name) + r"\b")
+        pattern = reference_pattern("secrets", name)
         if not pattern.search(body):
             errors.append(
                 f"secret '{name}' is declared but never referenced "

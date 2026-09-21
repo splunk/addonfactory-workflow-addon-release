@@ -35,7 +35,7 @@ repos:
         stages: [manual]
       - id: template-compat
         name: template compatibility (secrets + required inputs)
-        description: "CI-only: verifies declared-compatible addonfactory-repository-template refs still pass secrets/inputs this workflow supports. Needs gh auth + network; does not run on local commit."
+        description: "Manual/trusted-push check: verifies each declared-compatible addonfactory-repository-template caller job against required secrets, inputs, and static input types. Needs gh auth + network; does not run on local commit or PR CI."
         entry: python scripts/check_template_compat.py
         language: python
         additional_dependencies: ["pyyaml==6.0.3"]

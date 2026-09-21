@@ -73,6 +73,7 @@ jobs:
       - name: Run CI-only workflow hygiene hook
         run: pre-commit run workflow-hygiene --hook-stage manual --all-files
       - name: Mint token to read addonfactory-repository-template
+        if: github.event_name == 'push'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         id: app-token
         with:
@@ -80,7 +81,8 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: splunk
           repositories: addonfactory-repository-template
-      - name: Run CI-only template compatibility hook
+      - name: Run trusted-push template compatibility hook
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: pre-commit run template-compat --hook-stage manual --all-files

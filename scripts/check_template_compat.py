@@ -16,9 +16,9 @@
 #
 """Cross-repo compatibility check against addonfactory-repository-template.
 
-Runs as a CI-only pre-commit hook (stage: manual) — it needs network access
-and a `gh` token with read access to the (private) template repo, so it must
-not run on a local `git commit`.
+Runs as a manual-stage pre-commit hook. It needs network access and a `gh`
+token with read access to the private template repo, so repository CI exposes
+its GitHub App token only on trusted push refs, never to pull-request code.
 
 For every ref listed in .github/template-compatibility.yml, this fetches the
 template's caller workflow (adjust/.github/workflows/build-test-release.yml)
@@ -30,8 +30,9 @@ and asserts:
      fail at workflow-call time);
   2. every input the caller passes is declared in this workflow's
      on.workflow_call.inputs;
-  3. every input this workflow marks `required: true` is actually passed by
-     the caller.
+  3. every required input and explicit secret is passed by each caller job;
+  4. statically typed caller values match declared input types when their type
+     can be determined without evaluating a GitHub expression.
 
 Also fetches tools/sync.sh and reports its REUSABLE_WF_VERSION for visibility
 (advisory only — the authoritative compatibility set is the declared refs
@@ -46,6 +47,7 @@ Usage:
 import subprocess
 import sys
 import urllib.parse
+from typing import NamedTuple
 
 import yaml
 
@@ -58,6 +60,13 @@ REUSABLE_WORKFLOW_PATH = ".github/workflows/reusable-build-test-release.yml"
 
 class GhFetchError(RuntimeError):
     pass
+
+
+class CallerInvocation(NamedTuple):
+    job_id: str
+    inherits_secrets: bool
+    passed_secrets: frozenset
+    passed_inputs: dict
 
 
 def gh_fetch_raw(repo, path, ref):
@@ -92,33 +101,65 @@ def load_reusable_workflow(path):
     on = data.get("on") or data.get(True) or {}
     workflow_call = on.get("workflow_call") or {}
     declared_inputs = workflow_call.get("inputs") or {}
-    declared_secrets = set(workflow_call.get("secrets") or {})
+    declared_secret_specs = workflow_call.get("secrets") or {}
+    declared_secrets = set(declared_secret_specs)
     required_inputs = {
         name for name, spec in declared_inputs.items() if (spec or {}).get("required")
     }
-    return set(declared_inputs), declared_secrets, required_inputs
+    required_secrets = {
+        name
+        for name, spec in declared_secret_specs.items()
+        if (spec or {}).get("required")
+    }
+    input_types = {
+        name: (spec or {}).get("type") for name, spec in declared_inputs.items()
+    }
+    return (
+        set(declared_inputs),
+        declared_secrets,
+        required_inputs,
+        required_secrets,
+        input_types,
+    )
 
 
 def parse_caller(raw_yaml):
-    """Extract the secrets/inputs the template's caller passes to THIS reusable
-    workflow, from any job whose `uses:` references reusable-build-test-release.yml."""
+    """Extract each template job that calls this reusable workflow."""
     data = yaml.safe_load(raw_yaml)
-    passed_secrets = set()
-    passed_inputs = set()
-    matched_job = False
+    invocations = []
 
-    for job in (data.get("jobs") or {}).values():
+    for job_id, job in (data.get("jobs") or {}).items():
         uses = (job or {}).get("uses", "")
         if REUSABLE_WORKFLOW_PATH not in uses:
             continue
-        matched_job = True
         secrets_block = job.get("secrets")
-        if secrets_block and secrets_block != "inherit":
+        inherits_secrets = secrets_block == "inherit"
+        passed_secrets = set()
+        if secrets_block and not inherits_secrets:
             passed_secrets.update(secrets_block.keys())
         with_block = job.get("with") or {}
-        passed_inputs.update(with_block.keys())
+        invocations.append(
+            CallerInvocation(
+                job_id=str(job_id),
+                inherits_secrets=inherits_secrets,
+                passed_secrets=frozenset(passed_secrets),
+                passed_inputs=dict(with_block),
+            )
+        )
 
-    return matched_job, passed_secrets, passed_inputs
+    return invocations
+
+
+def input_value_matches_type(value, expected_type):
+    if not expected_type or (isinstance(value, str) and "${{" in value):
+        return True
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected_type == "string":
+        return isinstance(value, str)
+    return True
 
 
 def parse_sync_version(raw_sh):
@@ -129,43 +170,99 @@ def parse_sync_version(raw_sh):
     return None
 
 
-def check_ref(repo, ref, declared_inputs, declared_secrets, required_inputs):
+def check_invocation_secrets(
+    prefix, invocation, declared_secrets, required_secrets
+):
     errors = []
+    undeclared = invocation.passed_secrets - declared_secrets
+    for name in sorted(undeclared):
+        errors.append(
+            f"{prefix} passes secret '{name}' which this workflow "
+            "does not declare in on.workflow_call.secrets — the caller's "
+            "run will fail"
+        )
+
+    if not invocation.inherits_secrets:
+        missing = required_secrets - invocation.passed_secrets
+        for name in sorted(missing):
+            errors.append(
+                f"{prefix}: this workflow requires secret '{name}' but "
+                "the caller does not pass it — the caller's run will fail"
+            )
+    return errors
+
+
+def check_invocation_inputs(
+    prefix, invocation, declared_inputs, required_inputs, input_types
+):
+    errors = []
+    passed_inputs = set(invocation.passed_inputs)
+    for name in sorted(passed_inputs - declared_inputs):
+        errors.append(
+            f"{prefix} passes input '{name}' which this workflow "
+            "does not declare in on.workflow_call.inputs — the caller's "
+            "run will fail"
+        )
+
+    for name in sorted(required_inputs - passed_inputs):
+        errors.append(
+            f"{prefix}: this workflow requires input '{name}' but the "
+            "caller does not pass it — the caller's run will fail"
+        )
+
+    for name, value in invocation.passed_inputs.items():
+        expected_type = input_types.get(name)
+        if name in declared_inputs and not input_value_matches_type(
+            value, expected_type
+        ):
+            errors.append(
+                f"{prefix} input '{name}' expects type '{expected_type}' "
+                f"but receives a static {type(value).__name__} value — "
+                "the caller's run will fail"
+            )
+    return errors
+
+
+def check_ref(
+    repo,
+    ref,
+    declared_inputs,
+    declared_secrets,
+    required_inputs,
+    required_secrets=None,
+    input_types=None,
+):
+    errors = []
+    required_secrets = required_secrets or set()
+    input_types = input_types or {}
 
     try:
         caller_raw = gh_fetch_raw(repo, CALLER_PATH, ref)
     except GhFetchError as exc:
         return [f"[{ref}] could not fetch {CALLER_PATH}: {exc}"]
 
-    matched_job, passed_secrets, passed_inputs = parse_caller(caller_raw)
-    if not matched_job:
+    invocations = parse_caller(caller_raw)
+    if not invocations:
         return [
             f"[{ref}] no job in {CALLER_PATH} calls "
             f"{REUSABLE_WORKFLOW_PATH} — cannot verify compatibility"
         ]
 
-    undeclared_secrets = passed_secrets - declared_secrets
-    for name in sorted(undeclared_secrets):
-        errors.append(
-            f"[{ref}] caller passes secret '{name}' which this workflow "
-            "does not declare in on.workflow_call.secrets — the caller's "
-            "run will fail"
+    for invocation in invocations:
+        prefix = f"[{ref}] caller job '{invocation.job_id}'"
+        errors.extend(
+            check_invocation_secrets(
+                prefix, invocation, declared_secrets, required_secrets
+            )
         )
-
-    undeclared_inputs = passed_inputs - declared_inputs
-    for name in sorted(undeclared_inputs):
-        errors.append(
-            f"[{ref}] caller passes input '{name}' which this workflow "
-            "does not declare in on.workflow_call.inputs — the caller's "
-            "run will fail"
-        )
-
-    missing_required = required_inputs - passed_inputs
-    for name in sorted(missing_required):
-        errors.append(
-            f"[{ref}] this workflow requires input '{name}' but the "
-            f"caller in {CALLER_PATH} does not pass it — the caller's "
-            "run will fail"
+        errors.extend(
+            check_invocation_inputs(
+                prefix,
+                invocation,
+                declared_inputs,
+                required_inputs,
+                input_types,
+            )
         )
 
     try:
@@ -186,14 +283,33 @@ def main(argv):
     repo = compat["template_repo"]
     refs = compat["compatible_template_refs"]
 
-    declared_inputs, declared_secrets, required_inputs = load_reusable_workflow(
-        workflow_path
-    )
+    if not refs:
+        print(
+            "template compatibility check failed:\n\n"
+            "  - compatible_template_refs must contain at least one ref"
+        )
+        return 1
+
+    (
+        declared_inputs,
+        declared_secrets,
+        required_inputs,
+        required_secrets,
+        input_types,
+    ) = load_reusable_workflow(workflow_path)
 
     all_errors = []
     for ref in refs:
         all_errors.extend(
-            check_ref(repo, ref, declared_inputs, declared_secrets, required_inputs)
+            check_ref(
+                repo,
+                ref,
+                declared_inputs,
+                declared_secrets,
+                required_inputs,
+                required_secrets,
+                input_types,
+            )
         )
 
     if all_errors:
