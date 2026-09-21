@@ -197,10 +197,11 @@ def _workflow_message(level, message):
 
 
 def main():
+    output_path = _required_input("OUTPUT_PATH")
+    Path(output_path).unlink(missing_ok=True)
     token = _required_input("TOKEN")
     repository = _required_input("REPOSITORY")
     raw_pull_request_number = _required_input("PULL_REQUEST_NUMBER")
-    output_path = _required_input("OUTPUT_PATH")
     try:
         pull_request_number = int(raw_pull_request_number)
     except ValueError as exc:
@@ -208,7 +209,6 @@ def main():
     if pull_request_number <= 0:
         raise ValueError("pull_request_number must be a positive integer")
 
-    Path(output_path).unlink(missing_ok=True)
     comment = _canonical_comment(token, repository, pull_request_number)
     _write_envelope(
         output_path, _comment_envelope(comment, repository, pull_request_number)

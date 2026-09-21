@@ -158,6 +158,37 @@ class LifecycleTests(unittest.TestCase):
 
 
 class FilesystemTests(unittest.TestCase):
+    def test_invalid_pull_request_number_removes_stale_envelope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "envelope.json"
+            output_path.write_text('{"stale": true}\n', encoding="utf-8")
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "INPUT_TOKEN": "token",
+                    "INPUT_REPOSITORY": "splunk/example-ta",
+                    "INPUT_PULL_REQUEST_NUMBER": "0",
+                    "INPUT_OUTPUT_PATH": str(output_path),
+                },
+                clear=True,
+            ):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    prepare.main()
+            self.assertFalse(output_path.exists())
+
+    def test_missing_non_output_input_removes_stale_envelope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "envelope.json"
+            output_path.write_text('{"stale": true}\n', encoding="utf-8")
+            with mock.patch.dict(
+                os.environ,
+                {"INPUT_OUTPUT_PATH": str(output_path)},
+                clear=True,
+            ):
+                with self.assertRaisesRegex(ValueError, "Missing required input token"):
+                    prepare.main()
+            self.assertFalse(output_path.exists())
+
     def test_failed_write_preserves_complete_old_envelope_and_cleans_tempfile(self):
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "envelope.json"
