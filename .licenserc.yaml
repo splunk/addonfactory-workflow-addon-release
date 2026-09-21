@@ -22,6 +22,8 @@ header:
     - ".github/"
     - "renovate.json"
     - "README.md"
+    - "AGENTS.md"
+    - "poetry.lock"
     - "LICENSE"
     - ".*"
     - "runbooks/"

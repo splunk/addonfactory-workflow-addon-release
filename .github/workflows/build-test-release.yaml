@@ -27,6 +27,10 @@ jobs:
   review-secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
+    env:
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: /github/workspace
     permissions:
       contents: read
     steps:
