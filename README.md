@@ -191,7 +191,8 @@ gitGraph
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
-* `python-version` - Python version used for testing, default `3.9`
+* `python-version` - Python version used to build the package and run the package-version unit-test job, default `3.9`
+* `test-python-version` - Python version used for pre-commit, WFE test tooling, and test dependencies, default `3.13`
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
@@ -761,7 +762,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Description:**
 
-- Unit tests run in two parallel jobs, `run-unit-tests-py39` and `run-unit-tests-py313`, executing the same suite against Python 3.9 and 3.13 respectively.
+- Unit tests run against the configured `python-version`. A separate Python 3.13 job also runs unless `python-version` is already Python 3.13, avoiding duplicate coverage and artifact names.
 
 **Action used:** NA
 
@@ -1110,6 +1111,8 @@ argo-logs
 
 - Release readiness is blocked when `fossa-vulnerability-test` fails, as `pre-publish` depends on it directly via the `needs` dependency.
 
+- For a publish-capable run where the pre-publish conditions are not met, the workflow first requires the `build` job to have succeeded, as that job cannot be overridden. It then verifies that the `publish-override` environment exists and has required reviewers. If either requirement is not met, the override fails. Otherwise, `manual-publish-approval` waits for environment approval before publishing proceeds.
+
 **Troubleshooting steps for failures if any**
 
 - In the logs it outputs a json with the info of stages and their pass/fail status. <br /> 
@@ -1132,6 +1135,8 @@ argo-logs
 **Pass/fail behaviour:** 
 
 - It releases a new release tag in the repository and uploads the assets to the release.
+
+- After a manual override approval, publishing verifies that the approved commit is still the current branch tip. Superseded runs fail before creating a tag or release.
 
 **Troubleshooting steps for failures if any**
 
