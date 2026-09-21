@@ -19,12 +19,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import yaml
-
 from scripts import check_workflow_hygiene as hygiene
 
 
 class WorkflowHygieneTests(unittest.TestCase):
+    @staticmethod
+    def load(raw):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workflow = Path(temp_dir) / "workflow.yml"
+            workflow.write_text(raw, encoding="utf-8")
+            return hygiene.load_workflow(workflow)
+
     def test_load_workflow_preserves_boolean_like_identifiers(self):
         raw = """on:
   workflow_call:
@@ -35,61 +40,10 @@ jobs:
   on: {}
   off: {}
 """
-        with tempfile.TemporaryDirectory() as temp_dir:
-            workflow = Path(temp_dir) / "workflow.yml"
-            workflow.write_text(raw, encoding="utf-8")
-
-            data, _ = hygiene.load_workflow(workflow)
+        data = self.load(raw)
 
         self.assertEqual(set(hygiene.get_workflow_call(data)["inputs"]), {"yes", "off"})
         self.assertEqual(set(data["jobs"]), {"on", "off"})
-
-    def test_get_workflow_call_handles_yaml_boolean_on_key(self):
-        data = yaml.safe_load(
-            """
-on:
-  workflow_call:
-    inputs:
-      valid-input: {}
-"""
-        )
-
-        self.assertIn(True, data)
-        self.assertEqual(
-            hygiene.get_workflow_call(data),
-            {"inputs": {"valid-input": {}}},
-        )
-
-    def test_check_naming_reports_only_non_grandfathered_names(self):
-        data = {
-            True: {
-                "workflow_call": {
-                    "inputs": {
-                        "valid-input": {},
-                        "invalid_input": {},
-                        "ui_marker": {},
-                    }
-                }
-            },
-            "jobs": {
-                "valid-job": {},
-                "invalid_job": {},
-                "review_secrets": {},
-                "UI-tests-report": {},
-                "Modinput-tests-report": {},
-            },
-        }
-        errors = []
-
-        hygiene.check_naming(data, errors)
-
-        self.assertEqual(len(errors), 2)
-        self.assertTrue(any("input 'invalid_input'" in error for error in errors))
-        self.assertTrue(any("job id 'invalid_job'" in error for error in errors))
-        self.assertFalse(any("ui_marker" in error for error in errors))
-        self.assertFalse(any("review_secrets" in error for error in errors))
-        self.assertFalse(any("UI-tests-report" in error for error in errors))
-        self.assertFalse(any("Modinput-tests-report" in error for error in errors))
 
     def test_dead_input_and_secret_detection_reports_all_unused_declarations(self):
         raw = """on:
@@ -105,10 +59,10 @@ jobs:
     steps:
       - run: echo "${{ inputs.used-input }} ${{ secrets.USED_SECRET }}"
 """
-        data = yaml.safe_load(raw)
+        data = self.load(raw)
         errors = []
 
-        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+        hygiene.check_dead_inputs_and_secrets(data, errors)
 
         self.assertEqual(len(errors), 2)
         self.assertTrue(any("input 'unused-input'" in error for error in errors))
@@ -124,10 +78,10 @@ jobs:
     steps:
       - run: echo "${{ inputs['bracket-input'] }}"
 """
-        data = yaml.safe_load(raw)
+        data = self.load(raw)
         errors = []
 
-        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+        hygiene.check_dead_inputs_and_secrets(data, errors)
 
         self.assertEqual(errors, [])
 
@@ -141,10 +95,10 @@ jobs:
     steps:
       - run: echo "${{ secrets['TOKEN'] }}"
 """
-        data = yaml.safe_load(raw)
+        data = self.load(raw)
         errors = []
 
-        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+        hygiene.check_dead_inputs_and_secrets(data, errors)
 
         self.assertEqual(errors, [])
 
@@ -159,13 +113,70 @@ jobs:
     steps:
       - run: echo "${{ inputs.foo-bar }}"
 """
-        data = yaml.safe_load(raw)
+        data = self.load(raw)
         errors = []
 
-        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+        hygiene.check_dead_inputs_and_secrets(data, errors)
 
         self.assertEqual(len(errors), 1)
         self.assertIn("input 'foo'", errors[0])
+
+    def test_literal_reference_text_does_not_mark_declarations_used(self):
+        raw = """on:
+  workflow_call:
+    inputs:
+      unused-input: {}
+    secrets:
+      UNUSED_SECRET: {}
+jobs:
+  validate:
+    description: "inputs.unused-input and secrets.UNUSED_SECRET"
+    steps:
+      - run: echo "ordinary text"
+"""
+        data = self.load(raw)
+        errors = []
+
+        hygiene.check_dead_inputs_and_secrets(data, errors)
+
+        self.assertEqual(len(errors), 2)
+
+    def test_wrapped_expression_fragments_mark_declarations_used(self):
+        raw = """on:
+  workflow_call:
+    inputs:
+      used-input: {}
+    secrets:
+      USED_SECRET: {}
+jobs:
+  validate:
+    steps:
+      - run: echo "prefix ${{ inputs.used-input }} ${{ secrets.USED_SECRET }} suffix"
+"""
+        data = self.load(raw)
+        errors = []
+
+        hygiene.check_dead_inputs_and_secrets(data, errors)
+
+        self.assertEqual(errors, [])
+
+    def test_bare_if_expression_marks_input_used(self):
+        raw = """on:
+  workflow_call:
+    inputs:
+      enabled: {}
+jobs:
+  validate:
+    if: inputs.enabled == 'true'
+    steps:
+      - run: echo enabled
+"""
+        data = self.load(raw)
+        errors = []
+
+        hygiene.check_dead_inputs_and_secrets(data, errors)
+
+        self.assertEqual(errors, [])
 
     def test_comment_only_reference_does_not_mark_input_used(self):
         raw = """on:
@@ -178,10 +189,10 @@ jobs:
       # - run: echo "${{ inputs.unused-input }}"
       - run: echo "active step"
 """
-        data = yaml.safe_load(raw)
+        data = self.load(raw)
         errors = []
 
-        hygiene.check_dead_inputs_and_secrets(data, raw, errors)
+        hygiene.check_dead_inputs_and_secrets(data, errors)
 
         self.assertEqual(len(errors), 1)
         self.assertIn("input 'unused-input'", errors[0])
@@ -213,9 +224,11 @@ jobs:
         raw = """on:
   workflow_call:
     inputs:
-      invalid_input: {}
+      unused-input: {}
+    secrets:
+      UNUSED_SECRET: {}
 jobs:
-  invalid_job: {}
+  validate: {}
 """
         with tempfile.TemporaryDirectory() as temp_dir:
             workflow = Path(temp_dir) / "workflow.yml"
@@ -226,9 +239,9 @@ jobs:
                 result = hygiene.main(["check_workflow_hygiene.py", str(workflow)])
 
         self.assertEqual(result, 1)
-        self.assertIn("input 'invalid_input'", stdout.getvalue())
-        self.assertIn("job id 'invalid_job'", stdout.getvalue())
-        self.assertIn("3 issue(s) found", stdout.getvalue())
+        self.assertIn("input 'unused-input'", stdout.getvalue())
+        self.assertIn("secret 'UNUSED_SECRET'", stdout.getvalue())
+        self.assertIn("2 issue(s) found", stdout.getvalue())
 
 
 if __name__ == "__main__":

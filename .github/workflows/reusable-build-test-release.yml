@@ -148,6 +148,7 @@ env:
   TEST_PYTHON_VERSION: ${{ inputs.test-python-version }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
+  FOSSA_CLI_VERSION: "v3.18.4"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
   GS_VERSION: ${{ inputs.gs-version }}
 jobs:
@@ -523,8 +524,8 @@ jobs:
       - name: run fossa analyze and create report
         id: fossa-scan
         run: |
-          # fossas/fossa-cli master pinned to an immutable commit.
-          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/e59af1e6863c93767820aa2f6ac72f487faa2931/install-latest.sh | bash
+          # Pin both the installer source and the CLI release it downloads.
+          curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/e59af1e6863c93767820aa2f6ac72f487faa2931/install-latest.sh | bash -s -- "$FOSSA_CLI_VERSION"
           fossa analyze --branch "$FOSSA_BRANCH" --debug 2>&1 | tee /tmp/fossa_analyze_output.txt
           exit_code="${PIPESTATUS[0]}"
           FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt || true)

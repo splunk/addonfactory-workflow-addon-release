@@ -4,7 +4,7 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: check-added-large-files
-        args: [--maxkb=3072]
+        args: [--maxkb=3072, --enforce-all]
   - repo: https://github.com/google/yamlfmt
     rev: v0.21.0
     hooks:
@@ -26,19 +26,9 @@ repos:
         pass_filenames: false
         files: ^(scripts/.*\.py|pyproject\.toml)$
       - id: workflow-hygiene
-        name: workflow hygiene (naming + dead inputs)
-        description: "CI-only: enforces kebab-case naming and flags unused workflow_call inputs/secrets. Does not run on local commit."
+        name: workflow hygiene (dead inputs and secrets)
+        description: "Flags unused workflow_call inputs and secrets."
         entry: python scripts/check_workflow_hygiene.py
         language: python
         additional_dependencies: ["pyyaml==6.0.3"]
         files: ^\.github/workflows/reusable-build-test-release\.yml$
-        stages: [manual]
-      - id: template-compat
-        name: template compatibility (secrets + required inputs)
-        description: "Manual/trusted-push check: verifies each declared-compatible addonfactory-repository-template caller job against required secrets, inputs, and static input types. Needs gh auth + network; does not run on local commit or PR CI."
-        entry: python scripts/check_template_compat.py
-        language: python
-        additional_dependencies: ["pyyaml==6.0.3"]
-        files: ^(\.github/workflows/reusable-build-test-release\.yml|\.github/template-compatibility\.yml)$
-        pass_filenames: false
-        stages: [manual]

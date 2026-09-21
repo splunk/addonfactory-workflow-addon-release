@@ -10,8 +10,7 @@
 * [Spec reusable-build-test-release](#spec-reusable-build-test-release)
   * [Workflow Inputs](#workflow-inputs)
   * [Workflow Secrets](#workflow-secrets)
-  * [Local validation and build command](#local-validation-and-build-command)
-  * [Validation depth by change class](#validation-depth-by-change-class)
+  * [Contributing and validation](#contributing-and-validation)
   * [General troubleshooting](#general-troubleshooting)
   * [[Job] validate-custom-version](#job-validate-custom-version)
   * [[Job] check-splunktafunctionaltests-exists](#job-check-splunktafunctionaltests-exists)
@@ -182,10 +181,11 @@ gitGraph
 
 ## Work intake
 
-Create repository work through the GitHub **Repository work item** issue form. The form requires the work type,
-component or expected owner, problem statement, acceptance criteria, and validation context so maintainers and
-automation have a consistent routing and completion contract. Do not use a public issue to disclose a suspected
-security vulnerability; use the organization's approved private security-reporting channel.
+Create and track repository work in the [Jira `ADDON` project](https://splunk.atlassian.net/jira/software/c/projects/ADDON/issues).
+Jira is the authoritative intake and status record; GitHub issue creation is disabled for this repository.
+Pull-request titles must include the corresponding `ADDON-XXXXX` key, and merged commits report their references
+back to Jira. Do not disclose a suspected security vulnerability in Jira or a public GitHub item; use the
+organization's approved private security-reporting channel.
 
 # Spec reusable-build-test-release
 ## Workflow Inputs
@@ -235,44 +235,10 @@ the calling repository's workflow (see [addonfactory-repository-template](https:
   post commit-reference comments on Jira tickets; the user needs comment permission on
   `https://splunk.atlassian.net`.
 
-## Local validation and build command
+## Contributing and validation
 
-This repo's own "build" is the workflow YAML plus the invariant-checking scripts in `scripts/`; there is no
-application to compile. The local validation entrypoint before pushing a change to
-`.github/workflows/reusable-build-test-release.yml` is:
-
-```bash
-poetry install --no-root
-poetry run pytest
-pre-commit run --all-files
-pre-commit run --hook-stage manual --all-files
-```
-
-`pyproject.toml` and `poetry.lock` define the reproducible Python 3.9–3.13 validation environment. Pytest discovers
-the existing `unittest.TestCase` tests, enforces an 80% line-coverage floor for repository-owned scripts, and
-writes `coverage.xml`; CI publishes that file as the `repository-python-coverage` artifact. The tests run without
-network access. The first pre-commit command enforces a Ruff C901 complexity limit of 10, rejects newly added files
-larger than 3 MiB, and runs `actionlint` and `yamlfmt` (these run on every local commit). The manual pre-commit command
-additionally runs the manual-stage hooks —
-`python scripts/check_workflow_hygiene.py` (naming consistency, dead inputs/secrets) and
-`python scripts/check_template_compat.py` (per-caller-job secrets, inputs, and static input-type compatibility against
-[addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)) — which are
-pinned to `stages: [manual]` because `check_template_compat.py` needs network access and a `gh` token, so
-they don't run on a plain `git commit` and must be invoked explicitly. Repository CI runs workflow hygiene on
-pull requests, but mints the private-template GitHub App token and runs template compatibility only on trusted
-push refs so pull-request-controlled code never receives that token.
-
-Repository CI also scans proposed changes for secrets with TruffleHog and runs the governed Splunk Semgrep
-policy. Both security jobs must succeed before the publish job can run.
-
-## Validation depth by change class
-
-| Change class | Minimum validation |
-|---|---|
-| Docs-only (`README.md`, `runbooks/`, `AGENTS.md`) | `pre-commit run --all-files` (lint only) |
-| New/changed `workflow_call` input or secret | `pre-commit run --hook-stage manual --all-files` (adds hygiene + template-compat checks) |
-| Job logic change (steps, conditions, matrix) inside `reusable-build-test-release.yml` | Full manual pre-commit run, then push to a branch and confirm the affected job(s) via a real push-triggered workflow run before merging |
-| Change to `scripts/check_workflow_hygiene.py` or `scripts/check_template_compat.py` | Run `poetry run pytest`, confirm the changed script remains represented in the terminal coverage report and `coverage.xml`, then run it directly against `.github/workflows/reusable-build-test-release.yml` and confirm it still reports pass on the current workflow, in addition to the above |
+Maintainers should follow [`AGENTS.md`](AGENTS.md) for local validation, reusable-workflow wiring, scenario-specific TA
+E2E testing, evidence requirements, cleanup, and the workflow/template release handoff.
 
 ## General troubleshooting
 

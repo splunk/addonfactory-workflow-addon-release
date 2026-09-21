@@ -28,7 +28,6 @@ package-mode = false
 [tool.poetry.group.dev.dependencies]
 pytest = "8.4.2"
 pytest-cov = "7.1.0"
-ruff = "0.14.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
