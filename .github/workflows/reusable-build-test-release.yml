@@ -1330,7 +1330,7 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@428415e378c9620584f4d312fc3e285c42be79cb
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@cbd9251b386d828fbb40de34e3f23065934c2e55
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}

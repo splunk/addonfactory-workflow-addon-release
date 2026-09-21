@@ -124,6 +124,10 @@ class WorkflowStructureTests(unittest.TestCase):
             r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
             r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
         )
+        self.assertIn(
+            "prepare-ta-validator-exceptions@cbd9251b386d828fbb40de34e3f23065934c2e55",
+            preparation,
+        )
         self.assertIn("validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json", workflow)
         self.assertLess(
             workflow.index("prepare-ta-validator-exceptions:"),
