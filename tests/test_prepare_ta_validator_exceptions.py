@@ -126,7 +126,7 @@ class WorkflowStructureTests(unittest.TestCase):
             preparation,
         )
         self.assertIn(
-            "run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b",
+            "run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106",
             preparation,
         )
         self.assertIn("mode: validate", preparation)
@@ -155,7 +155,7 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("actions/download-artifact@v8", run_scorecard)
         self.assertIn("pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json", run_scorecard)
         self.assertIn(
-            "run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b",
+            "run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106",
             run_scorecard,
         )
         self.assertIn("mode: evaluate", run_scorecard)

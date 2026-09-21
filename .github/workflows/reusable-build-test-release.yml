@@ -1339,7 +1339,7 @@ jobs:
       - name: Validate TA Validator exception configuration
         id: validate-ta-validator-exceptions
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: validate
@@ -1389,7 +1389,7 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
@@ -1404,7 +1404,7 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
