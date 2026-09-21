@@ -128,7 +128,7 @@ class WorkflowStructureTests(unittest.TestCase):
             r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
         )
         self.assertIn(
-            "prepare-ta-validator-exceptions@8082fab41c5f6e13c2b71fd06c035dece86ca07a",
+            "prepare-ta-validator-exceptions@25681ddfc060283d1f4196bdd599ac979d29038c",
             preparation,
         )
         self.assertIn(
