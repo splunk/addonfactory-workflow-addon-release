@@ -1,34 +1,19 @@
-"""Write a TA Validator exception envelope from composite-action outputs."""
+"""Convert a selected PR comment into TA Validator exception input."""
 
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 
 MARKER = "<!-- ta-validator-exceptions:v1 -->"
 
 
-def _write_envelope(output_path, envelope):
-    """Atomically replace a same-directory, owner-only transport envelope."""
+def write_exception_input(output_path, exception_input):
+    """Write the JSON input consumed by TA Validator."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_path = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "w", encoding="utf-8") as envelope_file:
-            descriptor = None
-            json.dump(envelope, envelope_file, indent=2)
-            envelope_file.write("\n")
-        os.replace(temporary_path, path)
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
-        try:
-            os.unlink(temporary_path)
-        except FileNotFoundError:
-            pass
+    path.write_text(json.dumps(exception_input, indent=2) + "\n", encoding="utf-8")
 
 
 def _required_input(name):
@@ -55,14 +40,13 @@ def _positive_integer(value, name):
 
 def main():
     output_path = _required_input("OUTPUT_PATH")
-    Path(output_path).unlink(missing_ok=True)
     repository = _required_input("REPOSITORY")
     pull_request_number = _positive_integer(
         _required_input("PULL_REQUEST_NUMBER"), "pull_request_number"
     )
     comment_id = _positive_integer(_required_input("COMMENT_ID"), "comment_id")
     comment_body = _required_input("COMMENT_BODY")
-    envelope = {
+    exception_input = {
         "schema_version": 1,
         "source": {
             "provider": "github",
@@ -77,7 +61,7 @@ def main():
             "body": comment_body,
         },
     }
-    _write_envelope(output_path, envelope)
+    write_exception_input(output_path, exception_input)
 
 
 if __name__ == "__main__":

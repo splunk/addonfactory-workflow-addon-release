@@ -2,7 +2,6 @@ import importlib.util
 import io
 import json
 import os
-import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,10 +20,10 @@ SPEC.loader.exec_module(prepare)
 WORKFLOW_PATH = Path(__file__).parents[1] / ".github" / "workflows" / "reusable-build-test-release.yml"
 
 
-class EnvelopeWriterTests(unittest.TestCase):
-    def test_writes_envelope_from_find_comment_outputs(self):
+class ExceptionInputWriterTests(unittest.TestCase):
+    def test_writes_exception_input_from_find_comment_outputs(self):
         with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "envelope.json"
+            output_path = Path(directory) / "exception-input.json"
             with mock.patch.dict(
                 os.environ,
                 {
@@ -38,7 +37,6 @@ class EnvelopeWriterTests(unittest.TestCase):
             ):
                 prepare.main()
 
-            self.assertEqual(stat.S_IMODE(output_path.stat().st_mode), 0o600)
             self.assertEqual(
                 json.loads(output_path.read_text(encoding="utf-8")),
                 {
@@ -55,34 +53,12 @@ class EnvelopeWriterTests(unittest.TestCase):
                 },
             )
 
-    def test_missing_comment_id_removes_stale_envelope(self):
+    def test_write_exception_input_replaces_existing_content(self):
         with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "envelope.json"
-            output_path.write_text('{"stale": true}\n', encoding="utf-8")
-            with mock.patch.dict(
-                os.environ,
-                {
-                    "INPUT_OUTPUT_PATH": str(output_path),
-                    "INPUT_REPOSITORY": "splunk/example-ta",
-                    "INPUT_PULL_REQUEST_NUMBER": "123",
-                    "INPUT_COMMENT_BODY": prepare.MARKER,
-                },
-                clear=True,
-            ):
-                with self.assertRaisesRegex(ValueError, "Missing required input comment_id"):
-                    prepare.main()
-            self.assertFalse(output_path.exists())
-
-    def test_failed_write_preserves_complete_old_envelope_and_cleans_tempfile(self):
-        with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "envelope.json"
-            old_content = b'{"old": "complete"}\n'
-            output_path.write_bytes(old_content)
-            with mock.patch.object(prepare.json, "dump", side_effect=OSError("write failed")):
-                with self.assertRaisesRegex(OSError, "write failed"):
-                    prepare._write_envelope(output_path, {"replacement": True})
-            self.assertEqual(output_path.read_bytes(), old_content)
-            self.assertEqual(list(output_path.parent.glob(".envelope.json.*")), [])
+            output_path = Path(directory) / "input.json"
+            output_path.write_text('{"old": true}\n', encoding="utf-8")
+            prepare.write_exception_input(output_path, {"new": True})
+            self.assertEqual(output_path.read_text(encoding="utf-8"), '{\n  "new": true\n}\n')
 
     def test_annotations_escape_workflow_control_characters(self):
         with mock.patch("sys.stdout", new_callable=io.StringIO) as stream:
@@ -134,7 +110,7 @@ class WorkflowStructureTests(unittest.TestCase):
             workflow.index("run-gs-scorecard:"),
         )
 
-    def test_full_evaluation_consumes_only_validated_pr_envelope(self):
+    def test_full_evaluation_consumes_only_validated_exception_input(self):
         run_scorecard = self.workflow[
             self.workflow.index("  run-gs-scorecard:") : self.workflow.index(
                 "\n  setup:", self.workflow.index("  run-gs-scorecard:")
