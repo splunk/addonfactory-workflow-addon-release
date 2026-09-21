@@ -153,9 +153,23 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("- prepare-ta-validator-exceptions", run_scorecard)
         self.assertIn("needs.prepare-ta-validator-exceptions.result == 'success'", run_scorecard)
         self.assertIn("actions/download-artifact@v8", run_scorecard)
-        self.assertIn("pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json", run_scorecard)
+        self.assertIn(
+            "pull-request-input-path: ${{ github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.json', runner.temp) || '' }}",
+            run_scorecard,
+        )
         self.assertIn(
             "run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106",
+            run_scorecard,
+        )
+        self.assertEqual(
+            run_scorecard.count("run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106"),
+            1,
+        )
+        self.assertIn("- name: Run TA Validator\n", run_scorecard)
+        self.assertNotIn("Run TA Validator for pull request", run_scorecard)
+        self.assertNotIn("Run TA Validator outside a pull request", run_scorecard)
+        self.assertIn(
+            "github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.json', runner.temp) || ''",
             run_scorecard,
         )
         self.assertIn("mode: evaluate", run_scorecard)

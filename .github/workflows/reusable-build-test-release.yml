@@ -1382,8 +1382,7 @@ jobs:
         with:
           name: ta-validator-pr-exceptions
           path: ${{ runner.temp }}
-      - name: Run TA Validator for pull request
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Run TA Validator
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
@@ -1396,21 +1395,7 @@ jobs:
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
-      - name: Run TA Validator outside a pull request
-        if: ${{ github.event_name != 'pull_request' }}
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
-          APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
-          APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106
-        with:
-          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
-          mode: evaluate
-          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
+          pull-request-input-path: ${{ github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.json', runner.temp) || '' }}
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:
