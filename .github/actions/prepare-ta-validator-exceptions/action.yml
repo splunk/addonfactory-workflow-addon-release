@@ -11,6 +11,10 @@ inputs:
     required: true
   output_path:
     required: true
+outputs:
+  comment-reference:
+    description: URL of the selected TA Validator exception comment
+    value: ${{ steps.write-exception-document.outputs.comment-reference }}
 runs:
   using: composite
   steps:
@@ -41,6 +45,10 @@ runs:
           ```yaml
           version: 1
           exceptions: []
+          # Add declarations like:
+          # - check_slug: sensitive-data
+          #   category: false_positive
+          #   reason: Explain why this exception applies.
           ```
           <!-- ta-validator-exceptions-config:end -->
 
@@ -52,6 +60,7 @@ runs:
           exceptions:
             - check_slug: sensitive-data
               detection_slug: credential-exposure
+              category: false_positive
               reason: Accepted for this PR; tracked in ADDON-12345.
           ```
           </details>
@@ -67,7 +76,8 @@ runs:
           });
           core.setOutput('comment-id', comment.id.toString());
           core.setOutput('comment-body', comment.body);
-    - name: Write TA Validator exception input
+    - name: Write TA Validator exception document
+      id: write-exception-document
       shell: sh
       env:
         INPUT_REPOSITORY: ${{ inputs.repository }}

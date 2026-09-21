@@ -1,6 +1,5 @@
 import importlib.util
 import io
-import json
 import os
 import tempfile
 import unittest
@@ -21,10 +20,23 @@ SPEC.loader.exec_module(prepare)
 WORKFLOW_PATH = Path(__file__).parents[1] / ".github" / "workflows" / "reusable-build-test-release.yml"
 
 
-class ExceptionInputWriterTests(unittest.TestCase):
-    def test_writes_exception_input_from_find_comment_outputs(self):
+class PullRequestExceptionDocumentTests(unittest.TestCase):
+    def test_writes_only_active_canonical_yaml_and_comment_reference(self):
         with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "exception-input.json"
+            output_path = Path(directory) / "pr-exceptions.yaml"
+            github_output = Path(directory) / "github-output"
+            comment_body = """<!-- ta-validator-exceptions:v1 -->
+<!-- ta-validator-exceptions-config:start -->
+```yaml
+version: 1
+exceptions: []
+```
+<!-- ta-validator-exceptions-config:end -->
+```yaml
+version: 1
+exceptions: [not-active]
+```
+"""
             with mock.patch.dict(
                 os.environ,
                 {
@@ -32,34 +44,67 @@ class ExceptionInputWriterTests(unittest.TestCase):
                     "INPUT_REPOSITORY": "splunk/example-ta",
                     "INPUT_PULL_REQUEST_NUMBER": "123",
                     "INPUT_COMMENT_ID": "456",
-                    "INPUT_COMMENT_BODY": prepare.MARKER + "\ncustom content",
+                    "INPUT_COMMENT_BODY": comment_body,
+                    "GITHUB_OUTPUT": str(github_output),
                 },
                 clear=True,
             ):
                 prepare.main()
 
             self.assertEqual(
-                json.loads(output_path.read_text(encoding="utf-8")),
-                {
-                    "schema_version": 1,
-                    "source": {
-                        "provider": "github",
-                        "repository": "splunk/example-ta",
-                        "pull_request": 123,
-                    },
-                    "comment": {
-                        "reference": "https://github.com/splunk/example-ta/pull/123#issuecomment-456",
-                        "body": prepare.MARKER + "\ncustom content",
-                    },
-                },
+                output_path.read_text(encoding="utf-8"),
+                "version: 1\nexceptions: []\n",
+            )
+            self.assertEqual(
+                github_output.read_text(encoding="utf-8"),
+                "comment-reference=https://github.com/splunk/example-ta/pull/123#issuecomment-456\n",
             )
 
-    def test_write_exception_input_replaces_existing_content(self):
+    def test_rejects_duplicate_or_misordered_markers(self):
+        valid_fence = "```yaml\nversion: 1\nexceptions: []\n```"
+        invalid_bodies = (
+            f"{prepare.MARKER}\n{prepare.CONFIG_START_MARKER}\n{valid_fence}\n"
+            f"{prepare.CONFIG_END_MARKER}\n{prepare.CONFIG_START_MARKER}",
+            f"{prepare.MARKER}\n{prepare.MARKER}\n{prepare.CONFIG_START_MARKER}\n"
+            f"{valid_fence}\n{prepare.CONFIG_END_MARKER}",
+            f"{prepare.CONFIG_START_MARKER}\n{valid_fence}\n{prepare.CONFIG_END_MARKER}\n"
+            f"{prepare.MARKER}",
+        )
+
+        for body in invalid_bodies:
+            with self.subTest(body=body):
+                with self.assertRaisesRegex(ValueError, "marker"):
+                    prepare.extract_pull_request_exception_document(body)
+
+    def test_rejects_multiple_or_malformed_active_fences(self):
+        invalid_fences = (
+            "```yaml\nversion: 1\nexceptions: []\n```\n"
+            "```yaml\nversion: 1\nexceptions: []\n```",
+            "```yml\nversion: 1\nexceptions: []\n```",
+            "```yaml\nversion: 1\nexceptions: []\n````",
+            "version: 1\nexceptions: []",
+        )
+
+        for fence in invalid_fences:
+            body = (
+                f"{prepare.MARKER}\n{prepare.CONFIG_START_MARKER}\n{fence}\n"
+                f"{prepare.CONFIG_END_MARKER}"
+            )
+            with self.subTest(fence=fence):
+                with self.assertRaisesRegex(ValueError, "fence"):
+                    prepare.extract_pull_request_exception_document(body)
+
+    def test_write_pull_request_exception_document_replaces_existing_content(self):
         with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "input.json"
-            output_path.write_text('{"old": true}\n', encoding="utf-8")
-            prepare.write_exception_input(output_path, {"new": True})
-            self.assertEqual(output_path.read_text(encoding="utf-8"), '{\n  "new": true\n}\n')
+            output_path = Path(directory) / "input.yaml"
+            output_path.write_text("old: true\n", encoding="utf-8")
+            body = (
+                f"{prepare.MARKER}\n{prepare.CONFIG_START_MARKER}\n```yaml\n"
+                "version: 1\nexceptions: []\n```\n"
+                f"{prepare.CONFIG_END_MARKER}"
+            )
+            prepare.write_pull_request_exception_document(output_path, body)
+            self.assertEqual(output_path.read_text(encoding="utf-8"), "version: 1\nexceptions: []\n")
 
     def test_annotations_escape_workflow_control_characters(self):
         with mock.patch("sys.stdout", new_callable=io.StringIO) as stream:
@@ -85,6 +130,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("process.env.TA_VALIDATOR_REPOSITORY.split('/', 2)", self.action)
         self.assertNotIn("multiple marked", self.action)
         self.assertNotIn("pin", self.action.lower())
+
+    def test_action_exposes_comment_reference_and_category_template(self):
+        self.assertIn("comment-reference:", self.action)
+        self.assertIn("id: write-exception-document", self.action)
+        self.assertEqual(self.action.count("category: false_positive"), 2)
 
     def test_shared_action_runs_validation_and_evaluation_modes(self):
         action = RUN_ACTION_YAML_PATH.read_text(encoding="utf-8")

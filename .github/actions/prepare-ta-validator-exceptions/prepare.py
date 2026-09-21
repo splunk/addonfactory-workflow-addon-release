@@ -1,19 +1,55 @@
-"""Convert a selected PR comment into TA Validator exception input."""
+"""Extract the canonical TA Validator exception document from a PR comment."""
 
-import json
 import os
+import re
 import sys
 from pathlib import Path
 
 
 MARKER = "<!-- ta-validator-exceptions:v1 -->"
+CONFIG_START_MARKER = "<!-- ta-validator-exceptions-config:start -->"
+CONFIG_END_MARKER = "<!-- ta-validator-exceptions-config:end -->"
+ACTIVE_YAML_FENCE = re.compile(
+    r"\A(?:[ \t]*\r?\n)*[ \t]*```yaml[ \t]*\r?\n"
+    r"(?P<document>.*?\r?\n)[ \t]*```[ \t]*(?:\r?\n[ \t]*)*\Z",
+    re.DOTALL,
+)
+FENCE_DELIMITER = re.compile(r"(?m)^[ \t]*```(?!`)")
 
 
-def write_exception_input(output_path, exception_input):
-    """Write the JSON input consumed by TA Validator."""
+def extract_pull_request_exception_document(comment_body):
+    """Return the sole YAML document framed by the active configuration markers."""
+    marker_positions = {
+        "comment": (MARKER, comment_body.count(MARKER)),
+        "configuration start": (CONFIG_START_MARKER, comment_body.count(CONFIG_START_MARKER)),
+        "configuration end": (CONFIG_END_MARKER, comment_body.count(CONFIG_END_MARKER)),
+    }
+    for marker_name, (marker, count) in marker_positions.items():
+        if count != 1:
+            raise ValueError(f"Expected exactly one {marker_name} marker")
+
+    comment_index = comment_body.index(MARKER)
+    start_index = comment_body.index(CONFIG_START_MARKER)
+    end_index = comment_body.index(CONFIG_END_MARKER)
+    if not comment_index < start_index < end_index:
+        raise ValueError("TA Validator exception markers are misordered")
+
+    active_configuration = comment_body[
+        start_index + len(CONFIG_START_MARKER) : end_index
+    ]
+    if len(FENCE_DELIMITER.findall(active_configuration)) != 2:
+        raise ValueError("Expected exactly one fenced YAML document in the active configuration")
+    match = ACTIVE_YAML_FENCE.fullmatch(active_configuration)
+    if not match:
+        raise ValueError("Expected exactly one fenced YAML document in the active configuration")
+    return match.group("document")
+
+
+def write_pull_request_exception_document(output_path, comment_body):
+    """Write only the active canonical YAML document from a selected comment."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(exception_input, indent=2) + "\n", encoding="utf-8")
+    path.write_text(extract_pull_request_exception_document(comment_body), encoding="utf-8")
 
 
 def _required_input(name):
@@ -38,6 +74,15 @@ def _positive_integer(value, name):
     return integer
 
 
+def _append_comment_reference(github_output, repository, pull_request_number, comment_id):
+    reference = (
+        f"https://github.com/{repository}/pull/{pull_request_number}"
+        f"#issuecomment-{comment_id}"
+    )
+    with Path(github_output).open("a", encoding="utf-8") as output_file:
+        output_file.write(f"comment-reference={reference}\n")
+
+
 def main():
     output_path = _required_input("OUTPUT_PATH")
     repository = _required_input("REPOSITORY")
@@ -46,22 +91,11 @@ def main():
     )
     comment_id = _positive_integer(_required_input("COMMENT_ID"), "comment_id")
     comment_body = _required_input("COMMENT_BODY")
-    exception_input = {
-        "schema_version": 1,
-        "source": {
-            "provider": "github",
-            "repository": repository,
-            "pull_request": pull_request_number,
-        },
-        "comment": {
-            "reference": (
-                f"https://github.com/{repository}/pull/{pull_request_number}"
-                f"#issuecomment-{comment_id}"
-            ),
-            "body": comment_body,
-        },
-    }
-    write_exception_input(output_path, exception_input)
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if not github_output:
+        raise ValueError("Missing required GitHub Actions output file")
+    write_pull_request_exception_document(output_path, comment_body)
+    _append_comment_reference(github_output, repository, pull_request_number, comment_id)
 
 
 if __name__ == "__main__":
