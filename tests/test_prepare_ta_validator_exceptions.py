@@ -13,6 +13,7 @@ ACTION_DIRECTORY = (
 )
 ACTION_PATH = ACTION_DIRECTORY / "prepare.py"
 ACTION_YAML_PATH = ACTION_DIRECTORY / "action.yml"
+RUN_ACTION_YAML_PATH = Path(__file__).parents[1] / ".github" / "actions" / "run-ta-validator" / "action.yml"
 SPEC = importlib.util.spec_from_file_location("prepare_ta_validator_exceptions", ACTION_PATH)
 prepare = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(prepare)
@@ -82,6 +83,19 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("process.env.TA_VALIDATOR_REPOSITORY.split('/', 2)", self.action)
         self.assertNotIn("multiple marked", self.action)
         self.assertNotIn("pin", self.action.lower())
+
+    def test_shared_action_runs_validation_and_evaluation_modes(self):
+        action = RUN_ACTION_YAML_PATH.read_text(encoding="utf-8")
+        self.assertIn("name: Run TA Validator", action)
+        self.assertIn("mode:", action)
+        self.assertIn("pull-request-input-path:", action)
+        self.assertIn("addon-read-only:", action)
+        self.assertIn("docker pull", action)
+        self.assertIn("docker run", action)
+        self.assertIn('case "$mode" in', action)
+        self.assertIn('validate)', action)
+        self.assertIn('evaluate)', action)
+        self.assertNotIn("eval ", action)
 
     def test_ta_validator_pr_exception_preflight_precedes_full_evaluation(self):
         workflow = self.workflow

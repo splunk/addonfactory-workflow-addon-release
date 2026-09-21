@@ -1,0 +1,68 @@
+name: Run TA Validator
+description: Run TA Validator validation or evaluation in its published image
+inputs:
+  image:
+    description: Full TA Validator image reference
+    required: true
+  mode:
+    description: Either validate a PR exception input or evaluate the add-on
+    required: true
+  pull-request-input-path:
+    description: Host path to the PR exception input file, required for validate mode
+    required: false
+    default: ""
+  addon-read-only:
+    description: Mount the checked-out add-on directory read-only
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Run TA Validator image
+      shell: bash
+      env:
+        INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_PULL_REQUEST_INPUT_PATH: ${{ inputs.pull-request-input-path }}
+        INPUT_ADDON_READ_ONLY: ${{ inputs.addon-read-only }}
+      run: |
+        set -euo pipefail
+
+        image="$INPUT_IMAGE"
+        mode="$INPUT_MODE"
+        pull_request_input_path="$INPUT_PULL_REQUEST_INPUT_PATH"
+        docker_options=(--rm)
+
+        case "$INPUT_ADDON_READ_ONLY" in
+          true) docker_options+=(-v "$GITHUB_WORKSPACE:/addon:ro") ;;
+          false) docker_options+=(-v "$GITHUB_WORKSPACE:/addon") ;;
+          *) echo "addon-read-only must be true or false" >&2; exit 1 ;;
+        esac
+
+        case "$mode" in
+          validate)
+            if [ -z "$pull_request_input_path" ] || [ ! -f "$pull_request_input_path" ]; then
+              echo "validate mode requires an existing pull-request-input-path" >&2
+              exit 1
+            fi
+            docker_options+=(-v "$pull_request_input_path:/run/ta-validator-pr-exceptions.json:ro")
+            command=(validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json)
+            ;;
+          evaluate)
+            command=()
+            docker_options+=(
+              -e GITHUB_TOKEN
+              -e GITHUB_USERNAME
+              -e AWS_ACCESS_KEY_ID
+              -e AWS_SECRET_ACCESS_KEY
+              -e AWS_DEFAULT_REGION
+              -e APPINSPECT_USER
+              -e APPINSPECT_PASS
+              -e GS_VERSION
+            )
+            ;;
+          *) echo "mode must be validate or evaluate" >&2; exit 1 ;;
+        esac
+
+        docker pull "$image"
+        docker run "${docker_options[@]}" "$image" "${command[@]}"
