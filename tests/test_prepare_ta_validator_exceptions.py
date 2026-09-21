@@ -20,6 +20,8 @@ SPEC = importlib.util.spec_from_file_location("prepare_ta_validator_exceptions",
 prepare = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(prepare)
 
+WORKFLOW_PATH = Path(__file__).parents[1] / ".github" / "workflows" / "reusable-build-test-release.yml"
+
 
 def comment(body, number=456, pin=None):
     return {
@@ -204,6 +206,72 @@ class FilesystemTests(unittest.TestCase):
         with mock.patch("sys.stdout", new_callable=io.StringIO) as stream:
             prepare._workflow_message("error", "bad%\r\nmessage")
         self.assertEqual(stream.getvalue(), "::error::bad%25%0D%0Amessage\n")
+
+
+class WorkflowStructureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    def test_ta_validator_pr_exception_preflight_precedes_full_evaluation(self):
+        workflow = self.workflow
+        preparation = workflow[
+            workflow.index("  prepare-ta-validator-exceptions:") : workflow.index(
+                "\n  run-gs-scorecard:", workflow.index("  prepare-ta-validator-exceptions:")
+            )
+        ]
+        self.assertIn("prepare-ta-validator-exceptions:", workflow)
+        self.assertRegex(
+            workflow,
+            r"prepare-ta-validator-exceptions:\n(?:.*\n)*?    if: \$\{\{ github\.event_name == 'pull_request' \}\}",
+        )
+        self.assertRegex(
+            workflow,
+            r"prepare-ta-validator-exceptions:\n(?:.*\n)*?      issues: write",
+        )
+        self.assertIn("permission-issues: write", workflow)
+        self.assertIn("app-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
+        self.assertNotIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
+        self.assertIn("repository: splunk/addonfactory-workflow-addon-release", workflow)
+        self.assertIn("ref: ${{ github.workflow_sha }}", workflow)
+        self.assertIn("path: .workflow-actions", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("uses: ./.workflow-actions/.github/actions/prepare-ta-validator-exceptions", workflow)
+        self.assertIn("validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json", workflow)
+        self.assertIn("-v \"$(pwd)\":/addon:ro", workflow)
+        self.assertIn(
+            "-v \"$RUNNER_TEMP/ta-validator-pr-exceptions.json\":/run/ta-validator-pr-exceptions.json:ro",
+            workflow,
+        )
+        self.assertIn("name: ta-validator-pr-exceptions", workflow)
+        self.assertIn("retention-days: 1", workflow)
+        self.assertLess(
+            workflow.index("prepare-ta-validator-exceptions:"),
+            workflow.index("run-gs-scorecard:"),
+        )
+
+    def test_full_evaluation_consumes_only_validated_pr_envelope(self):
+        workflow = self.workflow
+        run_scorecard = workflow[
+            workflow.index("  run-gs-scorecard:") : workflow.index(
+                "\n  setup:", workflow.index("  run-gs-scorecard:")
+            )
+        ]
+        self.assertIn("- prepare-ta-validator-exceptions", run_scorecard)
+        self.assertIn("needs.prepare-ta-validator-exceptions.result == 'success'", run_scorecard)
+        self.assertIn("actions/download-artifact@v8", run_scorecard)
+        self.assertIn("name: ta-validator-pr-exceptions", run_scorecard)
+        self.assertIn("TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json", run_scorecard)
+        self.assertNotIn("/gssa-ignore", workflow)
+        self.assertNotIn("collect-gssa-suppressions", workflow)
+        self.assertNotIn("GSSA_SUPPRESSIONS_FILE", workflow)
+        self.assertNotRegex(workflow, r"(?i)(?:new-)?gssa.*exceptions")
+
+    def test_pre_publish_accepts_successful_or_skipped_exception_preparation(self):
+        workflow = self.workflow
+        pre_publish = workflow[workflow.index("  pre-publish:") :]
+        self.assertIn("- prepare-ta-validator-exceptions", pre_publish)
+        self.assertIn('select(.result != "skipped" and .result != "success")', pre_publish)
 
 
 if __name__ == "__main__":

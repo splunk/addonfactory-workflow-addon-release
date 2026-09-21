@@ -647,21 +647,44 @@ appinspect-api-html-report-self-service
 
 **Description**
 
-- This job runs the Gold Standard Scorecard quality assessment tool to evaluate the add-on against security and quality standards.
+- This compatibility-named job runs the TA Validator quality assessment to evaluate the add-on against security and quality standards.
 
-- The GS Scorecard tool is containerized and runs in a Docker container, analyzing the repository and generating a comprehensive quality report.
+- TA Validator runs in a Docker container, analyzes the repository, and generates a quality report.
 
 - This job runs only after a successful build, either on push events to the main branch or when the execute_gs_scorecard label is added to a pull request.
 
 **Action used:** 
 - AWS ECR (Elastic Container Registry) for Docker image storage
-- Custom Docker image: `ta-automation/gs-scorecard` pushed from GitLab GS Scorecard repository
+- Custom Docker image: `ta-automation/gs-scorecard` pushed from the TA Validator repository
+
+### Temporary pull-request exceptions
+
+For every pull request, automation creates and pins one **TA Validator exceptions** comment. Edit only the YAML between its hidden configuration markers, then select **Re-run failed jobs**. The comment is the only temporary-exception input; editing it alone does not start a workflow.
+
+The comment accepts one of these forms:
+
+```yaml
+version: 1
+exceptions:
+  - check_slug: sensitive-data
+    reason: Accepted for this pull request while ADDON-12345 is addressed.
+```
+
+```yaml
+version: 1
+exceptions:
+  - check_slug: sensitive-data
+    detection_slug: credential-exposure
+    reason: This one detection is expected for this pull request.
+```
+
+`reason` is required. A declaration may target an entire check or one exact detection. The preparation job validates malformed YAML and unknown check or detection targets before the full TA Validator container evaluation starts. A valid declaration that produces no suppressible result is reported as a warning only.
 
 **Pass/fail behaviour:**
 
-- The job executes the GS Scorecard analysis and generates a quality report.
+- The job executes TA Validator analysis and generates a quality report.
 
-- The job requires proper AWS credentials for accessing the ECR registry and GitHub credentials for repository analysis.
+- The job requires proper AWS credentials for accessing the ECR registry and GitHub credentials for repository analysis. On pull requests, it consumes only the validated, short-lived exception artifact produced by the preparation job.
 
 **Troubleshooting steps for failures if any:**
 
@@ -670,9 +693,9 @@ appinspect-api-html-report-self-service
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.2`) exists in the ECR registry. The GS Scorecard tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-45a04876a8d5`) exists in the ECR registry. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
-- Review the job logs for specific error messages from the GS Scorecard tool.
+- Review the job logs for specific error messages from TA Validator.
 
 - Ensure the build job completed successfully before this job runs, as it depends on the build artifacts.
 
