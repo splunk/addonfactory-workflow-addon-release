@@ -27,12 +27,6 @@ jobs:
   review-secrets:
     name: security-detect-secrets
     runs-on: ubuntu-latest
-    env:
-      GIT_CONFIG_COUNT: "2"
-      GIT_CONFIG_KEY_0: safe.directory
-      GIT_CONFIG_VALUE_0: /github/workspace
-      GIT_CONFIG_KEY_1: safe.directory
-      GIT_CONFIG_VALUE_1: /github/workspace/.git
     permissions:
       contents: read
     steps:
@@ -40,6 +34,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: "0"
+      - name: Trust checkout inside scanner container
+        run: |
+          mkdir -p "$RUNNER_TEMP/_github_home"
+          git config --file "$RUNNER_TEMP/_github_home/.gitconfig" --add safe.directory /github/workspace/.git
       - name: Scan proposed changes for secrets
         uses: edplato/trufflehog-actions-scan@48aacb7ce5e6c488a54df76a8b5a3dcabab43d35 # v0.9j-beta
 
