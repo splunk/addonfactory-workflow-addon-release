@@ -6,6 +6,7 @@
     * [Default flow. Dependent on develop](#default-flow-dependent-on-develop)
     * [Backporting to old releases](#backporting-to-old-releases)
   * [[Internal] Development flow](#internal-development-flow)
+  * [Work intake](#work-intake)
 * [Spec reusable-build-test-release](#spec-reusable-build-test-release)
   * [Workflow Inputs](#workflow-inputs)
   * [Workflow Secrets](#workflow-secrets)
@@ -179,6 +180,13 @@ gitGraph
   * backport the change back to the `develop` branch
   * new version of the workflow is going to be released (v4.17.0 (before) -> v4.17.1 (after)) and it will automatically applied to all the repositories
 
+## Work intake
+
+Create repository work through the GitHub **Repository work item** issue form. The form requires the work type,
+component or expected owner, problem statement, acceptance criteria, and validation context so maintainers and
+automation have a consistent routing and completion contract. Do not use a public issue to disclose a suspected
+security vulnerability; use the organization's approved private security-reporting channel.
+
 # Spec reusable-build-test-release
 ## Workflow Inputs
 * `marker` - list of markers used to parallelize modinput tests
@@ -241,15 +249,19 @@ pre-commit run --hook-stage manual --all-files
 ```
 
 `pyproject.toml` and `poetry.lock` define the reproducible Python 3.9–3.13 validation environment. Pytest discovers
-the existing `unittest.TestCase` tests, reports line coverage for the repository-owned scripts in the terminal,
-and writes `coverage.xml`; CI publishes that file as the `repository-python-coverage` artifact. The tests run
-without network access. The first pre-commit command runs `actionlint` and `yamlfmt` (these run on every local
-commit). The manual pre-commit command additionally runs the CI-only hooks —
+the existing `unittest.TestCase` tests, enforces an 80% line-coverage floor for repository-owned scripts, and
+writes `coverage.xml`; CI publishes that file as the `repository-python-coverage` artifact. The tests run without
+network access. The first pre-commit command enforces a Ruff C901 complexity limit of 10, rejects newly added files
+larger than 3 MiB, and runs `actionlint` and `yamlfmt` (these run on every local commit). The manual pre-commit command
+additionally runs the CI-only hooks —
 `python scripts/check_workflow_hygiene.py` (naming consistency, dead inputs/secrets) and
 `python scripts/check_template_compat.py` (cross-repo compatibility against
 [addonfactory-repository-template](https://github.com/splunk/addonfactory-repository-template)) — which are
 pinned to `stages: [manual]` because `check_template_compat.py` needs network access and a `gh` token, so
 they don't run on a plain `git commit` and must be invoked explicitly (they do run in CI).
+
+Repository CI also scans proposed changes for verified secrets with TruffleHog and runs the governed Splunk Semgrep
+policy. Both security jobs must succeed before the publish job can run.
 
 ## Validation depth by change class
 

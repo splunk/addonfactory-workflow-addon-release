@@ -1,0 +1,57 @@
+name: Repository work item
+description: Propose a bounded change with ownership, acceptance, and validation context.
+title: "[Work]: "
+body:
+  - type: dropdown
+    id: work-type
+    attributes:
+      label: Work type
+      description: Select the category that best describes this request.
+      options:
+        - Bug fix
+        - Feature or enhancement
+        - Documentation
+        - Dependency or maintenance
+        - Test or validation
+    validations:
+      required: true
+  - type: input
+    id: component-owner
+    attributes:
+      label: Component or expected owner
+      description: Name the affected workflow, script, configuration, or owning team.
+      placeholder: e.g. reusable-build-test-release / Add-on Factory
+    validations:
+      required: true
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem statement
+      description: Describe the current behavior, desired outcome, and relevant context.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List the observable conditions that define completion.
+      placeholder: |
+        - [ ] Expected behavior is implemented
+        - [ ] Compatibility impact is addressed
+    validations:
+      required: true
+  - type: textarea
+    id: validation-context
+    attributes:
+      label: Validation context
+      description: Identify the required tests, workflows, artifacts, or evidence.
+      placeholder: Commands, workflow runs, reports, or expected validation depth
+    validations:
+      required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Submission readiness
+      options:
+        - label: I searched existing issues and linked related work above.
+          required: true

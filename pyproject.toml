@@ -13,6 +13,7 @@ package-mode = false
 [tool.poetry.group.dev.dependencies]
 pytest = "8.4.2"
 pytest-cov = "7.1.0"
+ruff = "0.14.14"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -26,6 +27,15 @@ addopts = [
 [tool.coverage.run]
 relative_files = true
 omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 80
+
+[tool.ruff.lint]
+select = ["C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

@@ -3,6 +3,8 @@ repos:
     rev: v4.4.0
     hooks:
       - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=3072]
   - repo: https://github.com/google/yamlfmt
     rev: v0.21.0
     hooks:
@@ -16,6 +18,13 @@ repos:
         language: script
         types: ["yaml"]
         files: ^.github/workflows/
+      - id: python-complexity
+        name: Python complexity (Ruff C901)
+        entry: ruff check --no-cache --select C901 scripts
+        language: python
+        additional_dependencies: ["ruff==0.14.14"]
+        pass_filenames: false
+        files: ^(scripts/.*\.py|pyproject\.toml)$
       - id: workflow-hygiene
         name: workflow hygiene (naming + dead inputs)
         description: "CI-only: enforces kebab-case naming and flags unused workflow_call inputs/secrets. Does not run on local commit."

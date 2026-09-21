@@ -24,6 +24,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  review-secrets:
+    name: security-detect-secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: "0"
+      - name: Scan proposed changes for verified secrets
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          extra_args: --json --only-verified
+          version: 3.77.0
+
+  semgrep:
+    uses: splunk/sast-scanning/.github/workflows/sast-scan.yml@d6beb6dd139a71e87419f963852c53bf0efc94e7 # main
+    secrets:
+      SEMGREP_KEY: ${{ secrets.SEMGREP_PUBLISH_TOKEN }}
+    with:
+      block_mode: "policy"
+
   pre-commit:
     runs-on: ubuntu-22.04
     steps:
@@ -65,6 +88,8 @@ jobs:
     needs:
       - compliance-copyrights
       - pre-commit
+      - review-secrets
+      - semgrep
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
