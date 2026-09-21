@@ -101,7 +101,7 @@ class WorkflowStructureTests(unittest.TestCase):
             r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
         )
         self.assertIn(
-            "prepare-ta-validator-exceptions@cbd9251b386d828fbb40de34e3f23065934c2e55",
+            "prepare-ta-validator-exceptions@8082fab41c5f6e13c2b71fd06c035dece86ca07a",
             preparation,
         )
         self.assertIn("validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json", workflow)
