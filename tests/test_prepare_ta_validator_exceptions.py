@@ -220,7 +220,7 @@ class WorkflowStructureTests(unittest.TestCase):
         )
         self.assertIn(
             "uses: splunk/addonfactory-workflow-addon-release/.github/actions/"
-            "prepare-ta-validator-exceptions@277e2237520b9d8b5905bb92b5682c2e4607be0e",
+            "prepare-ta-validator-exceptions@428415e378c9620584f4d312fc3e285c42be79cb",
             preparation,
         )
         self.assertNotIn("github.workflow_", preparation)

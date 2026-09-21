@@ -1330,7 +1330,7 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@277e2237520b9d8b5905bb92b5682c2e4607be0e
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@428415e378c9620584f4d312fc3e285c42be79cb
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
@@ -1363,7 +1363,7 @@ jobs:
             -v "$RUNNER_TEMP/ta-validator-pr-exceptions.json":/run/ta-validator-pr-exceptions.json:ro \
             956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}" \
             validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json; then
-            echo "::error title=Invalid TA Validator exception configuration::Fix the pinned TA Validator comment, then rerun failed jobs."
+            echo "::error title=Invalid TA Validator exception configuration::Fix the TA Validator exception comment, then rerun failed jobs."
             exit 1
           fi
       - name: Upload validated TA Validator exception input

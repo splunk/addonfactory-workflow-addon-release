@@ -659,7 +659,7 @@ appinspect-api-html-report-self-service
 
 ### Temporary pull-request exceptions
 
-For every pull request, automation creates and pins one **TA Validator exceptions** comment. Edit only the YAML between its hidden configuration markers, then select **Re-run failed jobs**. The comment is the only temporary-exception input; editing it alone does not start a workflow.
+For every pull request, automation creates one **TA Validator exceptions** comment. Edit only the YAML between its hidden configuration markers, then select **Re-run failed jobs**. The comment is the only temporary-exception input; editing it alone does not start a workflow.
 
 The comment accepts one of these forms:
 
