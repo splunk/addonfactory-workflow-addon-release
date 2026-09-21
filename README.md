@@ -260,7 +260,7 @@ additionally runs the CI-only hooks —
 pinned to `stages: [manual]` because `check_template_compat.py` needs network access and a `gh` token, so
 they don't run on a plain `git commit` and must be invoked explicitly (they do run in CI).
 
-Repository CI also scans proposed changes for verified secrets with TruffleHog and runs the governed Splunk Semgrep
+Repository CI also scans proposed changes for secrets with TruffleHog and runs the governed Splunk Semgrep
 policy. Both security jobs must succeed before the publish job can run.
 
 ## Validation depth by change class
