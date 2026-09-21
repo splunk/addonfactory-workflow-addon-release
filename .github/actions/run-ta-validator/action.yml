@@ -7,6 +7,15 @@ inputs:
   mode:
     description: Either validate a PR exception input or evaluate the add-on
     required: true
+  aws-access-key-id:
+    description: AWS access key used to pull the TA Validator image
+    required: true
+  aws-secret-access-key:
+    description: AWS secret key used to pull the TA Validator image
+    required: true
+  aws-region:
+    description: AWS region containing the TA Validator image
+    required: true
   pull-request-input-path:
     description: Host path to the PR exception input file, required for validate mode
     required: false
@@ -18,6 +27,18 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Checkout add-on
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v6
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
     - name: Run TA Validator image
       shell: bash
       env:

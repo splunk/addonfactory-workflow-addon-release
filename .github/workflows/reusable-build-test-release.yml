@@ -1336,21 +1336,6 @@ jobs:
           repository: ${{ github.repository }}
           pull_request_number: ${{ github.event.pull_request.number }}
           output_path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
-      - name: Checkout caller repository for TA Validator validation
-        if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Configure AWS credentials
-        if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-      - name: Login to Amazon ECR
-        if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: aws-actions/amazon-ecr-login@v2
       - name: Validate TA Validator exception configuration
         id: validate-ta-validator-exceptions
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
@@ -1358,6 +1343,9 @@ jobs:
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: validate
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
           pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
           addon-read-only: true
       - name: Upload validated TA Validator exception input
@@ -1388,50 +1376,41 @@ jobs:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-      - uses: actions/checkout@v7
       - name: Download validated TA Validator exception input
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/download-artifact@v8
         with:
           name: ta-validator-pr-exceptions
           path: ${{ runner.temp }}
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
       - name: Run TA Validator for pull request
         if: ${{ github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-west-2
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
         uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
           pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
       - name: Run TA Validator outside a pull request
         if: ${{ github.event_name != 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-west-2
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
         uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cb77d6a6c243704c949e6a633942a0691fc42c6b
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:
