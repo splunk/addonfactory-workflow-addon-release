@@ -1320,7 +1320,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token

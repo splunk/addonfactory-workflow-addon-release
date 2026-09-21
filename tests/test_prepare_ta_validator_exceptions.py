@@ -225,11 +225,9 @@ class WorkflowStructureTests(unittest.TestCase):
             workflow,
             r"prepare-ta-validator-exceptions:\n(?:.*\n)*?    if: \$\{\{ github\.event_name == 'pull_request' \}\}",
         )
-        self.assertRegex(
-            workflow,
-            r"prepare-ta-validator-exceptions:\n(?:.*\n)*?      issues: write",
-        )
-        self.assertIn("permission-issues: write", workflow)
+        self.assertIn("permissions:\n      contents: read", preparation)
+        self.assertNotIn("\n      issues: write", preparation)
+        self.assertIn("permission-issues: write", preparation)
         self.assertIn("app-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
         self.assertNotIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
         self.assertIn("repository: splunk/addonfactory-workflow-addon-release", workflow)
