@@ -7,6 +7,8 @@ inputs:
     required: true
   pull_request_number:
     required: true
+  comment_author:
+    required: true
   output_path:
     required: true
 runs:
@@ -19,6 +21,7 @@ runs:
         token: ${{ inputs.token }}
         repository: ${{ inputs.repository }}
         issue-number: ${{ inputs.pull_request_number }}
+        comment-author: ${{ inputs.comment_author }}
         body-includes: "<!-- ta-validator-exceptions:v1 -->"
     - name: Create TA Validator exception comment
       id: create-comment
@@ -32,7 +35,7 @@ runs:
 
           ## Temporary TA Validator exceptions
 
-          Edit the YAML below, then rerun the TA Validator check.
+          Edit the YAML below, then rerun all jobs.
 
           <!-- ta-validator-exceptions-config:start -->
           ```yaml

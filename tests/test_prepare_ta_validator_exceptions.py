@@ -76,6 +76,8 @@ class WorkflowStructureTests(unittest.TestCase):
     def test_action_uses_find_comment_and_creates_only_when_absent(self):
         self.assertIn("peter-evans/find-comment@v4", self.action)
         self.assertIn("actions/github-script@v8", self.action)
+        self.assertIn("comment_author:", self.action)
+        self.assertIn("comment-author: ${{ inputs.comment_author }}", self.action)
         self.assertIn("steps.find-comment.outputs.comment-id == ''", self.action)
         self.assertIn("TA_VALIDATOR_REPOSITORY: ${{ inputs.repository }}", self.action)
         self.assertIn("TA_VALIDATOR_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}", self.action)
@@ -116,6 +118,10 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("permission-issues: write", preparation)
         self.assertIn("permission-pull-requests: write", preparation)
         self.assertIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
+        self.assertNotIn("owner: ${{ github.repository_owner }}", preparation)
+        self.assertIn(
+            "comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]", preparation
+        )
         self.assertRegex(
             preparation,
             r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"

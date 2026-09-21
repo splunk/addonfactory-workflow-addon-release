@@ -1326,7 +1326,6 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
@@ -1335,6 +1334,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
           pull_request_number: ${{ github.event.pull_request.number }}
+          comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]
           output_path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
       - name: Validate TA Validator exception configuration
         id: validate-ta-validator-exceptions
@@ -1375,7 +1375,6 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
       - name: Download validated TA Validator exception input
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/download-artifact@v8
