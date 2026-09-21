@@ -1317,6 +1317,8 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     needs:
       - setup-workflow
+    outputs:
+      comment-reference: ${{ steps.prepare-ta-validator-exceptions.outputs.comment-reference }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1329,31 +1331,33 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@25681ddfc060283d1f4196bdd599ac979d29038c
+        id: prepare-ta-validator-exceptions
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@197dcfbee1cdf70a1b7a19c4a9b37be57ba3f0e3
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
           pull_request_number: ${{ github.event.pull_request.number }}
           comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]
-          output_path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
+          output_path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml
       - name: Validate TA Validator exception configuration
         id: validate-ta-validator-exceptions
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: validate
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          pull-request-input-path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
+          pull-request-exceptions-path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml
+          pull-request-exception-reference: ${{ steps.prepare-ta-validator-exceptions.outputs.comment-reference }}
           addon-read-only: true
       - name: Upload validated TA Validator exception input
         if: ${{ steps.validate-ta-validator-exceptions.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ta-validator-pr-exceptions
-          path: ${{ runner.temp }}/ta-validator-pr-exceptions.json
+          name: ta-validator-pr-exceptions.yaml
+          path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml
           retention-days: 1
 
   run-gs-scorecard:
@@ -1379,7 +1383,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/download-artifact@v8
         with:
-          name: ta-validator-pr-exceptions
+          name: ta-validator-pr-exceptions.yaml
           path: ${{ runner.temp }}
       - name: Run TA Validator
         env:
@@ -1387,14 +1391,15 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@7a46c761d99752e034ff12b1cb230c2477d29106
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          pull-request-input-path: ${{ github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.json', runner.temp) || '' }}
+          pull-request-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.yaml', runner.temp) || '' }}
+          pull-request-exception-reference: ${{ github.event_name == 'pull_request' && needs.prepare-ta-validator-exceptions.outputs.comment-reference || '' }}
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:
