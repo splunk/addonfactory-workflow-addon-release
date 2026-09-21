@@ -1328,33 +1328,8 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           permission-issues: write
-      - name: Resolve immutable reusable workflow ref
-        id: resolve-workflow-ref
-        env:
-          WORKFLOW_REF: ${{ github.workflow_ref }}
-        run: |
-          expected_workflow_ref='splunk/addonfactory-workflow-addon-release/.github/workflows/reusable-build-test-release.yml@'
-          case "$WORKFLOW_REF" in
-            "$expected_workflow_ref"*) workflow_revision=${WORKFLOW_REF#"$expected_workflow_ref"} ;;
-            *)
-              echo "::error::Unexpected reusable workflow reference."
-              exit 1
-              ;;
-          esac
-          if ! printf '%s\n' "$workflow_revision" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::Reusable workflow reference must end in an immutable commit SHA."
-            exit 1
-          fi
-          printf 'ref=%s\n' "$workflow_revision" >> "$GITHUB_OUTPUT"
-      - name: Checkout workflow actions
-        uses: actions/checkout@v7
-        with:
-          repository: splunk/addonfactory-workflow-addon-release
-          ref: ${{ steps.resolve-workflow-ref.outputs.ref }}
-          path: .workflow-actions
-          persist-credentials: false
       - name: Prepare TA Validator exception input
-        uses: ./.workflow-actions/.github/actions/prepare-ta-validator-exceptions
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@277e2237520b9d8b5905bb92b5682c2e4607be0e
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}

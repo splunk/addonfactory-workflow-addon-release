@@ -2,11 +2,8 @@ import importlib.util
 import io
 import json
 import os
-import re
 import stat
-import subprocess
 import tempfile
-import textwrap
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -233,14 +230,20 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("permission-issues: write", preparation)
         self.assertIn("app-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
         self.assertNotIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
-        self.assertIn("WORKFLOW_REF: ${{ github.workflow_ref }}", preparation)
-        self.assertIn("expected_workflow_ref=", preparation)
-        self.assertNotIn("github.workflow_sha", preparation)
-        self.assertIn("ref: ${{ steps.resolve-workflow-ref.outputs.ref }}", preparation)
-        self.assertIn("repository: splunk/addonfactory-workflow-addon-release", workflow)
-        self.assertIn("path: .workflow-actions", workflow)
-        self.assertIn("persist-credentials: false", workflow)
-        self.assertIn("uses: ./.workflow-actions/.github/actions/prepare-ta-validator-exceptions", workflow)
+        self.assertRegex(
+            preparation,
+            r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
+            r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
+        )
+        self.assertIn(
+            "uses: splunk/addonfactory-workflow-addon-release/.github/actions/"
+            "prepare-ta-validator-exceptions@277e2237520b9d8b5905bb92b5682c2e4607be0e",
+            preparation,
+        )
+        self.assertNotIn("github.workflow_", preparation)
+        self.assertNotIn("Resolve immutable reusable workflow ref", preparation)
+        self.assertNotIn("Checkout workflow actions", preparation)
+        self.assertNotIn(".workflow-actions", preparation)
         self.assertIn("validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json", workflow)
         self.assertIn("-v \"$(pwd)\":/addon:ro", workflow)
         self.assertIn(
@@ -276,55 +279,6 @@ class WorkflowStructureTests(unittest.TestCase):
         pre_publish = workflow[workflow.index("  pre-publish:") :]
         self.assertIn("- prepare-ta-validator-exceptions", pre_publish)
         self.assertIn('select(.result != "skipped" and .result != "success")', pre_publish)
-
-    def _resolve_workflow_ref(self, workflow_ref):
-        preparation = self.workflow[
-            self.workflow.index("  prepare-ta-validator-exceptions:") : self.workflow.index(
-                "\n  run-gs-scorecard:", self.workflow.index("  prepare-ta-validator-exceptions:")
-            )
-        ]
-        shell = re.search(
-            r"      - name: Resolve immutable reusable workflow ref\n"
-            r"        id: resolve-workflow-ref\n"
-            r"        env:\n"
-            r"          WORKFLOW_REF: \$\{\{ github\.workflow_ref \}\}\n"
-            r"        run: \|\n(?P<shell>(?:          .*\n)+?)"
-            r"      - name: Checkout workflow actions",
-            preparation,
-        )
-        self.assertIsNotNone(shell)
-        with tempfile.TemporaryDirectory() as directory:
-            output_path = Path(directory) / "github-output"
-            completed = subprocess.run(
-                ["sh", "-c", textwrap.dedent(shell.group("shell"))],
-                check=False,
-                capture_output=True,
-                env={**os.environ, "WORKFLOW_REF": workflow_ref, "GITHUB_OUTPUT": str(output_path)},
-                text=True,
-            )
-            output = output_path.read_text(encoding="utf-8") if output_path.exists() else ""
-        return completed, output
-
-    def test_workflow_ref_guard_extracts_only_the_canonical_immutable_sha(self):
-        revision = "a" * 40
-        completed, output = self._resolve_workflow_ref(
-            "splunk/addonfactory-workflow-addon-release/.github/workflows/"
-            f"reusable-build-test-release.yml@{revision}"
-        )
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertEqual(output, f"ref={revision}\n")
-
-    def test_workflow_ref_guard_rejects_mutable_or_foreign_references(self):
-        for workflow_ref in (
-            "splunk/addonfactory-workflow-addon-release/.github/workflows/"
-            "reusable-build-test-release.yml@refs/heads/main",
-            "splunk/untrusted/.github/workflows/reusable-build-test-release.yml@" + "a" * 40,
-        ):
-            with self.subTest(workflow_ref=workflow_ref):
-                completed, output = self._resolve_workflow_ref(workflow_ref)
-                self.assertNotEqual(completed.returncode, 0)
-                self.assertEqual(output, "")
-
 
 if __name__ == "__main__":
     unittest.main()
