@@ -1,5 +1,5 @@
 name: Prepare TA Validator exceptions
-description: Create and transport the canonical TA Validator exception comment
+description: Find or create the TA Validator exception comment and transport it
 inputs:
   token:
     required: true
@@ -12,11 +12,64 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Prepare TA Validator exception input
+    - name: Find TA Validator exception comment
+      id: find-comment
+      uses: peter-evans/find-comment@v4
+      with:
+        token: ${{ inputs.token }}
+        repository: ${{ inputs.repository }}
+        issue-number: ${{ inputs.pull_request_number }}
+        body-includes: "<!-- ta-validator-exceptions:v1 -->"
+    - name: Create TA Validator exception comment
+      id: create-comment
+      if: ${{ steps.find-comment.outputs.comment-id == '' }}
+      uses: actions/github-script@v8
+      env:
+        TA_VALIDATOR_REPOSITORY: ${{ inputs.repository }}
+        TA_VALIDATOR_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}
+        TA_VALIDATOR_EXCEPTION_TEMPLATE: |
+          <!-- ta-validator-exceptions:v1 -->
+
+          ## Temporary TA Validator exceptions
+
+          Edit the YAML below, then rerun the TA Validator check.
+
+          <!-- ta-validator-exceptions-config:start -->
+          ```yaml
+          version: 1
+          exceptions: []
+          ```
+          <!-- ta-validator-exceptions-config:end -->
+
+          <details>
+          <summary>Example</summary>
+
+          ```yaml
+          version: 1
+          exceptions:
+            - check_slug: sensitive-data
+              detection_slug: credential-exposure
+              reason: Accepted for this PR; tracked in ADDON-12345.
+          ```
+          </details>
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const [owner, repo] = process.env.TA_VALIDATOR_REPOSITORY.split('/', 2);
+          const { data: comment } = await github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: Number(process.env.TA_VALIDATOR_PULL_REQUEST_NUMBER),
+            body: process.env.TA_VALIDATOR_EXCEPTION_TEMPLATE,
+          });
+          core.setOutput('comment-id', comment.id.toString());
+          core.setOutput('comment-body', comment.body);
+    - name: Write TA Validator exception input
       shell: sh
       env:
-        INPUT_TOKEN: ${{ inputs.token }}
         INPUT_REPOSITORY: ${{ inputs.repository }}
         INPUT_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}
         INPUT_OUTPUT_PATH: ${{ inputs.output_path }}
+        INPUT_COMMENT_ID: ${{ steps.find-comment.outputs.comment-id || steps.create-comment.outputs.comment-id }}
+        INPUT_COMMENT_BODY: ${{ steps.find-comment.outputs.comment-body || steps.create-comment.outputs.comment-body }}
       run: python3 "$GITHUB_ACTION_PATH/prepare.py"
