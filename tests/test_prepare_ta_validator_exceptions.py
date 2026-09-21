@@ -162,7 +162,8 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("aws-access-key-id:", action)
         self.assertIn("aws-secret-access-key:", action)
         self.assertIn("aws-region:", action)
-        self.assertIn("pull-request-input-path:", action)
+        self.assertIn("pull-request-exceptions-path:", action)
+        self.assertIn("pull-request-exception-reference:", action)
         self.assertIn("addon-read-only:", action)
         self.assertIn("actions/checkout@v7", action)
         self.assertIn("aws-actions/configure-aws-credentials@v6", action)
@@ -172,7 +173,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn('case "$mode" in', action)
         self.assertIn('validate)', action)
         self.assertIn('evaluate)', action)
-        self.assertIn("-e TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json", action)
+        self.assertIn("--pull-request-exceptions", action)
+        self.assertIn("--pull-request-exception-reference", action)
+        self.assertIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTIONS", action)
+        self.assertIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE", action)
+        self.assertIn("/run/ta-validator-pr-exceptions.yaml", action)
         self.assertNotIn("eval ", action)
 
     def test_ta_validator_pr_exception_preflight_precedes_full_evaluation(self):

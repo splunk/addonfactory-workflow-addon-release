@@ -16,8 +16,12 @@ inputs:
   aws-region:
     description: AWS region containing the TA Validator image
     required: true
-  pull-request-input-path:
-    description: Host path to the PR exception input file, required for validate mode
+  pull-request-exceptions-path:
+    description: Host path to the canonical PR exception YAML file
+    required: false
+    default: ""
+  pull-request-exception-reference:
+    description: GitHub comment URL for the canonical PR exception YAML file
     required: false
     default: ""
   addon-read-only:
@@ -44,14 +48,16 @@ runs:
       env:
         INPUT_IMAGE: ${{ inputs.image }}
         INPUT_MODE: ${{ inputs.mode }}
-        INPUT_PULL_REQUEST_INPUT_PATH: ${{ inputs.pull-request-input-path }}
+        INPUT_PULL_REQUEST_EXCEPTIONS_PATH: ${{ inputs.pull-request-exceptions-path }}
+        INPUT_PULL_REQUEST_EXCEPTION_REFERENCE: ${{ inputs.pull-request-exception-reference }}
         INPUT_ADDON_READ_ONLY: ${{ inputs.addon-read-only }}
       run: |-
         set -euo pipefail
 
         image="$INPUT_IMAGE"
         mode="$INPUT_MODE"
-        pull_request_input_path="$INPUT_PULL_REQUEST_INPUT_PATH"
+        pull_request_exceptions_path="$INPUT_PULL_REQUEST_EXCEPTIONS_PATH"
+        pull_request_exception_reference="$INPUT_PULL_REQUEST_EXCEPTION_REFERENCE"
         docker_options=(--rm)
 
         case "$INPUT_ADDON_READ_ONLY" in
@@ -60,21 +66,25 @@ runs:
           *) echo "addon-read-only must be true or false" >&2; exit 1 ;;
         esac
 
-        if [ -n "$pull_request_input_path" ]; then
-          if [ ! -f "$pull_request_input_path" ]; then
-            echo "pull-request-input-path must name an existing file" >&2
+        if [ -n "$pull_request_exceptions_path" ] || [ -n "$pull_request_exception_reference" ]; then
+          if [ -z "$pull_request_exceptions_path" ] || [ -z "$pull_request_exception_reference" ]; then
+            echo "pull-request-exceptions-path and pull-request-exception-reference must be supplied together" >&2
             exit 1
           fi
-          docker_options+=(-v "$pull_request_input_path:/run/ta-validator-pr-exceptions.json:ro")
+          if [ ! -f "$pull_request_exceptions_path" ]; then
+            echo "pull-request-exceptions-path must name an existing file" >&2
+            exit 1
+          fi
+          docker_options+=(-v "$pull_request_exceptions_path:/run/ta-validator-pr-exceptions.yaml:ro")
         fi
 
         case "$mode" in
           validate)
-            if [ -z "$pull_request_input_path" ]; then
-              echo "validate mode requires pull-request-input-path" >&2
+            if [ -z "$pull_request_exceptions_path" ]; then
+              echo "validate mode requires pull-request-exceptions-path and pull-request-exception-reference" >&2
               exit 1
             fi
-            command=(validate --repository /addon --pull-request-input /run/ta-validator-pr-exceptions.json)
+            command=(validate --repository /addon --pull-request-exceptions /run/ta-validator-pr-exceptions.yaml --pull-request-exception-reference "$pull_request_exception_reference")
             ;;
           evaluate)
             command=()
@@ -88,8 +98,11 @@ runs:
               -e APPINSPECT_PASS
               -e GS_VERSION
             )
-            if [ -n "$pull_request_input_path" ]; then
-              docker_options+=(-e TA_VALIDATOR_PULL_REQUEST_INPUT=/run/ta-validator-pr-exceptions.json)
+            if [ -n "$pull_request_exceptions_path" ]; then
+              docker_options+=(
+                -e TA_VALIDATOR_PULL_REQUEST_EXCEPTIONS=/run/ta-validator-pr-exceptions.yaml
+                -e TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE="$pull_request_exception_reference"
+              )
             fi
             ;;
           *) echo "mode must be validate or evaluate" >&2; exit 1 ;;
