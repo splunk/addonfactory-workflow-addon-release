@@ -190,7 +190,7 @@ gitGraph
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
 * `python-version` - Python version used for testing, default `3.9`
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
-* `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
+* `gs-image-version` - version of the TA Validator Docker image, default `mr-140-0431e2581e5d-amd64` while the paired PR-exception interface is awaiting an official release
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
 
 ## General troubleshooting
@@ -704,7 +704,7 @@ warning only.
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-45a04876a8d5-amd64`) exists in the ECR registry. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-0431e2581e5d-amd64`) exists in the ECR registry. This immutable pre-release image implements the paired PR-exception interface; replace it with the compatible official image after the TA Validator release. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
 - Review the job logs for specific error messages from TA Validator.
 

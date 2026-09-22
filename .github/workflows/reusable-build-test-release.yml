@@ -71,7 +71,7 @@ on:
         required: false
         description: "Version of the GS scorecard Docker image"
         type: string
-        default: "mr-140-45a04876a8d5-amd64"
+        default: "mr-140-0431e2581e5d-amd64"
       gs-version:
         required: false
         description: "Version of the GS scorecard"

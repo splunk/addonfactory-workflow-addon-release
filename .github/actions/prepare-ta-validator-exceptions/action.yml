@@ -20,62 +20,13 @@ runs:
   steps:
     - name: Find TA Validator exception comment
       id: find-comment
-      uses: peter-evans/find-comment@v4
+      uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad
       with:
         token: ${{ inputs.token }}
         repository: ${{ inputs.repository }}
         issue-number: ${{ inputs.pull_request_number }}
         comment-author: ${{ inputs.comment_author }}
         body-includes: "<!-- ta-validator-exceptions:v1 -->"
-    - name: Create TA Validator exception comment
-      id: create-comment
-      if: ${{ steps.find-comment.outputs.comment-id == '' }}
-      uses: actions/github-script@v8
-      env:
-        TA_VALIDATOR_REPOSITORY: ${{ inputs.repository }}
-        TA_VALIDATOR_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}
-        TA_VALIDATOR_EXCEPTION_TEMPLATE: |
-          <!-- ta-validator-exceptions:v1 -->
-
-          ## Temporary TA Validator exceptions
-
-          Edit the YAML below, then rerun all jobs.
-
-          <!-- ta-validator-exceptions-config:start -->
-          ```yaml
-          version: 1
-          exceptions: []
-          # Add declarations like:
-          # - check_slug: sensitive-data
-          #   category: false_positive
-          #   reason: Explain why this exception applies.
-          ```
-          <!-- ta-validator-exceptions-config:end -->
-
-          <details>
-          <summary>Example</summary>
-
-          ```yaml
-          version: 1
-          exceptions:
-            - check_slug: sensitive-data
-              detection_slug: credential-exposure
-              category: false_positive
-              reason: Accepted for this PR; tracked in ADDON-12345.
-          ```
-          </details>
-      with:
-        github-token: ${{ inputs.token }}
-        script: |
-          const [owner, repo] = process.env.TA_VALIDATOR_REPOSITORY.split('/', 2);
-          const { data: comment } = await github.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: Number(process.env.TA_VALIDATOR_PULL_REQUEST_NUMBER),
-            body: process.env.TA_VALIDATOR_EXCEPTION_TEMPLATE,
-          });
-          core.setOutput('comment-id', comment.id.toString());
-          core.setOutput('comment-body', comment.body);
     - name: Write TA Validator exception document
       id: write-exception-document
       shell: sh
@@ -83,6 +34,7 @@ runs:
         INPUT_REPOSITORY: ${{ inputs.repository }}
         INPUT_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}
         INPUT_OUTPUT_PATH: ${{ inputs.output_path }}
-        INPUT_COMMENT_ID: ${{ steps.find-comment.outputs.comment-id || steps.create-comment.outputs.comment-id }}
-        INPUT_COMMENT_BODY: ${{ steps.find-comment.outputs.comment-body || steps.create-comment.outputs.comment-body }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_COMMENT_ID: ${{ steps.find-comment.outputs.comment-id }}
+        INPUT_COMMENT_BODY: ${{ steps.find-comment.outputs.comment-body }}
       run: python3 "$GITHUB_ACTION_PATH/prepare.py"

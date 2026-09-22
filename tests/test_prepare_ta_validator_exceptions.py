@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -130,6 +131,31 @@ exceptions: [not-active]
             prepare._workflow_message("error", "bad%\r\nmessage")
         self.assertEqual(stream.getvalue(), "::error::bad%25%0D%0Amessage\n")
 
+    def test_creates_missing_comment_with_python_standard_library_client(self):
+        creator = getattr(prepare, "create_pull_request_exception_comment", None)
+        self.assertIsNotNone(creator)
+        if creator is None:
+            return
+
+        response = mock.MagicMock()
+        response.read.return_value = json.dumps(
+            {"id": 456, "body": prepare.COMMENT_TEMPLATE}
+        ).encode()
+        response.__enter__.return_value = response
+        with mock.patch.object(prepare, "urlopen", return_value=response) as urlopen:
+            comment_id, comment_body = creator(
+                token="app-token",
+                repository="splunk/example-ta",
+                pull_request_number=123,
+            )
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "https://api.github.com/repos/splunk/example-ta/issues/123/comments")
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(json.loads(request.data), {"body": prepare.COMMENT_TEMPLATE})
+        self.assertEqual(request.get_header("Authorization"), "Bearer app-token")
+        self.assertEqual((comment_id, comment_body), (456, prepare.COMMENT_TEMPLATE))
+
 
 class WorkflowStructureTests(unittest.TestCase):
     @classmethod
@@ -137,23 +163,30 @@ class WorkflowStructureTests(unittest.TestCase):
         cls.workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         cls.action = ACTION_YAML_PATH.read_text(encoding="utf-8")
 
-    def test_action_uses_find_comment_and_creates_only_when_absent(self):
-        self.assertIn("peter-evans/find-comment@v4", self.action)
-        self.assertIn("actions/github-script@v8", self.action)
+    def test_action_uses_pinned_find_comment_and_python_for_creation(self):
+        self.assertIn(
+            "peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad",
+            self.action,
+        )
+        self.assertNotIn("actions/github-script", self.action)
+        self.assertNotIn("createComment", self.action)
+        self.assertNotIn("script: |", self.action)
         self.assertIn("comment_author:", self.action)
         self.assertIn("comment-author: ${{ inputs.comment_author }}", self.action)
-        self.assertIn("steps.find-comment.outputs.comment-id == ''", self.action)
-        self.assertIn("TA_VALIDATOR_REPOSITORY: ${{ inputs.repository }}", self.action)
-        self.assertIn("TA_VALIDATOR_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}", self.action)
-        self.assertIn("Number(process.env.TA_VALIDATOR_PULL_REQUEST_NUMBER)", self.action)
-        self.assertIn("process.env.TA_VALIDATOR_REPOSITORY.split('/', 2)", self.action)
+        self.assertIn("INPUT_TOKEN: ${{ inputs.token }}", self.action)
+        self.assertIn("INPUT_REPOSITORY: ${{ inputs.repository }}", self.action)
+        self.assertIn("INPUT_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}", self.action)
         self.assertNotIn("multiple marked", self.action)
         self.assertNotIn("pin", self.action.lower())
 
     def test_action_exposes_comment_reference_and_category_template(self):
         self.assertIn("comment-reference:", self.action)
         self.assertIn("id: write-exception-document", self.action)
-        self.assertEqual(self.action.count("category: false_positive"), 2)
+        template = getattr(prepare, "COMMENT_TEMPLATE", None)
+        self.assertIsNotNone(template)
+        if template is not None:
+            self.assertEqual(template.count("category: false_positive"), 2)
+        self.assertNotIn("category: false_positive", self.action)
 
     def test_shared_action_runs_validation_and_evaluation_modes(self):
         action = RUN_ACTION_YAML_PATH.read_text(encoding="utf-8")
@@ -179,6 +212,12 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE", action)
         self.assertIn("/run/ta-validator-pr-exceptions.yaml", action)
         self.assertNotIn("eval ", action)
+
+    def test_default_image_implements_the_paired_exception_interface(self):
+        self.assertIn(
+            'default: "mr-140-0431e2581e5d-amd64"',
+            self.workflow,
+        )
 
     def test_ta_validator_pr_exception_preflight_precedes_full_evaluation(self):
         workflow = self.workflow

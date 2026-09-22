@@ -1,9 +1,12 @@
 """Extract the canonical TA Validator exception document from a PR comment."""
 
+import json
 import os
 import re
 import sys
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
 MARKER = "<!-- ta-validator-exceptions:v1 -->"
@@ -15,6 +18,36 @@ ACTIVE_YAML_FENCE = re.compile(
     re.DOTALL,
 )
 FENCE_DELIMITER = re.compile(r"(?m)^[ \t]*```(?!`)")
+COMMENT_TEMPLATE = """<!-- ta-validator-exceptions:v1 -->
+
+## Temporary TA Validator exceptions
+
+Edit the YAML below, then rerun all jobs.
+
+<!-- ta-validator-exceptions-config:start -->
+```yaml
+version: 1
+exceptions: []
+# Add declarations like:
+# - check_slug: sensitive-data
+#   category: false_positive
+#   reason: Explain why this exception applies.
+```
+<!-- ta-validator-exceptions-config:end -->
+
+<details>
+<summary>Example</summary>
+
+```yaml
+version: 1
+exceptions:
+  - check_slug: sensitive-data
+    detection_slug: credential-exposure
+    category: false_positive
+    reason: Accepted for this PR; tracked in ADDON-12345.
+```
+</details>
+"""
 
 
 def extract_pull_request_exception_document(comment_body):
@@ -75,6 +108,39 @@ def _positive_integer(value, name):
     return integer
 
 
+def create_pull_request_exception_comment(token, repository, pull_request_number):
+    """Create the canonical comment using GitHub's REST API."""
+    owner, separator, name = repository.partition("/")
+    if not separator or not owner or not name:
+        raise ValueError("repository must be in owner/name form")
+
+    request = Request(
+        f"https://api.github.com/repos/{owner}/{name}/issues/{pull_request_number}/comments",
+        data=json.dumps({"body": COMMENT_TEMPLATE}).encode(),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request) as response:  # nosec B310 - fixed GitHub API URL
+            comment = json.loads(response.read())
+    except HTTPError as exc:
+        raise ValueError(f"Could not create TA Validator exception comment: HTTP {exc.code}") from exc
+    except URLError as exc:
+        raise ValueError(f"Could not create TA Validator exception comment: {exc.reason}") from exc
+
+    if not isinstance(comment, dict):
+        raise ValueError("GitHub returned an invalid TA Validator exception comment")
+    comment_id = _positive_integer(comment.get("id"), "comment_id")
+    comment_body = comment.get("body")
+    if not isinstance(comment_body, str):
+        raise ValueError("GitHub returned an invalid TA Validator exception comment body")
+    return comment_id, comment_body
+
+
 def _append_comment_reference(github_output, repository, pull_request_number, comment_id):
     reference = (
         f"https://github.com/{repository}/pull/{pull_request_number}"
@@ -90,8 +156,17 @@ def main():
     pull_request_number = _positive_integer(
         _required_input("PULL_REQUEST_NUMBER"), "pull_request_number"
     )
-    comment_id = _positive_integer(_required_input("COMMENT_ID"), "comment_id")
-    comment_body = _required_input("COMMENT_BODY")
+    found_comment_id = os.environ.get("INPUT_COMMENT_ID")
+    found_comment_body = os.environ.get("INPUT_COMMENT_BODY")
+    if bool(found_comment_id) != bool(found_comment_body):
+        raise ValueError("Found TA Validator exception comment has incomplete metadata")
+    if found_comment_id:
+        comment_id = _positive_integer(found_comment_id, "comment_id")
+        comment_body = found_comment_body
+    else:
+        comment_id, comment_body = create_pull_request_exception_comment(
+            _required_input("TOKEN"), repository, pull_request_number
+        )
     github_output = os.environ.get("GITHUB_OUTPUT")
     if not github_output:
         raise ValueError("Missing required GitHub Actions output file")
