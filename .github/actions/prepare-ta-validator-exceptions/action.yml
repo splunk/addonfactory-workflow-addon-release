@@ -11,10 +11,6 @@ inputs:
     required: true
   output_path:
     required: true
-outputs:
-  comment-reference:
-    description: URL of the selected TA Validator exception comment
-    value: ${{ steps.write-exception-document.outputs.comment-reference }}
 runs:
   using: composite
   steps:
@@ -28,13 +24,11 @@ runs:
         comment-author: ${{ inputs.comment_author }}
         body-includes: "<!-- ta-validator-exceptions:v1 -->"
     - name: Write TA Validator exception document
-      id: write-exception-document
       shell: sh
       env:
         INPUT_REPOSITORY: ${{ inputs.repository }}
         INPUT_PULL_REQUEST_NUMBER: ${{ inputs.pull_request_number }}
         INPUT_OUTPUT_PATH: ${{ inputs.output_path }}
         INPUT_TOKEN: ${{ inputs.token }}
-        INPUT_COMMENT_ID: ${{ steps.find-comment.outputs.comment-id }}
         INPUT_COMMENT_BODY: ${{ steps.find-comment.outputs.comment-body }}
       run: python3 "$GITHUB_ACTION_PATH/prepare.py"

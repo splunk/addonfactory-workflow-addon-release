@@ -125,53 +125,28 @@ def create_pull_request_exception_comment(token, repository, pull_request_number
         method="POST",
     )
     try:
-        with urlopen(request) as response:  # nosec B310 - fixed GitHub API URL
-            comment = json.loads(response.read())
+        with urlopen(request):  # nosec B310 - fixed GitHub API URL
+            pass
     except HTTPError as exc:
         raise ValueError(f"Could not create TA Validator exception comment: HTTP {exc.code}") from exc
     except URLError as exc:
         raise ValueError(f"Could not create TA Validator exception comment: {exc.reason}") from exc
 
-    if not isinstance(comment, dict):
-        raise ValueError("GitHub returned an invalid TA Validator exception comment")
-    comment_id = _positive_integer(comment.get("id"), "comment_id")
-    comment_body = comment.get("body")
-    if not isinstance(comment_body, str):
-        raise ValueError("GitHub returned an invalid TA Validator exception comment body")
-    return comment_id, comment_body
-
-
-def _append_comment_reference(github_output, repository, pull_request_number, comment_id):
-    reference = (
-        f"https://github.com/{repository}/pull/{pull_request_number}"
-        f"#issuecomment-{comment_id}"
-    )
-    with Path(github_output).open("a", encoding="utf-8") as output_file:
-        output_file.write(f"comment-reference={reference}\n")
+    return COMMENT_TEMPLATE
 
 
 def main():
     output_path = _required_input("OUTPUT_PATH")
-    repository = _required_input("REPOSITORY")
-    pull_request_number = _positive_integer(
-        _required_input("PULL_REQUEST_NUMBER"), "pull_request_number"
-    )
-    found_comment_id = os.environ.get("INPUT_COMMENT_ID")
     found_comment_body = os.environ.get("INPUT_COMMENT_BODY")
-    if bool(found_comment_id) != bool(found_comment_body):
-        raise ValueError("Found TA Validator exception comment has incomplete metadata")
-    if found_comment_id:
-        comment_id = _positive_integer(found_comment_id, "comment_id")
+    if found_comment_body:
         comment_body = found_comment_body
     else:
-        comment_id, comment_body = create_pull_request_exception_comment(
-            _required_input("TOKEN"), repository, pull_request_number
+        comment_body = create_pull_request_exception_comment(
+            _required_input("TOKEN"),
+            _required_input("REPOSITORY"),
+            _positive_integer(_required_input("PULL_REQUEST_NUMBER"), "pull_request_number"),
         )
-    github_output = os.environ.get("GITHUB_OUTPUT")
-    if not github_output:
-        raise ValueError("Missing required GitHub Actions output file")
     write_pull_request_exception_document(output_path, comment_body)
-    _append_comment_reference(github_output, repository, pull_request_number, comment_id)
 
 
 if __name__ == "__main__":

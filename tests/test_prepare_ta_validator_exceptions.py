@@ -22,10 +22,9 @@ WORKFLOW_PATH = Path(__file__).parents[1] / ".github" / "workflows" / "reusable-
 
 
 class PullRequestExceptionDocumentTests(unittest.TestCase):
-    def test_writes_only_active_canonical_yaml_and_comment_reference(self):
+    def test_writes_only_active_canonical_yaml(self):
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "pr-exceptions.yaml"
-            github_output = Path(directory) / "github-output"
             comment_body = """<!-- ta-validator-exceptions:v1 -->
 <!-- ta-validator-exceptions-config:start -->
 ```yaml
@@ -42,11 +41,7 @@ exceptions: [not-active]
                 os.environ,
                 {
                     "INPUT_OUTPUT_PATH": str(output_path),
-                    "INPUT_REPOSITORY": "splunk/example-ta",
-                    "INPUT_PULL_REQUEST_NUMBER": "123",
-                    "INPUT_COMMENT_ID": "456",
                     "INPUT_COMMENT_BODY": comment_body,
-                    "GITHUB_OUTPUT": str(github_output),
                 },
                 clear=True,
             ):
@@ -55,10 +50,6 @@ exceptions: [not-active]
             self.assertEqual(
                 output_path.read_text(encoding="utf-8"),
                 "version: 1\nexceptions: []\n",
-            )
-            self.assertEqual(
-                github_output.read_text(encoding="utf-8"),
-                "comment-reference=https://github.com/splunk/example-ta/pull/123#issuecomment-456\n",
             )
 
     def test_rejects_duplicate_or_misordered_markers(self):
@@ -143,7 +134,7 @@ exceptions: [not-active]
         ).encode()
         response.__enter__.return_value = response
         with mock.patch.object(prepare, "urlopen", return_value=response) as urlopen:
-            comment_id, comment_body = creator(
+            comment_body = creator(
                 token="app-token",
                 repository="splunk/example-ta",
                 pull_request_number=123,
@@ -154,7 +145,7 @@ exceptions: [not-active]
         self.assertEqual(request.get_method(), "POST")
         self.assertEqual(json.loads(request.data), {"body": prepare.COMMENT_TEMPLATE})
         self.assertEqual(request.get_header("Authorization"), "Bearer app-token")
-        self.assertEqual((comment_id, comment_body), (456, prepare.COMMENT_TEMPLATE))
+        self.assertEqual(comment_body, prepare.COMMENT_TEMPLATE)
 
 
 class WorkflowStructureTests(unittest.TestCase):
@@ -179,24 +170,27 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("multiple marked", self.action)
         self.assertNotIn("pin", self.action.lower())
 
-    def test_action_exposes_comment_reference_and_category_template(self):
-        self.assertIn("comment-reference:", self.action)
-        self.assertIn("id: write-exception-document", self.action)
+    def test_action_passes_only_comment_body_and_category_template(self):
+        self.assertNotIn("outputs:", self.action)
+        self.assertNotIn("id: write-exception-document", self.action)
+        self.assertNotIn("INPUT_COMMENT_ID", self.action)
+        self.assertIn("INPUT_COMMENT_BODY: ${{ steps.find-comment.outputs.comment-body }}", self.action)
         template = getattr(prepare, "COMMENT_TEMPLATE", None)
         self.assertIsNotNone(template)
         if template is not None:
             self.assertEqual(template.count("category: false_positive"), 2)
         self.assertNotIn("category: false_positive", self.action)
 
-    def test_shared_action_runs_validation_and_evaluation_modes(self):
+    def test_shared_action_runs_merge_and_evaluation_modes(self):
         action = RUN_ACTION_YAML_PATH.read_text(encoding="utf-8")
         self.assertIn("name: Run TA Validator", action)
         self.assertIn("mode:", action)
         self.assertIn("aws-access-key-id:", action)
         self.assertIn("aws-secret-access-key:", action)
         self.assertIn("aws-region:", action)
-        self.assertIn("pull-request-exceptions-path:", action)
-        self.assertIn("pull-request-exception-reference:", action)
+        self.assertIn("additional-exceptions-path:", action)
+        self.assertIn("output-exceptions-path:", action)
+        self.assertIn("effective-exceptions-path:", action)
         self.assertIn("addon-read-only:", action)
         self.assertIn("actions/checkout@v7", action)
         self.assertIn("aws-actions/configure-aws-credentials@v6", action)
@@ -204,13 +198,18 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("docker pull", action)
         self.assertIn("docker run", action)
         self.assertIn('case "$mode" in', action)
-        self.assertIn('validate)', action)
+        self.assertIn('merge)', action)
         self.assertIn('evaluate)', action)
-        self.assertIn("--pull-request-exceptions", action)
-        self.assertIn("--pull-request-exception-reference", action)
-        self.assertIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTIONS", action)
-        self.assertIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE", action)
-        self.assertIn("/run/ta-validator-pr-exceptions.yaml", action)
+        self.assertIn(
+            "merge --repository /addon --additional-file /run/additional.yaml --output /output/.ta-validator-exceptions.yaml",
+            action,
+        )
+        self.assertIn('--user "$(id -u):$(id -g)"', action)
+        self.assertIn('cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"', action)
+        self.assertNotIn("--pull-request-exceptions", action)
+        self.assertNotIn("--pull-request-exception-reference", action)
+        self.assertNotIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTIONS", action)
+        self.assertNotIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE", action)
         self.assertNotIn("eval ", action)
 
     def test_default_image_implements_the_paired_exception_interface(self):

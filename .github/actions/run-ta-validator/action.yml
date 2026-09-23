@@ -1,11 +1,11 @@
 name: Run TA Validator
-description: Run TA Validator validation or evaluation in its published image
+description: Merge TA Validator exceptions or evaluate an add-on in the published image
 inputs:
   image:
     description: Full TA Validator image reference
     required: true
   mode:
-    description: Either validate a PR exception input or evaluate the add-on
+    description: Either merge exception documents or evaluate the add-on
     required: true
   aws-access-key-id:
     description: AWS access key used to pull the TA Validator image
@@ -16,16 +16,20 @@ inputs:
   aws-region:
     description: AWS region containing the TA Validator image
     required: true
-  pull-request-exceptions-path:
-    description: Host path to the canonical PR exception YAML file
+  additional-exceptions-path:
+    description: Host path to an additional canonical exception document in merge mode
     required: false
     default: ""
-  pull-request-exception-reference:
-    description: GitHub comment URL for the canonical PR exception YAML file
+  output-exceptions-path:
+    description: Host path for the effective exception document produced in merge mode
+    required: false
+    default: ""
+  effective-exceptions-path:
+    description: Host path to a validated effective exception document in evaluate mode
     required: false
     default: ""
   addon-read-only:
-    description: Mount the checked-out add-on directory read-only
+    description: Mount the checked-out add-on directory read-only during evaluation
     required: false
     default: "false"
 runs:
@@ -48,46 +52,67 @@ runs:
       env:
         INPUT_IMAGE: ${{ inputs.image }}
         INPUT_MODE: ${{ inputs.mode }}
-        INPUT_PULL_REQUEST_EXCEPTIONS_PATH: ${{ inputs.pull-request-exceptions-path }}
-        INPUT_PULL_REQUEST_EXCEPTION_REFERENCE: ${{ inputs.pull-request-exception-reference }}
+        INPUT_ADDITIONAL_EXCEPTIONS_PATH: ${{ inputs.additional-exceptions-path }}
+        INPUT_OUTPUT_EXCEPTIONS_PATH: ${{ inputs.output-exceptions-path }}
+        INPUT_EFFECTIVE_EXCEPTIONS_PATH: ${{ inputs.effective-exceptions-path }}
         INPUT_ADDON_READ_ONLY: ${{ inputs.addon-read-only }}
       run: |-
         set -euo pipefail
 
         image="$INPUT_IMAGE"
         mode="$INPUT_MODE"
-        pull_request_exceptions_path="$INPUT_PULL_REQUEST_EXCEPTIONS_PATH"
-        pull_request_exception_reference="$INPUT_PULL_REQUEST_EXCEPTION_REFERENCE"
+        additional_exceptions_path="$INPUT_ADDITIONAL_EXCEPTIONS_PATH"
+        output_exceptions_path="$INPUT_OUTPUT_EXCEPTIONS_PATH"
+        effective_exceptions_path="$INPUT_EFFECTIVE_EXCEPTIONS_PATH"
         docker_options=(--rm)
 
         case "$INPUT_ADDON_READ_ONLY" in
-          true) docker_options+=(-v "$GITHUB_WORKSPACE:/addon:ro") ;;
-          false) docker_options+=(-v "$GITHUB_WORKSPACE:/addon") ;;
+          true|false) ;;
           *) echo "addon-read-only must be true or false" >&2; exit 1 ;;
         esac
 
-        if [ -n "$pull_request_exceptions_path" ] || [ -n "$pull_request_exception_reference" ]; then
-          if [ -z "$pull_request_exceptions_path" ] || [ -z "$pull_request_exception_reference" ]; then
-            echo "pull-request-exceptions-path and pull-request-exception-reference must be supplied together" >&2
-            exit 1
-          fi
-          if [ ! -f "$pull_request_exceptions_path" ]; then
-            echo "pull-request-exceptions-path must name an existing file" >&2
-            exit 1
-          fi
-          docker_options+=(-v "$pull_request_exceptions_path:/run/ta-validator-pr-exceptions.yaml:ro")
-        fi
-
         case "$mode" in
-          validate)
-            if [ -z "$pull_request_exceptions_path" ]; then
-              echo "validate mode requires pull-request-exceptions-path and pull-request-exception-reference" >&2
+          merge)
+            if [ ! -f "$additional_exceptions_path" ] || [ -L "$additional_exceptions_path" ]; then
+              echo "merge mode requires additional-exceptions-path to name a regular file" >&2
               exit 1
             fi
-            command=(validate --repository /addon --pull-request-exceptions /run/ta-validator-pr-exceptions.yaml --pull-request-exception-reference "$pull_request_exception_reference")
+            if [ "${output_exceptions_path##*/}" != ".ta-validator-exceptions.yaml" ]; then
+              echo "output-exceptions-path must end with .ta-validator-exceptions.yaml" >&2
+              exit 1
+            fi
+
+            additional_directory="$(cd "$(dirname "$additional_exceptions_path")" && pwd -P)"
+            additional_exceptions_path="$additional_directory/$(basename "$additional_exceptions_path")"
+            output_directory="$(dirname "$output_exceptions_path")"
+            mkdir -p "$output_directory"
+            output_directory="$(cd "$output_directory" && pwd -P)"
+
+            docker_options+=(
+              --user "$(id -u):$(id -g)"
+              -v "$GITHUB_WORKSPACE:/addon:ro"
+              -v "$additional_exceptions_path:/run/additional.yaml:ro"
+              -v "$output_directory:/output"
+            )
+            command=(merge --repository /addon --additional-file /run/additional.yaml --output /output/.ta-validator-exceptions.yaml)
             ;;
           evaluate)
-            command=()
+            if [ -n "$additional_exceptions_path" ] || [ -n "$output_exceptions_path" ]; then
+              echo "additional-exceptions-path and output-exceptions-path are only valid in merge mode" >&2
+              exit 1
+            fi
+            if [ -n "$effective_exceptions_path" ]; then
+              if [ ! -f "$effective_exceptions_path" ] || [ -L "$effective_exceptions_path" ]; then
+                echo "effective-exceptions-path must name a regular file" >&2
+                exit 1
+              fi
+              cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"
+            fi
+
+            case "$INPUT_ADDON_READ_ONLY" in
+              true) docker_options+=(-v "$GITHUB_WORKSPACE:/addon:ro") ;;
+              false) docker_options+=(-v "$GITHUB_WORKSPACE:/addon") ;;
+            esac
             docker_options+=(
               -e GITHUB_TOKEN
               -e GITHUB_USERNAME
@@ -98,14 +123,9 @@ runs:
               -e APPINSPECT_PASS
               -e GS_VERSION
             )
-            if [ -n "$pull_request_exceptions_path" ]; then
-              docker_options+=(
-                -e TA_VALIDATOR_PULL_REQUEST_EXCEPTIONS=/run/ta-validator-pr-exceptions.yaml
-                -e TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE="$pull_request_exception_reference"
-              )
-            fi
+            command=()
             ;;
-          *) echo "mode must be validate or evaluate" >&2; exit 1 ;;
+          *) echo "mode must be merge or evaluate" >&2; exit 1 ;;
         esac
 
         docker pull "$image"
