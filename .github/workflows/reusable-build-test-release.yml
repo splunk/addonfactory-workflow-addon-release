@@ -1329,7 +1329,7 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@f9d1bbaec2e38a415ccd87c41f974a9537613c7e
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@5fc1283e538e00b9c2d723f619500e5f079e0db7
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
@@ -1339,7 +1339,7 @@ jobs:
       - name: Build effective TA Validator exception file
         id: merge-ta-validator-exceptions
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@f9d1bbaec2e38a415ccd87c41f974a9537613c7e
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@5fc1283e538e00b9c2d723f619500e5f079e0db7
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: merge
@@ -1386,7 +1386,7 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@f9d1bbaec2e38a415ccd87c41f974a9537613c7e
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@5fc1283e538e00b9c2d723f619500e5f079e0db7
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate

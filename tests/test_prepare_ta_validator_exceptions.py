@@ -286,7 +286,7 @@ class WorkflowStructureTests(unittest.TestCase):
             r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
             r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
         )
-        action_sha = "f9d1bbaec2e38a415ccd87c41f974a9537613c7e"
+        action_sha = "5fc1283e538e00b9c2d723f619500e5f079e0db7"
         self.assertIn(f"prepare-ta-validator-exceptions@{action_sha}", preparation)
         self.assertIn(f"run-ta-validator@{action_sha}", preparation)
         self.assertNotIn("outputs:", preparation)
@@ -340,11 +340,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotRegex(run_scorecard, r"uses: (?:actions|aws-actions)/[^@]+@v\d+")
         self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
-            "run-ta-validator@f9d1bbaec2e38a415ccd87c41f974a9537613c7e",
+            "run-ta-validator@5fc1283e538e00b9c2d723f619500e5f079e0db7",
             run_scorecard,
         )
         self.assertEqual(
-            run_scorecard.count("run-ta-validator@f9d1bbaec2e38a415ccd87c41f974a9537613c7e"),
+            run_scorecard.count("run-ta-validator@5fc1283e538e00b9c2d723f619500e5f079e0db7"),
             1,
         )
         self.assertIn("- name: Run TA Validator\n", run_scorecard)
