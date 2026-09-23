@@ -659,13 +659,20 @@ appinspect-api-html-report-self-service
 
 ### Temporary pull-request exceptions
 
-For every pull request, automation creates one **TA Validator exceptions**
-comment. Edit only the active YAML fence between its hidden configuration
-markers, then select **Re-run all jobs**. The comment is the only
-temporary-exception input; editing it alone does not start a workflow.
+The exception lifecycle has one file format and one evaluation input:
 
-The active fence uses the same canonical YAML document as a permanent
-`.ta-validator-exceptions.yaml` file:
+1. A committed `.ta-validator-exceptions.yaml` holds permanent declarations.
+2. On a pull request, developers edit the active YAML fence in the single
+   automation-managed **TA Validator exceptions** comment, then select
+   **Re-run all jobs**. Editing the comment alone does not start a workflow.
+3. The workflow extracts that fence unchanged and asks TA Validator to merge it
+   with the committed file into one validated effective file.
+4. The evaluation job installs the effective file as
+   `.ta-validator-exceptions.yaml` in its ephemeral checkout.
+5. Normal TA Validator evaluation reads only that conventional file; it does
+   not know about pull-request comments or temporary transport inputs.
+
+The comment and committed file use the same canonical YAML document:
 
 ```yaml
 version: 1
@@ -678,18 +685,12 @@ exceptions:
 
 Every declaration requires `check_slug`, `category` (`false_positive` or
 `accepted_gap`), and non-empty `reason`; `detection_slug` is optional. A
-declaration without `detection_slug` targets the entire check. The workflow
-only verifies the comment structure and extracts the active YAML fence
-unchanged. TA Validator validates the canonical schema and all check/detection
-targets against its complete configured catalog before full evaluation.
-
-TA Validator receives the temporary source through the paired
-`--pull-request-exceptions` and `--pull-request-exception-reference` CLI
-arguments; neither argument is valid alone. Existing temporary comments that
-lack `category` fail with the same TA Validator schema error as permanent
-files. Edit the comment to add `category`, then select **Re-run all jobs**. A
-valid declaration that produces no suppressible result is reported as a
-warning only.
+declaration without `detection_slug` targets the entire check, including a
+check made up of structured detections. TA Validator validates both documents,
+rejects duplicate or unknown targets, and writes the effective file before the
+full evaluation starts. Malformed permanent and comment inputs therefore fail
+early through the same validation path. A valid declaration that produces no
+suppressible result is reported as a warning only.
 
 **Pass/fail behaviour:**
 
@@ -704,7 +705,7 @@ warning only.
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-0431e2581e5d-amd64`) exists in the ECR registry. This immutable pre-release image implements the paired PR-exception interface; replace it with the compatible official image after the TA Validator release. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-3fee426db3a8-amd64`) exists in the ECR registry. This immutable pre-release image implements the effective-file interface; replace it with the compatible official image after the TA Validator release. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
 - Review the job logs for specific error messages from TA Validator.
 

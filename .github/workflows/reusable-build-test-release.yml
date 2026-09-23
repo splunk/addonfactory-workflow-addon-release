@@ -71,7 +71,7 @@ on:
         required: false
         description: "Version of the GS scorecard Docker image"
         type: string
-        default: "mr-140-0431e2581e5d-amd64"
+        default: "mr-140-3fee426db3a8-amd64"
       gs-version:
         required: false
         description: "Version of the GS scorecard"
@@ -1317,8 +1317,6 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     needs:
       - setup-workflow
-    outputs:
-      comment-reference: ${{ steps.prepare-ta-validator-exceptions.outputs.comment-reference }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1331,33 +1329,33 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
-        id: prepare-ta-validator-exceptions
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@197dcfbee1cdf70a1b7a19c4a9b37be57ba3f0e3
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@cf4924a67026afd773aa5371c1944f6cbdde2241
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
           pull_request_number: ${{ github.event.pull_request.number }}
           comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]
-          output_path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml
-      - name: Validate TA Validator exception configuration
-        id: validate-ta-validator-exceptions
+          output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
+      - name: Build effective TA Validator exception file
+        id: merge-ta-validator-exceptions
         if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cf4924a67026afd773aa5371c1944f6cbdde2241
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
-          mode: validate
+          mode: merge
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          pull-request-exceptions-path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml
-          pull-request-exception-reference: ${{ steps.prepare-ta-validator-exceptions.outputs.comment-reference }}
+          additional-exceptions-path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
+          output-exceptions-path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
           addon-read-only: true
-      - name: Upload validated TA Validator exception input
-        if: ${{ steps.validate-ta-validator-exceptions.outcome == 'success' }}
+      - name: Upload effective TA Validator exception file
+        if: ${{ steps.merge-ta-validator-exceptions.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ta-validator-pr-exceptions.yaml
-          path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml
+          name: ta-validator-exceptions
+          path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
+          include-hidden-files: true
           retention-days: 1
 
   run-gs-scorecard:
@@ -1379,11 +1377,11 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-      - name: Download validated TA Validator exception input
+      - name: Download effective TA Validator exception file
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/download-artifact@v8
         with:
-          name: ta-validator-pr-exceptions.yaml
+          name: ta-validator-exceptions
           path: ${{ runner.temp }}
       - name: Run TA Validator
         env:
@@ -1391,15 +1389,14 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@cf4924a67026afd773aa5371c1944f6cbdde2241
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          pull-request-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.yaml', runner.temp) || '' }}
-          pull-request-exception-reference: ${{ github.event_name == 'pull_request' && needs.prepare-ta-validator-exceptions.outputs.comment-reference || '' }}
+          effective-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/.ta-validator-exceptions.yaml', runner.temp) || '' }}
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:

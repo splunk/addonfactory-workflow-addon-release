@@ -206,15 +206,19 @@ class WorkflowStructureTests(unittest.TestCase):
         )
         self.assertIn('--user "$(id -u):$(id -g)"', action)
         self.assertIn('cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"', action)
-        self.assertNotIn("--pull-request-exceptions", action)
-        self.assertNotIn("--pull-request-exception-reference", action)
-        self.assertNotIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTIONS", action)
-        self.assertNotIn("TA_VALIDATOR_PULL_REQUEST_EXCEPTION_REFERENCE", action)
+        stale_interfaces = (
+            "--pull-request-" + "exceptions",
+            "--pull-request-" + "exception-reference",
+            "TA_VALIDATOR_PULL_REQUEST_" + "EXCEPTIONS",
+            "TA_VALIDATOR_PULL_REQUEST_" + "EXCEPTION_REFERENCE",
+        )
+        for stale_interface in stale_interfaces:
+            self.assertNotIn(stale_interface, action)
         self.assertNotIn("eval ", action)
 
-    def test_default_image_implements_the_paired_exception_interface(self):
+    def test_default_image_implements_the_effective_file_interface(self):
         self.assertIn(
-            'default: "mr-140-0431e2581e5d-amd64"',
+            'default: "mr-140-3fee426db3a8-amd64"',
             self.workflow,
         )
 
@@ -239,35 +243,33 @@ class WorkflowStructureTests(unittest.TestCase):
             r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
             r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
         )
-        self.assertIn(
-            "prepare-ta-validator-exceptions@197dcfbee1cdf70a1b7a19c4a9b37be57ba3f0e3",
-            preparation,
-        )
-        self.assertIn(
-            "run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd",
-            preparation,
-        )
-        self.assertIn("outputs:\n      comment-reference:", preparation)
-        self.assertIn(
-            "steps.prepare-ta-validator-exceptions.outputs.comment-reference",
-            preparation,
-        )
-        self.assertIn("id: prepare-ta-validator-exceptions", preparation)
-        self.assertIn("mode: validate", preparation)
+        action_sha = "cf4924a67026afd773aa5371c1944f6cbdde2241"
+        self.assertIn(f"prepare-ta-validator-exceptions@{action_sha}", preparation)
+        self.assertIn(f"run-ta-validator@{action_sha}", preparation)
+        self.assertNotIn("outputs:", preparation)
+        self.assertNotIn("comment-" + "reference", preparation)
+        self.assertNotIn("id: prepare-ta-validator-exceptions", preparation)
+        self.assertIn("mode: merge", preparation)
         self.assertIn("addon-read-only: true", preparation)
         self.assertIn("aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}", preparation)
         self.assertIn("aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}", preparation)
         self.assertIn("aws-region: us-west-2", preparation)
         self.assertIn(
-            "pull-request-exceptions-path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml",
+            "output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml",
             preparation,
         )
         self.assertIn(
-            "pull-request-exception-reference: ${{ steps.prepare-ta-validator-exceptions.outputs.comment-reference }}",
+            "additional-exceptions-path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml",
             preparation,
         )
-        self.assertIn("name: ta-validator-pr-exceptions.yaml", preparation)
-        self.assertIn("path: ${{ runner.temp }}/ta-validator-pr-exceptions.yaml", preparation)
+        self.assertIn(
+            "output-exceptions-path: ${{ runner.temp }}/.ta-validator-exceptions.yaml",
+            preparation,
+        )
+        self.assertIn("name: ta-validator-exceptions", preparation)
+        self.assertIn("path: ${{ runner.temp }}/.ta-validator-exceptions.yaml", preparation)
+        self.assertIn("include-hidden-files: true", preparation)
+        self.assertIn("retention-days: 1", preparation)
         self.assertNotIn("actions/checkout@v7", preparation)
         self.assertNotIn("aws-actions/configure-aws-credentials@v6", preparation)
         self.assertNotIn("aws-actions/amazon-ecr-login@v2", preparation)
@@ -287,30 +289,23 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("- prepare-ta-validator-exceptions", run_scorecard)
         self.assertIn("needs.prepare-ta-validator-exceptions.result == 'success'", run_scorecard)
         self.assertIn("actions/download-artifact@v8", run_scorecard)
+        self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
-            "pull-request-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.yaml', runner.temp) || '' }}",
-            run_scorecard,
-        )
-        self.assertIn(
-            "pull-request-exception-reference: ${{ github.event_name == 'pull_request' && needs.prepare-ta-validator-exceptions.outputs.comment-reference || '' }}",
-            run_scorecard,
-        )
-        self.assertIn("name: ta-validator-pr-exceptions.yaml", run_scorecard)
-        self.assertIn(
-            "run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd",
+            "run-ta-validator@cf4924a67026afd773aa5371c1944f6cbdde2241",
             run_scorecard,
         )
         self.assertEqual(
-            run_scorecard.count("run-ta-validator@e226d1733c7bf2c35663a29f322f6f5363350fcd"),
+            run_scorecard.count("run-ta-validator@cf4924a67026afd773aa5371c1944f6cbdde2241"),
             1,
         )
         self.assertIn("- name: Run TA Validator\n", run_scorecard)
         self.assertNotIn("Run TA Validator for pull request", run_scorecard)
         self.assertNotIn("Run TA Validator outside a pull request", run_scorecard)
         self.assertIn(
-            "github.event_name == 'pull_request' && format('{0}/ta-validator-pr-exceptions.yaml', runner.temp) || ''",
+            "effective-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/.ta-validator-exceptions.yaml', runner.temp) || '' }}",
             run_scorecard,
         )
+        self.assertNotIn("comment-" + "reference", run_scorecard)
         self.assertIn("mode: evaluate", run_scorecard)
         self.assertIn("aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}", run_scorecard)
         self.assertIn("aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}", run_scorecard)
