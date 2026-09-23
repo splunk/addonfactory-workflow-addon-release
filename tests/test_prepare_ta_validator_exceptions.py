@@ -202,10 +202,10 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("aws-access-key-id:", action)
         self.assertIn("aws-secret-access-key:", action)
         self.assertIn("aws-region:", action)
-        self.assertIn("additional-exceptions-path:", action)
-        self.assertIn("output-exceptions-path:", action)
-        self.assertIn("effective-exceptions-path:", action)
-        self.assertIn("addon-read-only:", action)
+        self.assertNotIn("additional-exceptions-path:", action)
+        self.assertNotIn("output-exceptions-path:", action)
+        self.assertNotIn("effective-exceptions-path:", action)
+        self.assertNotIn("addon-read-only:", action)
         self.assertIn("actions/checkout@v7", action)
         self.assertIn("aws-actions/configure-aws-credentials@v6", action)
         self.assertIn("aws-actions/amazon-ecr-login@v2", action)
@@ -219,7 +219,18 @@ class WorkflowStructureTests(unittest.TestCase):
             action,
         )
         self.assertIn('--user "$(id -u):$(id -g)"', action)
-        self.assertIn('cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"', action)
+        self.assertIn(
+            'comment_exceptions_path="$RUNNER_TEMP/ta-validator-comment-exceptions.yaml"',
+            action,
+        )
+        self.assertIn(
+            'effective_exceptions_path="$RUNNER_TEMP/.ta-validator-exceptions.yaml"',
+            action,
+        )
+        self.assertIn(
+            'cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"',
+            action,
+        )
         stale_interfaces = (
             "--pull-request-" + "exceptions",
             "--pull-request-" + "exception-reference",
@@ -264,7 +275,7 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("comment-" + "reference", preparation)
         self.assertNotIn("id: prepare-ta-validator-exceptions", preparation)
         self.assertIn("mode: merge", preparation)
-        self.assertIn("addon-read-only: true", preparation)
+        self.assertNotIn("addon-read-only:", preparation)
         self.assertIn("aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}", preparation)
         self.assertIn("aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}", preparation)
         self.assertIn("aws-region: us-west-2", preparation)
@@ -272,14 +283,8 @@ class WorkflowStructureTests(unittest.TestCase):
             "output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml",
             preparation,
         )
-        self.assertIn(
-            "additional-exceptions-path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml",
-            preparation,
-        )
-        self.assertIn(
-            "output-exceptions-path: ${{ runner.temp }}/.ta-validator-exceptions.yaml",
-            preparation,
-        )
+        self.assertNotIn("additional-exceptions-path:", preparation)
+        self.assertNotIn("output-exceptions-path:", preparation)
         self.assertIn("name: ta-validator-exceptions", preparation)
         self.assertIn("path: ${{ runner.temp }}/.ta-validator-exceptions.yaml", preparation)
         self.assertIn("include-hidden-files: true", preparation)
@@ -315,10 +320,7 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("- name: Run TA Validator\n", run_scorecard)
         self.assertNotIn("Run TA Validator for pull request", run_scorecard)
         self.assertNotIn("Run TA Validator outside a pull request", run_scorecard)
-        self.assertIn(
-            "effective-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/.ta-validator-exceptions.yaml', runner.temp) || '' }}",
-            run_scorecard,
-        )
+        self.assertNotIn("effective-exceptions-path:", run_scorecard)
         self.assertNotIn("comment-" + "reference", run_scorecard)
         self.assertIn("mode: evaluate", run_scorecard)
         self.assertIn("aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}", run_scorecard)

@@ -1346,9 +1346,6 @@ jobs:
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          additional-exceptions-path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
-          output-exceptions-path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
-          addon-read-only: true
       - name: Upload effective TA Validator exception file
         if: ${{ steps.merge-ta-validator-exceptions.outcome == 'success' }}
         uses: actions/upload-artifact@v7
@@ -1396,7 +1393,6 @@ jobs:
           aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
-          effective-exceptions-path: ${{ github.event_name == 'pull_request' && format('{0}/.ta-validator-exceptions.yaml', runner.temp) || '' }}
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:

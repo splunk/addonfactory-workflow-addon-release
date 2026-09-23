@@ -16,22 +16,6 @@ inputs:
   aws-region:
     description: AWS region containing the TA Validator image
     required: true
-  additional-exceptions-path:
-    description: Host path to an additional canonical exception document in merge mode
-    required: false
-    default: ""
-  output-exceptions-path:
-    description: Host path for the effective exception document produced in merge mode
-    required: false
-    default: ""
-  effective-exceptions-path:
-    description: Host path to a validated effective exception document in evaluate mode
-    required: false
-    default: ""
-  addon-read-only:
-    description: Mount the checked-out add-on directory read-only during evaluation
-    required: false
-    default: "false"
 runs:
   using: composite
   steps:
@@ -52,68 +36,41 @@ runs:
       env:
         INPUT_IMAGE: ${{ inputs.image }}
         INPUT_MODE: ${{ inputs.mode }}
-        INPUT_ADDITIONAL_EXCEPTIONS_PATH: ${{ inputs.additional-exceptions-path }}
-        INPUT_OUTPUT_EXCEPTIONS_PATH: ${{ inputs.output-exceptions-path }}
-        INPUT_EFFECTIVE_EXCEPTIONS_PATH: ${{ inputs.effective-exceptions-path }}
-        INPUT_ADDON_READ_ONLY: ${{ inputs.addon-read-only }}
       run: |-
         set -euo pipefail
 
         image="$INPUT_IMAGE"
         mode="$INPUT_MODE"
-        additional_exceptions_path="$INPUT_ADDITIONAL_EXCEPTIONS_PATH"
-        output_exceptions_path="$INPUT_OUTPUT_EXCEPTIONS_PATH"
-        effective_exceptions_path="$INPUT_EFFECTIVE_EXCEPTIONS_PATH"
+        comment_exceptions_path="$RUNNER_TEMP/ta-validator-comment-exceptions.yaml"
+        effective_exceptions_path="$RUNNER_TEMP/.ta-validator-exceptions.yaml"
         docker_options=(--rm)
-
-        case "$INPUT_ADDON_READ_ONLY" in
-          true|false) ;;
-          *) echo "addon-read-only must be true or false" >&2; exit 1 ;;
-        esac
 
         case "$mode" in
           merge)
-            if [ ! -f "$additional_exceptions_path" ] || [ -L "$additional_exceptions_path" ]; then
-              echo "merge mode requires additional-exceptions-path to name a regular file" >&2
+            if [ ! -f "$comment_exceptions_path" ] || [ -L "$comment_exceptions_path" ]; then
+              echo "merge mode requires $comment_exceptions_path to be a regular file" >&2
               exit 1
             fi
-            if [ "${output_exceptions_path##*/}" != ".ta-validator-exceptions.yaml" ]; then
-              echo "output-exceptions-path must end with .ta-validator-exceptions.yaml" >&2
-              exit 1
-            fi
-
-            additional_directory="$(cd "$(dirname "$additional_exceptions_path")" && pwd -P)"
-            additional_exceptions_path="$additional_directory/$(basename "$additional_exceptions_path")"
-            output_directory="$(dirname "$output_exceptions_path")"
-            mkdir -p "$output_directory"
-            output_directory="$(cd "$output_directory" && pwd -P)"
 
             docker_options+=(
               --user "$(id -u):$(id -g)"
               -v "$GITHUB_WORKSPACE:/addon:ro"
-              -v "$additional_exceptions_path:/run/additional.yaml:ro"
-              -v "$output_directory:/output"
+              -v "$comment_exceptions_path:/run/additional.yaml:ro"
+              -v "$RUNNER_TEMP:/output"
             )
             command=(merge --repository /addon --additional-file /run/additional.yaml --output /output/.ta-validator-exceptions.yaml)
             ;;
           evaluate)
-            if [ -n "$additional_exceptions_path" ] || [ -n "$output_exceptions_path" ]; then
-              echo "additional-exceptions-path and output-exceptions-path are only valid in merge mode" >&2
+            if [ -L "$effective_exceptions_path" ]; then
+              echo "$effective_exceptions_path must not be a symbolic link" >&2
               exit 1
             fi
-            if [ -n "$effective_exceptions_path" ]; then
-              if [ ! -f "$effective_exceptions_path" ] || [ -L "$effective_exceptions_path" ]; then
-                echo "effective-exceptions-path must name a regular file" >&2
-                exit 1
-              fi
+            if [ -f "$effective_exceptions_path" ]; then
               cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"
             fi
 
-            case "$INPUT_ADDON_READ_ONLY" in
-              true) docker_options+=(-v "$GITHUB_WORKSPACE:/addon:ro") ;;
-              false) docker_options+=(-v "$GITHUB_WORKSPACE:/addon") ;;
-            esac
             docker_options+=(
+              -v "$GITHUB_WORKSPACE:/addon"
               -e GITHUB_TOKEN
               -e GITHUB_USERNAME
               -e AWS_ACCESS_KEY_ID
