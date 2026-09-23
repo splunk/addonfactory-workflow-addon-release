@@ -206,9 +206,18 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("output-exceptions-path:", action)
         self.assertNotIn("effective-exceptions-path:", action)
         self.assertNotIn("addon-read-only:", action)
-        self.assertIn("actions/checkout@v7", action)
-        self.assertIn("aws-actions/configure-aws-credentials@v6", action)
-        self.assertIn("aws-actions/amazon-ecr-login@v2", action)
+        self.assertIn(
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", action
+        )
+        self.assertIn(
+            "aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd",
+            action,
+        )
+        self.assertIn(
+            "aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd",
+            action,
+        )
+        self.assertNotRegex(action, r"uses: (?:actions|aws-actions)/[^@]+@v\d+")
         self.assertIn("docker pull", action)
         self.assertIn("docker run", action)
         self.assertIn('case "$mode" in', action)
@@ -243,7 +252,7 @@ class WorkflowStructureTests(unittest.TestCase):
 
     def test_default_image_implements_the_effective_file_interface(self):
         self.assertIn(
-            'default: "mr-140-3fee426db3a8-amd64"',
+            'default: "mr-140-3fee426db3a8-amd64@sha256:6208da305520a85a3f067ff26caa66eb91371be3c1a53120d77591db2c1d601c"',
             self.workflow,
         )
 
@@ -258,6 +267,15 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("\n      issues: write", preparation)
         self.assertIn("permission-issues: write", preparation)
         self.assertIn("permission-pull-requests: write", preparation)
+        self.assertIn(
+            "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
+            preparation,
+        )
+        self.assertIn(
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            preparation,
+        )
+        self.assertNotRegex(preparation, r"uses: (?:actions|aws-actions)/[^@]+@v\d+")
         self.assertIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
         self.assertNotIn("owner: ${{ github.repository_owner }}", preparation)
         self.assertIn(
@@ -307,7 +325,19 @@ class WorkflowStructureTests(unittest.TestCase):
         ]
         self.assertIn("- prepare-ta-validator-exceptions", run_scorecard)
         self.assertIn("needs.prepare-ta-validator-exceptions.result == 'success'", run_scorecard)
-        self.assertIn("actions/download-artifact@v8", run_scorecard)
+        self.assertIn(
+            "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
+            run_scorecard,
+        )
+        self.assertIn(
+            "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+            run_scorecard,
+        )
+        self.assertIn(
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            run_scorecard,
+        )
+        self.assertNotRegex(run_scorecard, r"uses: (?:actions|aws-actions)/[^@]+@v\d+")
         self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
             "run-ta-validator@f9d1bbaec2e38a415ccd87c41f974a9537613c7e",
