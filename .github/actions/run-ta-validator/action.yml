@@ -1,0 +1,89 @@
+name: Run TA Validator
+description: Merge TA Validator exceptions or evaluate an add-on in the published image
+inputs:
+  image:
+    description: Full TA Validator image reference
+    required: true
+  mode:
+    description: Either merge exception documents or evaluate the add-on
+    required: true
+  aws-access-key-id:
+    description: AWS access key used to pull the TA Validator image
+    required: true
+  aws-secret-access-key:
+    description: AWS secret key used to pull the TA Validator image
+    required: true
+  aws-region:
+    description: AWS region containing the TA Validator image
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Checkout add-on
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v6
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    - name: Run TA Validator image
+      shell: bash
+      env:
+        INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_MODE: ${{ inputs.mode }}
+      run: |-
+        set -euo pipefail
+
+        image="$INPUT_IMAGE"
+        mode="$INPUT_MODE"
+        comment_exceptions_path="$RUNNER_TEMP/ta-validator-comment-exceptions.yaml"
+        effective_exceptions_path="$RUNNER_TEMP/.ta-validator-exceptions.yaml"
+        docker_options=(--rm)
+
+        case "$mode" in
+          merge)
+            if [ ! -f "$comment_exceptions_path" ] || [ -L "$comment_exceptions_path" ]; then
+              echo "merge mode requires $comment_exceptions_path to be a regular file" >&2
+              exit 1
+            fi
+
+            docker_options+=(
+              --user "$(id -u):$(id -g)"
+              -v "$GITHUB_WORKSPACE:/addon:ro"
+              -v "$comment_exceptions_path:/run/additional.yaml:ro"
+              -v "$RUNNER_TEMP:/output"
+            )
+            command=(merge --repository /addon --additional-file /run/additional.yaml --output /output/.ta-validator-exceptions.yaml)
+            ;;
+          evaluate)
+            if [ -L "$effective_exceptions_path" ]; then
+              echo "$effective_exceptions_path must not be a symbolic link" >&2
+              exit 1
+            fi
+            if [ -f "$effective_exceptions_path" ]; then
+              cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"
+            fi
+
+            docker_options+=(
+              -v "$GITHUB_WORKSPACE:/addon"
+              -e GITHUB_TOKEN
+              -e GITHUB_USERNAME
+              -e AWS_ACCESS_KEY_ID
+              -e AWS_SECRET_ACCESS_KEY
+              -e AWS_DEFAULT_REGION
+              -e APPINSPECT_USER
+              -e APPINSPECT_PASS
+              -e GS_VERSION
+            )
+            command=()
+            ;;
+          *) echo "mode must be merge or evaluate" >&2; exit 1 ;;
+        esac
+
+        docker pull "$image"
+        docker run "${docker_options[@]}" "$image" "${command[@]}"

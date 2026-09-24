@@ -69,9 +69,9 @@ on:
         default: false
       gs-image-version:
         required: false
-        description: "Version of the GS scorecard Docker image"
+        description: "Immutable TA Validator image tag and digest"
         type: string
-        default: "1.2"
+        default: "mr-140-3fee426db3a8-amd64@sha256:6208da305520a85a3f067ff26caa66eb91371be3c1a53120d77591db2c1d601c"
       gs-version:
         required: false
         description: "Version of the GS scorecard"
@@ -1313,12 +1313,60 @@ jobs:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
 
+  prepare-ta-validator-exceptions:
+    if: ${{ github.event_name == 'pull_request' }}
+    needs:
+      - setup-workflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+      - name: Prepare TA Validator exception input
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@9e9dc782cdd784515490000754976e2317a931a3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.repository }}
+          pull_request_number: ${{ github.event.pull_request.number }}
+          comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]
+          output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
+      - name: Build effective TA Validator exception file
+        id: merge-ta-validator-exceptions
+        if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@9e9dc782cdd784515490000754976e2317a931a3
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: merge
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Upload effective TA Validator exception file
+        if: ${{ steps.merge-ta-validator-exceptions.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ta-validator-exceptions
+          path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
+          include-hidden-files: true
+          retention-days: 1
+
   run-gs-scorecard:
     name: quality-gs-scorecard
     needs:
       - build
       - setup-workflow
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
+      - prepare-ta-validator-exceptions
+    if: >-
+      ${{ !cancelled()
+          && needs.build.result == 'success'
+          && needs.setup-workflow.outputs.execute-gs-scorecard == 'true'
+          && (github.event_name != 'pull_request'
+              || needs.prepare-ta-validator-exceptions.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
@@ -1326,36 +1374,25 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-      - uses: actions/checkout@v7
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
+      - name: Download effective TA Validator exception file
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v8
         with:
-          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-      - name: Pull GS Scorecard image
-        run: docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
-      - name: Run GS Scorecard
+          name: ta-validator-exceptions
+          path: ${{ runner.temp }}
+      - name: Run TA Validator
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        run: |
-          docker run --rm \
-            -e GITHUB_TOKEN \
-            -e GITHUB_USERNAME \
-            -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
-            -e AWS_SECRET_ACCESS_KEY="${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}" \
-            -e AWS_DEFAULT_REGION="us-west-2" \
-            -e APPINSPECT_USER \
-            -e APPINSPECT_PASS \
-            -e GS_VERSION="${{ env.GS_VERSION }}" \
-            -v "$(pwd)":/addon \
-            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@9e9dc782cdd784515490000754976e2317a931a3
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: evaluate
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7
         with:
@@ -3710,6 +3747,7 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
+      - prepare-ta-validator-exceptions
       - run-gs-scorecard
       - fossa-vulnerability-test
     runs-on: ubuntu-latest
@@ -3720,7 +3758,7 @@ jobs:
         id: check
         shell: bash
         run: |
-          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | [.[] | select(.result != "skipped" and .result != "success")] | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
