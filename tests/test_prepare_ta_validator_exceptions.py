@@ -270,7 +270,7 @@ class WorkflowStructureTests(unittest.TestCase):
             r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
             r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
         )
-        action_sha = "21887bc31548d09315a272618edd5e2d345eecad"
+        action_sha = "9e9dc782cdd784515490000754976e2317a931a3"
         self.assertIn(f"prepare-ta-validator-exceptions@{action_sha}", preparation)
         self.assertIn(f"run-ta-validator@{action_sha}", preparation)
         self.assertNotIn("outputs:", preparation)
@@ -314,11 +314,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("actions/upload-artifact@v7", run_scorecard)
         self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
-            "run-ta-validator@21887bc31548d09315a272618edd5e2d345eecad",
+            "run-ta-validator@9e9dc782cdd784515490000754976e2317a931a3",
             run_scorecard,
         )
         self.assertEqual(
-            run_scorecard.count("run-ta-validator@21887bc31548d09315a272618edd5e2d345eecad"),
+            run_scorecard.count("run-ta-validator@9e9dc782cdd784515490000754976e2317a931a3"),
             1,
         )
         self.assertIn("- name: Run TA Validator\n", run_scorecard)
