@@ -1,7 +1,6 @@
 {
     "extends": [
       "config:base",
-      "helpers:pinGitHubActionDigests",
       "group:all",
       ":semanticCommitTypeAll(chore)",
       "schedule:earlyMondays",

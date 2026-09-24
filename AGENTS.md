@@ -13,8 +13,8 @@ contract in [`README.md`](README.md) before changing behavior.
 - Use Python and POSIX shell for repository-owned automation. Do not introduce
   JavaScript or Node tooling.
 - Use kebab-case for new job IDs and `workflow_call` input names.
-- Pin third-party GitHub Actions to immutable commit SHAs and retain the
-  readable release tag in a trailing comment.
+- Pin third-party GitHub Actions to readable release tags, preferring minor or
+  patch tags when the action publishes them.
 - Never expose TA or template repository credentials to pull-request code.
 
 ## How a TA calls the workflow
