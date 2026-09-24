@@ -3,6 +3,8 @@ repos:
     rev: v4.4.0
     hooks:
       - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=3072, --enforce-all]
   - repo: https://github.com/google/yamlfmt
     rev: v0.21.0
     hooks:
@@ -16,3 +18,17 @@ repos:
         language: script
         types: ["yaml"]
         files: ^.github/workflows/
+      - id: python-complexity
+        name: Python complexity (Ruff C901)
+        entry: ruff check --no-cache --select C901 scripts
+        language: python
+        additional_dependencies: ["ruff==0.14.14"]
+        pass_filenames: false
+        files: ^(scripts/.*\.py|pyproject\.toml)$
+      - id: workflow-hygiene
+        name: workflow hygiene (dead inputs and secrets)
+        description: "Flags unused workflow_call inputs and secrets."
+        entry: python scripts/check_workflow_hygiene.py
+        language: python
+        additional_dependencies: ["pyyaml==6.0.3"]
+        files: ^\.github/workflows/reusable-build-test-release\.yml$
