@@ -168,9 +168,9 @@ class WorkflowStructureTests(unittest.TestCase):
         cls.workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
         cls.action = ACTION_YAML_PATH.read_text(encoding="utf-8")
 
-    def test_action_uses_pinned_find_comment_and_python_for_creation(self):
+    def test_action_uses_versioned_find_comment_and_python_for_creation(self):
         self.assertIn(
-            "peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad",
+            "peter-evans/find-comment@v4",
             self.action,
         )
         self.assertNotIn("actions/github-script", self.action)
