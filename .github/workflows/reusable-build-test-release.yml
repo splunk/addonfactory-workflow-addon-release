@@ -1321,7 +1321,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
@@ -1348,7 +1348,7 @@ jobs:
           aws-region: us-west-2
       - name: Upload effective TA Validator exception file
         if: ${{ steps.merge-ta-validator-exceptions.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@v7
         with:
           name: ta-validator-exceptions
           path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
@@ -1369,14 +1369,14 @@ jobs:
               || needs.prepare-ta-validator-exceptions.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - name: Download effective TA Validator exception file
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@v8
         with:
           name: ta-validator-exceptions
           path: ${{ runner.temp }}
@@ -1394,7 +1394,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
       - name: Upload GS Scorecard report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@v7
         with:
           name: gs-scorecard-report
           path: ./gs_scorecard.json
