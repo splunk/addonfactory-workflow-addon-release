@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - run: pip install splunk_add_on_ucc_framework-5.69.1-py3-none-any.whl
       - name: Fetch build
         env:

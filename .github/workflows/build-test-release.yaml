@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.7"
+          python-version: "3.13"
       - run: |
           bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/v1.6.26/scripts/download-actionlint.bash)
       - uses: pre-commit/action@v3.0.1
