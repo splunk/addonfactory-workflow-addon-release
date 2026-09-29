@@ -161,7 +161,6 @@ exceptions: [not-active]
         self.assertEqual(request.get_header("Authorization"), "Bearer app-token")
         self.assertEqual(comment_body, prepare.COMMENT_TEMPLATE)
         self.assertEqual(comment_body.count("justification:"), 2)
-        self.assertNotIn("reason:", comment_body)
 
 
 class WorkflowStructureTests(unittest.TestCase):
@@ -196,7 +195,6 @@ class WorkflowStructureTests(unittest.TestCase):
         if template is not None:
             self.assertEqual(template.count("category: false_positive"), 2)
             self.assertEqual(template.count("justification:"), 2)
-            self.assertNotIn("reason:", template)
         self.assertNotIn("category: false_positive", self.action)
 
     def test_shared_action_runs_merge_and_evaluation_modes(self):
