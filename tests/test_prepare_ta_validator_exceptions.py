@@ -16,7 +16,9 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -230,7 +232,11 @@ class WorkflowStructureTests(unittest.TestCase):
             action,
         )
         self.assertIn(
-            'cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"',
+            'workspace_exceptions_path="$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"',
+            action,
+        )
+        self.assertIn(
+            'cp "$effective_exceptions_path" "$workspace_exceptions_path"',
             action,
         )
         stale_interfaces = (
@@ -242,6 +248,51 @@ class WorkflowStructureTests(unittest.TestCase):
         for stale_interface in stale_interfaces:
             self.assertNotIn(stale_interface, action)
         self.assertNotIn("eval ", action)
+
+    def test_evaluate_rejects_workspace_exception_symlink(self):
+        action = RUN_ACTION_YAML_PATH.read_text(encoding="utf-8")
+        script = textwrap.dedent(action.split("      run: |-\n", 1)[1])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runner_temp = root / "runner-temp"
+            workspace = root / "workspace"
+            fake_bin = root / "bin"
+            runner_temp.mkdir()
+            workspace.mkdir()
+            fake_bin.mkdir()
+
+            effective = runner_temp / ".ta-validator-exceptions.yaml"
+            effective.write_text("version: 1\nexceptions: []\n", encoding="utf-8")
+            outside_target = root / "outside.yaml"
+            outside_target.write_text("do not overwrite\n", encoding="utf-8")
+            (workspace / ".ta-validator-exceptions.yaml").symlink_to(outside_target)
+
+            fake_docker = fake_bin / "docker"
+            fake_docker.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            fake_docker.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "GITHUB_WORKSPACE": str(workspace),
+                    "INPUT_IMAGE": "example.invalid/ta-validator:test",
+                    "INPUT_MODE": "evaluate",
+                    "PATH": f"{fake_bin}:{environment['PATH']}",
+                    "RUNNER_TEMP": str(runner_temp),
+                }
+            )
+            result = subprocess.run(
+                ["bash", "-c", script],
+                check=False,
+                capture_output=True,
+                env=environment,
+                text=True,
+            )
+
+            self.assertEqual(outside_target.read_text(encoding="utf-8"), "do not overwrite\n")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must not be a symbolic link", result.stderr)
 
     def test_default_image_implements_the_effective_file_interface(self):
         self.assertIn(
@@ -302,6 +353,31 @@ class WorkflowStructureTests(unittest.TestCase):
             workflow.index("prepare-ta-validator-exceptions:"),
             workflow.index("run-gs-scorecard:"),
         )
+
+    def test_preparation_job_runs_only_when_ta_validator_is_enabled(self):
+        preparation = self.workflow[
+            self.workflow.index("  prepare-ta-validator-exceptions:") : self.workflow.index(
+                "\n  run-gs-scorecard:",
+                self.workflow.index("  prepare-ta-validator-exceptions:"),
+            )
+        ]
+
+        self.assertIn(
+            "if: ${{ github.event_name == 'pull_request' && "
+            "needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}",
+            preparation,
+        )
+
+    def test_effective_exception_artifact_is_overwritten_on_rerun(self):
+        preparation = self.workflow[
+            self.workflow.index("  prepare-ta-validator-exceptions:") : self.workflow.index(
+                "\n  run-gs-scorecard:",
+                self.workflow.index("  prepare-ta-validator-exceptions:"),
+            )
+        ]
+        upload = preparation[preparation.index("- name: Upload effective TA Validator exception file") :]
+
+        self.assertIn("overwrite: true", upload)
 
     def test_full_evaluation_consumes_only_validated_exception_input(self):
         run_scorecard = self.workflow[

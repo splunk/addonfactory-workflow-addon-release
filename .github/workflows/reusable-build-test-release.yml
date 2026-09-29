@@ -1314,7 +1314,7 @@ jobs:
           path: AppInspect_response.html
 
   prepare-ta-validator-exceptions:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' && needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
     needs:
       - setup-workflow
     runs-on: ubuntu-latest
@@ -1338,7 +1338,6 @@ jobs:
           output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
       - name: Build effective TA Validator exception file
         id: merge-ta-validator-exceptions
-        if: ${{ needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
         uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@af477f9ce5caf4437996979b6808647413bd8fd4
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
@@ -1353,6 +1352,7 @@ jobs:
           name: ta-validator-exceptions
           path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
           include-hidden-files: true
+          overwrite: true
           retention-days: 1
 
   run-gs-scorecard:

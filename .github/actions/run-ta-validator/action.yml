@@ -43,6 +43,7 @@ runs:
         mode="$INPUT_MODE"
         comment_exceptions_path="$RUNNER_TEMP/ta-validator-comment-exceptions.yaml"
         effective_exceptions_path="$RUNNER_TEMP/.ta-validator-exceptions.yaml"
+        workspace_exceptions_path="$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"
         docker_options=(--rm)
 
         case "$mode" in
@@ -66,7 +67,11 @@ runs:
               exit 1
             fi
             if [ -f "$effective_exceptions_path" ]; then
-              cp "$effective_exceptions_path" "$GITHUB_WORKSPACE/.ta-validator-exceptions.yaml"
+              if [ -L "$workspace_exceptions_path" ]; then
+                echo "$workspace_exceptions_path must not be a symbolic link" >&2
+                exit 1
+              fi
+              cp "$effective_exceptions_path" "$workspace_exceptions_path"
             fi
 
             docker_options+=(
