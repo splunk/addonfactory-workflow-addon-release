@@ -71,7 +71,7 @@ on:
         required: false
         description: "Immutable TA Validator image tag and digest"
         type: string
-        default: "mr-140-3fee426db3a8-amd64@sha256:6208da305520a85a3f067ff26caa66eb91371be3c1a53120d77591db2c1d601c"
+        default: "mr-140-6bc13d80bfa0-amd64@sha256:b5e5bd8375bb2b89e09b8164710a1fe5282cb0c4cebb8ad5678dc1887f7e150f"
       gs-version:
         required: false
         description: "Version of the GS scorecard"

@@ -190,7 +190,7 @@ gitGraph
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
 * `python-version` - Python version used for testing, default `3.9`
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
-* `gs-image-version` - version of the TA Validator Docker image, default `mr-140-0431e2581e5d-amd64` while the paired PR-exception interface is awaiting an official release
+* `gs-image-version` - version of the TA Validator Docker image, default `mr-140-6bc13d80bfa0-amd64@sha256:b5e5bd8375bb2b89e09b8164710a1fe5282cb0c4cebb8ad5678dc1887f7e150f` while the paired PR-exception interface is awaiting an official release
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
 
 ## General troubleshooting
@@ -680,11 +680,11 @@ exceptions:
   - check_slug: sensitive-data
     detection_slug: credential-exposure
     category: false_positive
-    reason: This one detection is expected while ADDON-12345 is addressed.
+    justification: This one detection is expected while ADDON-12345 is addressed.
 ```
 
 Every declaration requires `check_slug`, `category` (`false_positive` or
-`accepted_gap`), and non-empty `reason`; `detection_slug` is optional. A
+`accepted_gap`), and non-empty `justification`; `detection_slug` is optional. A
 declaration without `detection_slug` targets the entire check, including a
 check made up of structured detections. TA Validator validates both documents,
 rejects duplicate or unknown targets, and writes the effective file before the
@@ -705,7 +705,7 @@ suppressible result is reported as a warning only.
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-3fee426db3a8-amd64`) exists in the ECR registry. This immutable pre-release image implements the effective-file interface; replace it with the compatible official image after the TA Validator release. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `mr-140-6bc13d80bfa0-amd64@sha256:b5e5bd8375bb2b89e09b8164710a1fe5282cb0c4cebb8ad5678dc1887f7e150f`) exists in the ECR registry. This immutable pre-release image implements the effective-file interface; replace it with the compatible official image after the TA Validator release. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
 - Review the job logs for specific error messages from TA Validator.
 

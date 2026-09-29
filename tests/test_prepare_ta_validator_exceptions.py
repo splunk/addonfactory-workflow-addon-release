@@ -160,6 +160,8 @@ exceptions: [not-active]
         self.assertEqual(json.loads(request.data), {"body": prepare.COMMENT_TEMPLATE})
         self.assertEqual(request.get_header("Authorization"), "Bearer app-token")
         self.assertEqual(comment_body, prepare.COMMENT_TEMPLATE)
+        self.assertEqual(comment_body.count("justification:"), 2)
+        self.assertNotIn("reason:", comment_body)
 
 
 class WorkflowStructureTests(unittest.TestCase):
@@ -184,7 +186,7 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("multiple marked", self.action)
         self.assertNotIn("pin", self.action.lower())
 
-    def test_action_passes_only_comment_body_and_category_template(self):
+    def test_action_passes_only_comment_body_and_canonical_template(self):
         self.assertNotIn("outputs:", self.action)
         self.assertNotIn("id: write-exception-document", self.action)
         self.assertNotIn("INPUT_COMMENT_ID", self.action)
@@ -193,6 +195,8 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIsNotNone(template)
         if template is not None:
             self.assertEqual(template.count("category: false_positive"), 2)
+            self.assertEqual(template.count("justification:"), 2)
+            self.assertNotIn("reason:", template)
         self.assertNotIn("category: false_positive", self.action)
 
     def test_shared_action_runs_merge_and_evaluation_modes(self):
@@ -243,7 +247,7 @@ class WorkflowStructureTests(unittest.TestCase):
 
     def test_default_image_implements_the_effective_file_interface(self):
         self.assertIn(
-            'default: "mr-140-3fee426db3a8-amd64@sha256:6208da305520a85a3f067ff26caa66eb91371be3c1a53120d77591db2c1d601c"',
+            'default: "mr-140-6bc13d80bfa0-amd64@sha256:b5e5bd8375bb2b89e09b8164710a1fe5282cb0c4cebb8ad5678dc1887f7e150f"',
             self.workflow,
         )
 

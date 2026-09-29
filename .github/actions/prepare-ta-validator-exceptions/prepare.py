@@ -31,7 +31,7 @@ exceptions: []
 # Add declarations like:
 # - check_slug: sensitive-data
 #   category: false_positive
-#   reason: Explain why this exception applies.
+#   justification: Explain why this exception applies.
 ```
 <!-- ta-validator-exceptions-config:end -->
 
@@ -44,7 +44,7 @@ exceptions:
   - check_slug: sensitive-data
     detection_slug: credential-exposure
     category: false_positive
-    reason: Accepted for this PR; tracked in ADDON-12345.
+    justification: Accepted for this PR; tracked in ADDON-12345.
 ```
 </details>
 """
