@@ -199,8 +199,7 @@ organization's approved private security-reporting channel.
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
-* `python-version` - Python version used to build the package and run the package-version unit-test job, default `3.9`
-* `test-python-version` - Python version used for pre-commit, WFE test tooling, and test dependencies, default `3.13`
+* All Python jobs, including package build, unit tests, pre-commit, WFE test tooling, and test dependencies, use Python `3.13`. The `python-version` and `test-python-version` workflow inputs have been removed. Callers must remove these inputs when upgrading to this breaking release.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
 * `gs-version` - version of the GS Scorecard tool, default `0.3`
@@ -742,7 +741,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Description:**
 
-- Unit tests run against the configured `python-version`. A separate Python 3.13 job also runs unless `python-version` is already Python 3.13, avoiding duplicate coverage and artifact names.
+- Unit tests run on Python 3.13. The package build and WFE test tooling use the same Python version.
 
 **Action used:** NA
 
