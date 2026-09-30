@@ -1808,9 +1808,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ko*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2088,9 +2087,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ui-*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2366,9 +2364,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-modinput*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2643,9 +2640,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ucc_modinput*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -2909,9 +2905,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-upgrade*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -3180,9 +3175,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-scripted*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
@@ -3272,7 +3266,6 @@ jobs:
           workflow-template-ns: ${{ needs.setup.outputs.argo-namespace }}
           addon-url: ${{ needs.setup.outputs.addon-upload-path }}
           addon-name: ${{ needs.setup.outputs.addon-name }}
-          vendor-version: ${{ matrix.vendor-version.image }}
           sc4s-version: "No"
           k8s-manifests-branch: ${{ needs.setup.outputs.k8s-manifests-branch }}
           python-version: ${{ env.PYTHON_VERSION }}
@@ -3433,9 +3426,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-spl2_integration_tests*/job_summary.txt; do
-            cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          test -n "$(find . -maxdepth 2 -type f -name job_summary.txt -print -quit)"
+          find . -maxdepth 2 -type f -name job_summary.txt -exec cat {} + >> "$GITHUB_STEP_SUMMARY"
       - uses: geekyeggo/delete-artifact@v6
         with:
           name: |
