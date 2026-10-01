@@ -74,12 +74,12 @@ on:
         default: false
       gs-image-version:
         required: false
-        description: "Version of the GS scorecard Docker image"
+        description: "TA Validator image version"
         type: string
-        default: "1.2"
+        default: "1.6.0"
       gs-version:
         required: false
-        description: "Version of the GS scorecard"
+        description: "TA Validator tool version"
         type: string
         default: "0.3"
     secrets:
@@ -1270,7 +1270,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.15
+        uses: splunk/appinspect-cli-action@v2.11
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -1321,12 +1321,60 @@ jobs:
           name: appinspect-api-html-report-${{ matrix.tags }}
           path: AppInspect_response.html
 
+  prepare-ta-validator-exceptions:
+    if: ${{ github.event_name == 'pull_request' && needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
+    needs:
+      - setup-workflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/create-github-app-token@v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+      - name: Prepare TA Validator exception input
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@v5.7.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ github.repository }}
+          pull_request_number: ${{ github.event.pull_request.number }}
+          comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]
+          output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
+      - name: Build effective TA Validator exception file
+        id: merge-ta-validator-exceptions
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@v5.7.0
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: merge
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Upload effective TA Validator exception file
+        if: ${{ steps.merge-ta-validator-exceptions.outcome == 'success' }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ta-validator-exceptions
+          path: ${{ runner.temp }}/.ta-validator-exceptions.yaml
+          include-hidden-files: true
+          overwrite: true
+          retention-days: 1
+
   run-gs-scorecard:
     name: quality-gs-scorecard
     needs:
       - build
       - setup-workflow
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.setup-workflow.outputs.execute-gs-scorecard == 'true' }}
+      - prepare-ta-validator-exceptions
+    if: >-
+      ${{ !cancelled()
+          && needs.build.result == 'success'
+          && needs.setup-workflow.outputs.execute-gs-scorecard == 'true'
+          && (github.event_name != 'pull_request'
+              || needs.prepare-ta-validator-exceptions.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3.2.0
@@ -1334,36 +1382,25 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-      - uses: actions/checkout@v7.0.1
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.3.0
+      - name: Download effective TA Validator exception file
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/download-artifact@v8.0.1
         with:
-          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2.1.7
-      - name: Pull GS Scorecard image
-        run: docker pull 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
-      - name: Run GS Scorecard
+          name: ta-validator-exceptions
+          path: ${{ runner.temp }}
+      - name: Run TA Validator
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        run: |
-          docker run --rm \
-            -e GITHUB_TOKEN \
-            -e GITHUB_USERNAME \
-            -e AWS_ACCESS_KEY_ID="${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}" \
-            -e AWS_SECRET_ACCESS_KEY="${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}" \
-            -e AWS_DEFAULT_REGION="us-west-2" \
-            -e APPINSPECT_USER \
-            -e APPINSPECT_PASS \
-            -e GS_VERSION="${{ env.GS_VERSION }}" \
-            -v "$(pwd)":/addon \
-            956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:"${{ env.GS_IMAGE_VERSION }}"
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@v5.7.0
+        with:
+          image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
+          mode: evaluate
+          aws-access-key-id: ${{ secrets.GSSA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GSSA_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
       - name: Upload GS Scorecard report
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -2012,13 +2049,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-ko*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ko*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No knowledge-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -2292,13 +2335,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-ui*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ui-*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No UI-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -2570,13 +2619,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-modinput*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-modinput*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No modinput-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -2847,13 +2902,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-ucc_modinput*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-ucc_modinput*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No UCC modinput-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -3113,13 +3174,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-upgrade*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-upgrade*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No upgrade-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -3384,13 +3451,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-scripted*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-scripted*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No scripted-input-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -3637,13 +3710,19 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           pattern: summary-spl2_integration_tests*
+          path: summaries
       - name: Combine summaries into a table
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          for file in summary-spl2_integration_tests*/job_summary.txt; do
+          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          if [[ -z "$summary_files" ]]; then
+            echo "::error::No SPL2 integration-test summary artifacts were downloaded"
+            exit 1
+          fi
+          while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
-          done
+          done <<< "$summary_files"
       - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
@@ -3676,6 +3755,7 @@ jobs:
       - run-ucc-modinput-tests
       - run-ui-tests
       - validate-pr-title
+      - prepare-ta-validator-exceptions
       - run-gs-scorecard
       - fossa-vulnerability-test
     runs-on: ubuntu-latest
@@ -3686,7 +3766,7 @@ jobs:
         id: check
         shell: bash
         run: |
-          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | .[] | select((.result != "skipped") and .result != "success") | length == 0')
+          RUN_PUBLISH=$(echo "$NEEDS" | jq 'del(.["run-gs-scorecard"]) | [.[] | select(.result != "skipped" and .result != "success")] | length == 0')
           if [[ "$RUN_PUBLISH" != *'false'* ]] && [[ "${{ needs.check-docs-changes.outputs.docs-only }}" == 'false' ]]
           then
               echo "run-publish=true" >> "$GITHUB_OUTPUT"
