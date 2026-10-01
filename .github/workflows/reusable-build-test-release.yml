@@ -2062,7 +2062,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-ko*
@@ -2348,7 +2348,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-ui*
@@ -2632,7 +2632,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-modinput*
@@ -2915,7 +2915,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-ucc_modinput*
@@ -3187,7 +3187,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-upgrade*
@@ -3464,7 +3464,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-scripted*
@@ -3723,7 +3723,7 @@ jobs:
           while IFS= read -r file; do
             cat "$file" >> "$GITHUB_STEP_SUMMARY"
           done <<< "$summary_files"
-      - uses: geekyeggo/delete-artifact@v6
+      - uses: geekyeggo/delete-artifact@v6.0.0
         with:
           name: |
             summary-spl2_integration_tests*
