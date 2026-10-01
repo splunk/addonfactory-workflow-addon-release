@@ -173,7 +173,7 @@ class WorkflowStructureTests(unittest.TestCase):
 
     def test_action_uses_versioned_find_comment_and_python_for_creation(self):
         self.assertIn(
-            "peter-evans/find-comment@v4",
+            "peter-evans/find-comment@v4.0.0",
             self.action,
         )
         self.assertNotIn("actions/github-script", self.action)
@@ -210,9 +210,9 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("output-exceptions-path:", action)
         self.assertNotIn("effective-exceptions-path:", action)
         self.assertNotIn("addon-read-only:", action)
-        self.assertIn("actions/checkout@v7", action)
-        self.assertIn("aws-actions/configure-aws-credentials@v6", action)
-        self.assertIn("aws-actions/amazon-ecr-login@v2", action)
+        self.assertIn("actions/checkout@v7.0.1", action)
+        self.assertIn("aws-actions/configure-aws-credentials@v6.3.0", action)
+        self.assertIn("aws-actions/amazon-ecr-login@v2.1.7", action)
         self.assertIn("docker pull", action)
         self.assertIn("docker run", action)
         self.assertIn('case "$mode" in', action)
@@ -311,8 +311,8 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertNotIn("\n      issues: write", preparation)
         self.assertIn("permission-issues: write", preparation)
         self.assertIn("permission-pull-requests: write", preparation)
-        self.assertIn("actions/create-github-app-token@v3", preparation)
-        self.assertIn("actions/upload-artifact@v7", preparation)
+        self.assertIn("actions/create-github-app-token@v3.2.0", preparation)
+        self.assertIn("actions/upload-artifact@v7.0.1", preparation)
         self.assertIn("client-id: ${{ secrets.GH_APP_CLIENT_ID }}", preparation)
         self.assertNotIn("owner: ${{ github.repository_owner }}", preparation)
         self.assertIn(
@@ -384,9 +384,9 @@ class WorkflowStructureTests(unittest.TestCase):
         ]
         self.assertIn("- prepare-ta-validator-exceptions", run_scorecard)
         self.assertIn("needs.prepare-ta-validator-exceptions.result == 'success'", run_scorecard)
-        self.assertIn("actions/create-github-app-token@v3", run_scorecard)
-        self.assertIn("actions/download-artifact@v8", run_scorecard)
-        self.assertIn("actions/upload-artifact@v7", run_scorecard)
+        self.assertIn("actions/create-github-app-token@v3.2.0", run_scorecard)
+        self.assertIn("actions/download-artifact@v8.0.1", run_scorecard)
+        self.assertIn("actions/upload-artifact@v7.0.1", run_scorecard)
         self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
             "run-ta-validator@v5.7.0",
