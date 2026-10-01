@@ -74,7 +74,7 @@ on:
         default: "1.6.0"
       gs-version:
         required: false
-        description: "Version of the GS scorecard"
+        description: "TA Validator tool version"
         type: string
         default: "0.3"
     secrets:
