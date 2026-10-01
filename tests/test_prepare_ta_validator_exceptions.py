@@ -296,7 +296,7 @@ class WorkflowStructureTests(unittest.TestCase):
 
     def test_default_image_implements_the_effective_file_interface(self):
         self.assertIn(
-            'default: "1.6.0@sha256:38a0cc43838328a2d159dfdd03b7b924e173b244c3b255a09bf825130b56c949"',
+            'default: "1.6.0"',
             self.workflow,
         )
 
@@ -318,14 +318,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn(
             "comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]", preparation
         )
-        self.assertRegex(
-            preparation,
-            r"uses: splunk/addonfactory-workflow-addon-release/\.github/actions/"
-            r"prepare-ta-validator-exceptions@[0-9a-f]{40}",
+        action_version = "v5.7.0"
+        self.assertIn(
+            f"prepare-ta-validator-exceptions@{action_version}", preparation
         )
-        action_sha = "500ca6d30839d2ec1881c6adc0e1e3563b82192a"
-        self.assertIn(f"prepare-ta-validator-exceptions@{action_sha}", preparation)
-        self.assertIn(f"run-ta-validator@{action_sha}", preparation)
+        self.assertIn(f"run-ta-validator@{action_version}", preparation)
         self.assertNotIn("outputs:", preparation)
         self.assertNotIn("comment-" + "reference", preparation)
         self.assertNotIn("id: prepare-ta-validator-exceptions", preparation)
@@ -392,11 +389,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("actions/upload-artifact@v7", run_scorecard)
         self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
-            "run-ta-validator@500ca6d30839d2ec1881c6adc0e1e3563b82192a",
+            "run-ta-validator@v5.7.0",
             run_scorecard,
         )
         self.assertEqual(
-            run_scorecard.count("run-ta-validator@500ca6d30839d2ec1881c6adc0e1e3563b82192a"),
+            run_scorecard.count("run-ta-validator@v5.7.0"),
             1,
         )
         self.assertIn("- name: Run TA Validator\n", run_scorecard)

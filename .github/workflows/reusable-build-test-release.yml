@@ -69,9 +69,9 @@ on:
         default: false
       gs-image-version:
         required: false
-        description: "Immutable TA Validator image tag and digest"
+        description: "TA Validator image version"
         type: string
-        default: "1.6.0@sha256:38a0cc43838328a2d159dfdd03b7b924e173b244c3b255a09bf825130b56c949"
+        default: "1.6.0"
       gs-version:
         required: false
         description: "Version of the GS scorecard"
@@ -1329,7 +1329,7 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare TA Validator exception input
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@500ca6d30839d2ec1881c6adc0e1e3563b82192a
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@v5.7.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: ${{ github.repository }}
@@ -1338,7 +1338,7 @@ jobs:
           output_path: ${{ runner.temp }}/ta-validator-comment-exceptions.yaml
       - name: Build effective TA Validator exception file
         id: merge-ta-validator-exceptions
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@500ca6d30839d2ec1881c6adc0e1e3563b82192a
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@v5.7.0
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: merge
@@ -1386,7 +1386,7 @@ jobs:
           GITHUB_USERNAME: ${{ secrets.SA_GH_USER_NAME }}
           APPINSPECT_USER: ${{ secrets.SPL_COM_USER }}
           APPINSPECT_PASS: ${{ secrets.SPL_COM_PASSWORD }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@500ca6d30839d2ec1881c6adc0e1e3563b82192a
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@v5.7.0
         with:
           image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/gs-scorecard:${{ env.GS_IMAGE_VERSION }}
           mode: evaluate
