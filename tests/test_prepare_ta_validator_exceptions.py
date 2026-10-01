@@ -296,7 +296,7 @@ class WorkflowStructureTests(unittest.TestCase):
 
     def test_default_image_implements_the_effective_file_interface(self):
         self.assertIn(
-            'default: "mr-140-6bc13d80bfa0-amd64@sha256:b5e5bd8375bb2b89e09b8164710a1fe5282cb0c4cebb8ad5678dc1887f7e150f"',
+            'default: "1.6.0@sha256:38a0cc43838328a2d159dfdd03b7b924e173b244c3b255a09bf825130b56c949"',
             self.workflow,
         )
 
