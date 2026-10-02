@@ -57,6 +57,16 @@ on:
         description: "Forces WFE tests to run only on the latest Splunk when set to true. When set to false - will run on all supported Splunk versions required for the release. When not set - default behavior."
         type: string
         default: "false"
+      python-version:
+        required: false
+        description: "Python version for build, tests, and WFE (3.9 or 3.13; defaults to 3.13)"
+        type: string
+        default: ""
+      test-python-version:
+        required: false
+        description: "Deprecated alias for python-version; used only when python-version is unset"
+        type: string
+        default: ""
       spl2-generate:
         required: false
         description: "Run spl2-generate hook during pre-commit step"
@@ -134,7 +144,7 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 env:
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: ${{ inputs.python-version || inputs.test-python-version || '3.13' }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
   FOSSA_CLI_VERSION: "v3.18.4"
@@ -751,7 +761,7 @@ jobs:
       block_mode: "policy"
 
   run-unit-tests:
-    name: run-unit-tests (3.13)
+    name: run-unit-tests (${{ inputs.python-version || inputs.test-python-version || '3.13' }})
     runs-on: ubuntu-22.04
     needs:
       - setup-workflow
