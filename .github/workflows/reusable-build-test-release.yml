@@ -712,16 +712,16 @@ jobs:
         uses: fsfe/reuse-action@v6.0.0
 
   pre-commit:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v6.3.0
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ env.TEST_PYTHON_VERSION }}
-      - uses: actions/setup-java@v5.7.0
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '25'
       - name: Run pre-commit (skip spl2-generate)
         if: ${{ !inputs['spl2-generate'] }}
         uses: pre-commit/action@v3.0.1
@@ -749,7 +749,7 @@ jobs:
           fetch-depth: "0"
           ref: ${{ github.head_ref }}
       - name: Secret Scanning Trufflehog
-        uses: trufflesecurity/trufflehog@v3.95.9
+        uses: trufflesecurity/trufflehog@v3.97.9
         with:
           extra_args: -x .github/workflows/exclude-patterns.txt --json --only-verified
           version: 3.77.0
@@ -763,7 +763,7 @@ jobs:
 
   run-unit-tests:
     name: run-unit-tests (${{ inputs.python-version }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' }}
@@ -784,7 +784,7 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v6.3.0
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ env.UNIT_TESTS_PYTHON_VERSION }}
       - name: Setup addon
@@ -837,7 +837,7 @@ jobs:
 
   run-unit-tests-py313:
     name: run-unit-tests (3.13)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs:
       - setup-workflow
     if: ${{ needs.setup-workflow.outputs.execute-unit == 'true' && inputs.python-version != '3.13' }}
@@ -858,7 +858,7 @@ jobs:
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
       - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v6.3.0
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ env.UNIT_TESTS_PYTHON_VERSION }}
       - name: Setup addon
@@ -910,7 +910,7 @@ jobs:
           path: test-results/*
 
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs:
       - check-docs-changes
       - validate-custom-version
@@ -942,13 +942,13 @@ jobs:
           # build if this is not set false
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v6.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-java@v5.7.0
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '25'
       - name: create requirements file for pip
         run: |
           git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
@@ -1131,7 +1131,7 @@ jobs:
 
   build-py313:
     name: build (3.13)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     needs:
       - check-docs-changes
       - validate-custom-version
@@ -1160,13 +1160,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup python
-        uses: actions/setup-python@v6.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ env.BUILD_PYTHON_VERSION }}
-      - uses: actions/setup-java@v5.7.0
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '25'
       - name: create requirements file for pip
         run: |
           git config --global --add url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com".insteadOf https://github.com
@@ -1270,7 +1270,7 @@ jobs:
           name: package-splunkbase
           path: build/package/
       - name: Scan
-        uses: splunk/appinspect-cli-action@v2.11
+        uses: splunk/appinspect-cli-action@v2.15
         with:
           app_path: build/package/
           included_tags: ${{ matrix.tags }}
@@ -1425,7 +1425,7 @@ jobs:
       - setup-workflow
       - build
     if: ${{ !cancelled() && needs.build.result == 'success' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     outputs:
       argo-server: ${{ steps.test-setup.outputs.argo-server }}
       argo-http1: ${{ steps.test-setup.outputs.argo-http1 }}
@@ -1497,7 +1497,7 @@ jobs:
           name: artifact-openapi
           path: ${{ github.workspace }}
       - name: Setup python
-        uses: actions/setup-python@v6.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ env.TEST_PYTHON_VERSION }}
       - name: setup-poetry
@@ -1562,7 +1562,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1777,7 +1777,7 @@ jobs:
           spl2_tests_run cli -n 8 --cli_cache --ignore_additional_fields_in_actual --ignore_empty_strings -o log_cli=true --log-cli-level=INFO --verbose --junitxml test-results/report.xml
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: spl2 test report
@@ -1804,7 +1804,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         sc4s: ${{ fromJson(needs.meta.outputs.matrix_supportedSC4S) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -1997,7 +1997,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/test-results/cim-compliance-report.md
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} test report
@@ -2083,7 +2083,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedUIVendors) }}
         marker: ${{ fromJson(inputs.ui_marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2283,7 +2283,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.browser }} ${{ matrix.vendor-version.image }} test report
@@ -2369,7 +2369,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2567,7 +2567,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
@@ -2652,7 +2652,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         marker: ${{ fromJson(inputs.ucc-modinput-marker) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -2850,7 +2850,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} ${{ matrix.marker }} test report
@@ -2935,7 +2935,7 @@ jobs:
         vendor-version: ${{ fromJson(needs.meta.outputs.matrix_supportedModinputFunctionalVendors) }}
         ta-version-from-upgrade: ${{ fromJson(inputs.upgrade-tests-ta-versions) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -3122,7 +3122,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ matrix.vendor-version.image }} test report
@@ -3206,7 +3206,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_Splunk) }}
         os: ${{ fromJson(inputs.scripted-inputs-os-list) }}
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -3399,7 +3399,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ steps.os-name-version.outputs.os-name }} ${{ steps.os-name-version.outputs.os-version }}  test report
@@ -3482,7 +3482,7 @@ jobs:
         splunk: ${{ fromJson(needs.meta.outputs.matrix_latestSplunk) }}
         spl2-test-type: ["CIM", "TA"]
     container:
-      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+      image: ghcr.io/splunk/workflow-engine-base:5.0.0
     env:
       ARGO_SERVER: ${{ needs.setup.outputs.argo-server }}
       ARGO_HTTP1: ${{ needs.setup.outputs.argo-http1 }}
@@ -3669,7 +3669,7 @@ jobs:
             ${{ needs.setup.outputs.directory-path }}/argo-logs
       - name: Test Report
         id: test_report
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         if: ${{ !cancelled() }}
         with:
           name: splunk ${{ matrix.splunk.version }}${{ secrets.OTHER_TA_REQUIRED_CONFIGS }} ${{ env.TEST_TYPE }} ${{ env.SPL2_TEST_TYPE }} test report
