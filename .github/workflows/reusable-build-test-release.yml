@@ -182,6 +182,66 @@ jobs:
             exit 0
           fi
 
+  validate-dev-deps:
+    name: validate TA test dependencies
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read declared test Python
+        id: test-python
+        shell: bash
+        run: |
+          if [[ ! -f dev_deps/python-version ]]; then
+            echo "declared=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! -f dev_deps/requirements_dev.txt ]]; then
+            echo "::error::dev_deps/python-version requires dev_deps/requirements_dev.txt"
+            exit 1
+          fi
+          version=$(<dev_deps/python-version)
+          if [[ ! "$version" =~ ^3\.[0-9]+$ ]]; then
+            echo "::error::dev_deps/python-version must contain one Python minor version, such as 3.9"
+            exit 1
+          fi
+          echo "declared=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v6.3.0
+        if: ${{ steps.test-python.outputs.declared == 'true' }}
+        with:
+          python-version: ${{ steps.test-python.outputs.version }}
+      - name: Validate pinned test dependencies
+        if: ${{ steps.test-python.outputs.declared == 'true' }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          pinned = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==([^\s;#]+)(?:\s*;.*)?$')
+          git_commit = re.compile(r'^(?:[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_,.-]+\])?\s*@\s*)?git\+[^\s;]+@[0-9a-fA-F]{40}(?:#[^\s;]+)?(?:\s*;.*)?$')
+          path = Path('dev_deps/requirements_dev.txt')
+          count = 0
+          for number, line in enumerate(path.read_text().splitlines(), 1):
+              requirement = line.split(' #', 1)[0].strip()
+              if not requirement or requirement.startswith('#'):
+                  continue
+              match = pinned.fullmatch(requirement)
+              if (match and '*' not in match.group(1)) or git_commit.fullmatch(requirement):
+                  count += 1
+                  continue
+              raise SystemExit(f'{path}:{number}: use an exact == version or a Git commit SHA')
+          if count == 0:
+              raise SystemExit(f'{path}: no test dependencies found')
+          PY
+          python -m venv "$RUNNER_TEMP/ta-test-deps"
+          "$RUNNER_TEMP/ta-test-deps/bin/python" -m pip install --no-deps -r dev_deps/requirements_dev.txt
+          "$RUNNER_TEMP/ta-test-deps/bin/python" -m pip check
+
   check-docs-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -913,6 +973,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - check-docs-changes
+      - validate-dev-deps
       - validate-custom-version
       - setup-workflow
       - meta
@@ -923,7 +984,7 @@ jobs:
       - run-unit-tests
       - run-unit-tests-py313
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() && needs.validate-dev-deps.result == 'success' && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
