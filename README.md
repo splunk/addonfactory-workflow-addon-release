@@ -209,11 +209,12 @@ organization's approved private security-reporting channel.
 
 When a TA commits `dev_deps/python-version`, the reusable workflow checks that
 it contains one Python minor version (such as `3.9`) and requires
-`dev_deps/requirements_dev.txt`. Every requirement must use an exact `==`
-version or a Git commit SHA. The workflow installs the file into a clean
-environment for that Python version with `pip --no-deps`, then runs `pip check`
-before the build can proceed. TA pull requests must be able to install these
-dependencies without access to a GitHub App token.
+`dev_deps/requirements_dev.txt`. Each listed direct dependency must use an
+exact `==` version or a Git commit SHA. The workflow installs the file into a
+clean environment for that Python version, lets pip resolve transitive
+dependencies, then runs `pip check` before the build can proceed. TA pull
+requests must be able to install these dependencies without access to a GitHub
+App token.
 
 TAs without `dev_deps/python-version` retain their existing workflow behavior.
 This declaration is independent of the reusable workflow's `python-version`

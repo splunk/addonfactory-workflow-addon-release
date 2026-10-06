@@ -239,7 +239,7 @@ jobs:
               raise SystemExit(f'{path}: no test dependencies found')
           PY
           python -m venv "$RUNNER_TEMP/ta-test-deps"
-          "$RUNNER_TEMP/ta-test-deps/bin/python" -m pip install --no-deps -r dev_deps/requirements_dev.txt
+          "$RUNNER_TEMP/ta-test-deps/bin/python" -m pip install -r dev_deps/requirements_dev.txt
           "$RUNNER_TEMP/ta-test-deps/bin/python" -m pip check
 
   check-docs-changes:
