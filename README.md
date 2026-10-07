@@ -202,8 +202,8 @@ organization's approved private security-reporting channel.
 * `python-version` - Python version for package build, unit tests, pre-commit, WFE test tooling, and test dependencies. Supports `3.9` and `3.13`; defaults to `3.13`.
 * `test-python-version` - deprecated alias for `python-version`. Used only when `python-version` is unset; both inputs select one version for all Python jobs.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
-* `gs-image-version` - version of the GS Scorecard Docker image, default `1.2`
-* `gs-version` - version of the GS Scorecard tool, default `0.3`
+* `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
+* `gs-version` - TA Validator tool version, default `0.3`
 
 ## Workflow Secrets
 
@@ -694,21 +694,58 @@ appinspect-api-html-report-self-service
 
 **Description**
 
-- This job runs the Gold Standard Scorecard quality assessment tool to evaluate the add-on against security and quality standards.
+- This compatibility-named job runs the TA Validator quality assessment to evaluate the add-on against security and quality standards.
 
-- The GS Scorecard tool is containerized and runs in a Docker container, analyzing the repository and generating a comprehensive quality report.
+- TA Validator runs in a Docker container, analyzes the repository, and generates a quality report.
 
 - This job runs only after a successful build, either on push events to the main branch or when the execute_gs_scorecard label is added to a pull request.
 
 **Action used:** 
 - AWS ECR (Elastic Container Registry) for Docker image storage
-- Custom Docker image: `ta-automation/gs-scorecard` pushed from GitLab GS Scorecard repository
+- Custom Docker image: `ta-automation/gs-scorecard:1.6.0` pushed from the TA Validator repository
+- `splunk/addonfactory-workflow-addon-release/.github/actions/prepare-ta-validator-exceptions@v5.7.0`
+- `splunk/addonfactory-workflow-addon-release/.github/actions/run-ta-validator@v5.7.0`
+
+### Temporary pull-request exceptions
+
+The exception lifecycle has one file format and one evaluation input:
+
+1. A committed `.ta-validator-exceptions.yaml` holds permanent declarations.
+2. On a pull request, developers edit the active YAML fence in the single
+   automation-managed **TA Validator exceptions** comment, then select
+   **Re-run all jobs**. Editing the comment alone does not start a workflow.
+3. The workflow extracts that fence unchanged and asks TA Validator to merge it
+   with the committed file into one validated effective file.
+4. The evaluation job installs the effective file as
+   `.ta-validator-exceptions.yaml` in its ephemeral checkout.
+5. Normal TA Validator evaluation reads only that conventional file; it does
+   not know about pull-request comments or temporary transport inputs.
+
+The comment and committed file use the same canonical YAML document:
+
+```yaml
+version: 1
+exceptions:
+  - check_slug: sensitive-data
+    detection_slug: credential-exposure
+    category: false_positive
+    justification: This one detection is expected while ADDON-12345 is addressed.
+```
+
+Every declaration requires `check_slug`, `category` (`false_positive` or
+`accepted_gap`), and non-empty `justification`; `detection_slug` is optional. A
+declaration without `detection_slug` targets the entire check, including a
+check made up of structured detections. TA Validator validates both documents,
+rejects duplicate or unknown targets, and writes the effective file before the
+full evaluation starts. Malformed permanent and comment inputs therefore fail
+early through the same validation path. A valid declaration that produces no
+suppressible result is reported as a warning only.
 
 **Pass/fail behaviour:**
 
-- The job executes the GS Scorecard analysis and generates a quality report.
+- The job executes TA Validator analysis and generates a quality report.
 
-- The job requires proper AWS credentials for accessing the ECR registry and GitHub credentials for repository analysis.
+- The job requires proper AWS credentials for accessing the ECR registry and GitHub credentials for repository analysis. On pull requests, it consumes only the validated, short-lived exception artifact produced by the preparation job.
 
 **Troubleshooting steps for failures if any:**
 
@@ -717,9 +754,9 @@ appinspect-api-html-report-self-service
   - `GH_APP_PRIVATE_KEY` (secret) and `GH_APP_CLIENT_ID` (variable) for GitHub App authentication, and `SA_GH_USER_NAME` for GitHub access
   - `SPL_COM_USER` and `SPL_COM_PASSWORD` for AppInspect integration
 
-- Check that the Docker image version specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.2`) exists in the ECR registry. The GS Scorecard tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
+- Check that the Docker image tag specified via the `gs-image-version` workflow input (`GS_IMAGE_VERSION` env var, default `1.6.0`) exists in the ECR registry. The TA Validator tool version is controlled separately via `gs-version` input (`GS_VERSION` env var, default `0.3`).
 
-- Review the job logs for specific error messages from the GS Scorecard tool.
+- Review the job logs for specific error messages from TA Validator.
 
 - Ensure the build job completed successfully before this job runs, as it depends on the build artifacts.
 
