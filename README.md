@@ -205,6 +205,29 @@ organization's approved private security-reporting channel.
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
 
+### Python migration contract
+
+The selected version is `python-version`, then the deprecated `test-python-version`
+alias if the first input is unset, then `3.13`. Only `3.9` and `3.13` are accepted;
+other selected values fail in `setup-workflow` before pre-commit, build, unit tests,
+or WFE submission.
+
+This is a breaking change: `python-version` now also selects the runtime and test
+dependencies for all WFE suites (btool, knowledge, UI, modinput, UCC modinput,
+scripted inputs, upgrade, and SPL2), rather than just package build and unit tests.
+An existing `python-version: "3.9"` caller therefore selects 3.9 for those WFE paths
+as well. When both inputs are set, `python-version` wins; separate build and WFE
+Python versions are no longer supported. Deploy the coordinated WFE templates
+and images before adopting the new workflow release. SPL2 uses its separate
+image compatibility mapping in the WFE templates.
+
+Unit tests run once on the selected version. The JUnit artifact is named
+`test-results-unit-python_<selected-version>`: `test-results-unit-python_3.13`
+for the default or `test-results-unit-python_3.9` for the override. The removed
+parallel 3.13 job no longer guarantees a `_3.13` artifact for a 3.9 caller.
+Artifact consumers must select the configured version or match
+`test-results-unit-python_*`.
+
 ## Workflow Secrets
 
 All secrets below are declared `required: true` under `on.workflow_call.secrets` and must be passed by
@@ -779,7 +802,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Description:**
 
-- Unit tests run on Python 3.13. The package build and WFE test tooling use the same Python version.
+- Unit tests run on the selected `python-version` (default `3.13`, or `3.9` when overridden). The package build, pre-commit, and WFE test tooling use the same selected version.
 
 **Action used:** NA
 
@@ -793,7 +816,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Artifacts:**
 
-- Junit Test result xml file
+- JUnit XML in `test-results-unit-python_<selected-version>` (see the Python migration contract above).
 
 ## [Job] run-btool-check
 

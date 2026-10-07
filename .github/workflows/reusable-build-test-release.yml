@@ -144,6 +144,7 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 env:
+  # Keep this fallback in sync with jobs.run-unit-tests.name (env is unavailable there).
   PYTHON_VERSION: ${{ inputs.python-version || inputs.test-python-version || '3.13' }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
@@ -227,6 +228,16 @@ jobs:
       argo_server_domain_k8s: ${{ steps.k8s-environment.outputs.argo_server_domain }}
       argo_token_secret_id_k8s: ${{ steps.k8s-environment.outputs.argo_token_secret_id }}
     steps:
+      - name: Validate selected Python version
+        run: |
+          case "$PYTHON_VERSION" in
+            3.9|3.13) ;;
+            *)
+              echo "::error::Supported Python versions are 3.9 and 3.13. Check python-version or its deprecated test-python-version alias."
+              exit 1
+              ;;
+          esac
+
       - name: set k8s environment
         id: k8s-environment
         run: |
@@ -711,6 +722,7 @@ jobs:
         uses: fsfe/reuse-action@v6.0.0
 
   pre-commit:
+    needs: setup-workflow
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7.0.1
@@ -761,6 +773,7 @@ jobs:
       block_mode: "policy"
 
   run-unit-tests:
+    # Keep this fallback in sync with env.PYTHON_VERSION.
     name: run-unit-tests (${{ inputs.python-version || inputs.test-python-version || '3.13' }})
     runs-on: ubuntu-22.04
     needs:
@@ -1858,7 +1871,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-ko*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No knowledge-test summary artifacts were downloaded"
             exit 1
@@ -2144,7 +2158,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-ui*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No UI-test summary artifacts were downloaded"
             exit 1
@@ -2428,7 +2443,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-modinput*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No modinput-test summary artifacts were downloaded"
             exit 1
@@ -2711,7 +2727,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-ucc_modinput*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No UCC modinput-test summary artifacts were downloaded"
             exit 1
@@ -2983,7 +3000,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-upgrade*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No upgrade-test summary artifacts were downloaded"
             exit 1
@@ -3260,7 +3278,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-scripted*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No scripted-input-test summary artifacts were downloaded"
             exit 1
@@ -3518,7 +3537,8 @@ jobs:
         run: |
           echo "| Job | Total Tests | Passed Tests | Failed Tests | Errored Tests | Skipped Tests | Report Link" >> "$GITHUB_STEP_SUMMARY"
           echo "| ---------- | ----------- | ------ | ------ | ------ | ------- | ------ |" >> "$GITHUB_STEP_SUMMARY"
-          summary_files=$(find summaries -type f -name job_summary.txt -print | sort)
+          summary_files=$(find summaries -maxdepth 2 -type f -name job_summary.txt \
+            \( -path 'summaries/job_summary.txt' -o -path 'summaries/summary-spl2_integration_tests*/job_summary.txt' \) -print | sort)
           if [[ -z "$summary_files" ]]; then
             echo "::error::No SPL2 integration-test summary artifacts were downloaded"
             exit 1
