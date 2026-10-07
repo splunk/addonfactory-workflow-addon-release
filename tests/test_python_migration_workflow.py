@@ -68,6 +68,11 @@ def test_selected_runtime_consumers_wait_for_validation():
         assert "setup-workflow" in ancestors(name), name
 
 
+def test_build_cannot_bypass_failed_python_guard():
+    # !cancelled() permits failed dependencies: build must explicitly require setup success.
+    assert "needs.setup-workflow.result == 'success'" in JOBS["build"]["if"]
+
+
 @pytest.mark.parametrize("report_name,job", REPORTS, ids=[name for name, _ in REPORTS])
 def test_summary_aggregation_sorted_and_scoped(tmp_path, report_name, job):
     download = next(step for step in job["steps"] if step.get("name") == "Download all summaries")

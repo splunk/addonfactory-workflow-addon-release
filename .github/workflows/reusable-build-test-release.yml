@@ -858,7 +858,7 @@ jobs:
       - semgrep
       - run-unit-tests
       - fossa-scan
-    if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
+    if: ${{ !cancelled() && needs.setup-workflow.result == 'success' && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
     permissions:
