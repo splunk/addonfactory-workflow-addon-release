@@ -1097,6 +1097,45 @@ jobs:
             mv "${f}" "${n}"
           done
           slim validate "${PACKAGE}"
+          # Cloud Puppet compares beta requests with launcher.version-install.build.
+          # Keep the version inside the package intact and expose that comparison
+          # value in the archive name used by S3 and TACO.
+          BETA_VERSION="${{ steps.BuildVersion.outputs.VERSION }}"
+          if [[ "$BETA_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-B[0-9]+$ ]]; then
+            LAUNCHER_VERSION=$(awk -F= '
+              /^\[launcher\][[:space:]]*$/ { in_launcher = 1; next }
+              /^\[/ { in_launcher = 0 }
+              in_launcher && $1 ~ /^[[:space:]]*version[[:space:]]*$/ {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+                print $2
+                exit
+              }
+            ' "${INPUT_SOURCE}/default/app.conf")
+            if [[ "$LAUNCHER_VERSION" != "$BETA_VERSION" ]]; then
+              echo "Beta package launcher.version does not match the build version" >&2
+              exit 1
+            fi
+            INSTALL_BUILD=$(awk -F= '
+              /^\[install\][[:space:]]*$/ { in_install = 1; next }
+              /^\[/ { in_install = 0 }
+              in_install && $1 ~ /^[[:space:]]*build[[:space:]]*$/ {
+                gsub(/[[:space:]]/, "", $2)
+                print $2
+                exit
+              }
+            ' "${INPUT_SOURCE}/default/app.conf")
+            if [[ ! "$INSTALL_BUILD" =~ ^[1-9][0-9]*$ ]]; then
+              echo "Beta package needs a positive numeric [install] build" >&2
+              exit 1
+            fi
+            if [[ "$PACKAGE" != *-"$BETA_VERSION".spl ]]; then
+              echo "Beta package filename does not match launcher.version" >&2
+              exit 1
+            fi
+            PUPPET_PACKAGE="${PACKAGE%.spl}-${INSTALL_BUILD}.spl"
+            mv "${PACKAGE}" "${PUPPET_PACKAGE}"
+            PACKAGE="${PUPPET_PACKAGE}"
+          fi
           chmod -R +r build
           echo "OUTPUT=$PACKAGE" >> "$GITHUB_OUTPUT"
         if: always()

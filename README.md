@@ -588,6 +588,14 @@ installation-update.json
 ```
 - package-splunkbase includes Splunkbase equivalent package code
 
+For beta builds, the package keeps the generated `launcher.version` (for example,
+`5.2.1-B1`) and positive numeric `[install] build`. The full package archive is
+named with both values, for example
+`Splunk_TA_google-cloudplatform-5.2.1-B1-1790684208.spl`. Cloud Puppet compares
+the requested beta version to `launcher.version-install.build`, so consumers
+must request the complete version from the archive filename. Stable release
+archive names are unchanged.
+
 
 ## [Job] AppInspect
 
