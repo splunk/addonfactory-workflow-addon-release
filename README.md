@@ -599,17 +599,11 @@ installation-update.json
 
 - Respective Appinspect tags used in stage:
 
-- https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/#Validate-an-app-using-tags
+- https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect#validate-an-app-using-tags
 
 ```
 cloud
-appapproval
-deprecated_feature
-developer_guidance
 future
-self-service
-splunk_appinspect
-manual
 ```
 **Action used:** https://github.com/splunk/appinspect-cli-action
 
@@ -634,14 +628,8 @@ manual
 **Artifacts:**
 
 ```
-appinspect_appapproval_checks.json
 appinspect_cloud_checks.json
-appinspect_deprecated_feature_checks.json
-appinspect_developer_guidance_checks.json
 appinspect_future_checks.json
-appinspect_manual_checks.json
-appinspect_self-service_checks.json
-appinspect_splunk_appinspect_checks.json
 ```
 
 
@@ -655,12 +643,10 @@ appinspect_splunk_appinspect_checks.json
 
 - Respective Appinspect tags used in stage:
 
-- https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect/#Validate-an-app-using-tags
+- https://dev.splunk.com/enterprise/docs/developapps/testvalidate/appinspect#validate-an-app-using-tags
 
 ```
 "cloud"
-"self-service"
-"" (no tags)
 ```
 **Action used:** https://github.com/splunk/appinspect-api-action
 
@@ -684,9 +670,7 @@ appinspect_splunk_appinspect_checks.json
 **Artifacts:**
 
 ```
-appinspect-api-html-report
 appinspect-api-html-report-cloud
-appinspect-api-html-report-self-service
 ```
 
 
