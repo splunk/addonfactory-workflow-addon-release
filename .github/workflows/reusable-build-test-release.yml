@@ -289,7 +289,7 @@ jobs:
             case "${{ github.event_name }}" in
             "pull_request")
               labels=$(echo '${{ toJSON(github.event.pull_request.labels) }}' | jq -r '.[] | .name')
-              if ${{ (github.base_ref == 'main' || startsWith(github.base_ref, 'release/')) && contains(github.event.pull_request.labels.*.name, 'use_labels') }}; then
+              if ${{ startsWith(github.base_ref, 'release/') && contains(github.event.pull_request.labels.*.name, 'use_labels') && !contains(github.event.pull_request.labels.*.name, 'execute_all_tests') }}; then
                 for test_type in "${TESTS_TO_CONSIDER_FOR_EXECUTION[@]}"; do
                   if [[ "$labels" =~ $test_type ]]; then
                     EXECUTION_FLAGS["$test_type"]="true"
