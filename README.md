@@ -1130,6 +1130,8 @@ argo-logs
 
 - For a publish-capable run where the pre-publish conditions are not met, the workflow first requires the `build` job to have succeeded, as that job cannot be overridden. It then verifies that the `publish-override` environment exists and has required reviewers. If either requirement is not met, the override fails. Otherwise, `manual-publish-approval` waits for environment approval before publishing proceeds.
 
+- `splunk/splunk-alerts-for-microsoft-teams` is owned outside GDI Add-ons and is excluded from the shared publish override. Its override verification and manual approval jobs are skipped. Normal publishing still requires successful pre-publish checks, including FOSSA; missing test suites do not bypass those checks for this or any other repository.
+
 **Troubleshooting steps for failures if any**
 
 - In the logs it outputs a json with the info of stages and their pass/fail status. <br /> 
