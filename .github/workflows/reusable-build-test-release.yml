@@ -3777,7 +3777,8 @@ jobs:
           fi
 
   verify-publish-override:
-    if: ${{ !cancelled() && needs.pre-publish.outputs.run-publish != 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
+    # Teams is owned outside GDI Add-ons and does not use its publish approvers.
+    if: ${{ !cancelled() && github.repository != 'splunk/splunk-alerts-for-microsoft-teams' && needs.pre-publish.outputs.run-publish != 'true' && (github.event_name == 'push' || needs.validate-custom-version.result == 'success') }}
     name: Verify publish override environment
     needs:
       - pre-publish
