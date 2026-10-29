@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "resolutions": [
+    {
+      "name": "example-component",
+      "version": "1.2.3",
+      "license": "MIT",
+      "notices": [],
+      "reason": "Illustrative shape only: main LICENSE reviewed; secondary applicability still needs distribution evidence. No separate notice file in this example.",
+      "source": "https://example.org/artifacts/example-component-1.2.3.tar.gz:LICENSE (illustrative reference)",
+      "evidence": {
+        "candidates": [
+          {
+            "source_group": "licenses",
+            "name": "MIT",
+            "disposition": "main",
+            "reason": "Illustrative package LICENSE covers main files.",
+            "references": [
+              "https://example.org/artifacts/example-component-1.2.3.tar.gz:LICENSE"
+            ]
+          },
+          {
+            "source_group": "otherLicenses",
+            "name": "BSD-3-Clause",
+            "disposition": "unresolved",
+            "reason": "Illustrative vendor files have not been traced into the TA distribution.",
+            "references": [
+              "https://example.org/artifacts/example-component-1.2.3.tar.gz:vendor/LICENSE"
+            ]
+          }
+        ],
+        "copyright_sources": [],
+        "distribution_findings": []
+      }
+    }
+  ],
+  "exclusions": []
+}

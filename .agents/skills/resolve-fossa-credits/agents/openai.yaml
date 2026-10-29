@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve FOSSA Credits"
+  short_description: "Review TBD licenses and copyrights against shipped code"
+  default_prompt: "Use $resolve-fossa-credits to research unresolved credits, preserve supporting notices, and update the reviewed resolution configuration."

@@ -362,6 +362,10 @@ E2E testing, evidence requirements, cleanup, and the workflow/template release h
 
 ## [Job] fossa-scan
 
+For local credits review and the reviewed resolution configuration contract,
+see [FOSSA credits review](runbooks/fossa-credits.md). The offline processor
+is available separately; CI integration is planned as a later change.
+
 **Description:**
 
 - This action scans a project for third party components and creates report the with the results. This file job uses `.fossa.yml` configuration file
@@ -1210,3 +1214,12 @@ DOCKER_IMAGE=10.0.14-debian-10-r39
 ```
 
 - If and when Tomcat releases 11.x or 10.1.x or similar, all the developer/add-on team would have to do is just create a new stanza for the version and respective `DOCKER_IMAGE` to validate the behavior.
+
+
+### Local FOSSA JSON credits
+
+Use the [local JSON credits runbook](runbooks/fossa-credits-json.md) to fetch
+an exact FOSSA revision, generate a draft with native license and notice
+evidence, and apply reviewed exact-version rules in a separate offline
+command. TA-owned settings and validator-checked examples are linked there.
+These local commands do not add a workflow or publish credits.
