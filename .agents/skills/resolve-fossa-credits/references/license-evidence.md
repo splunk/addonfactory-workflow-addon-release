@@ -83,15 +83,21 @@ in its main Apache LICENSE, while `Text.js` in the exact npm artifact and
 `src/Text/syncHeightWithShadow.ts` in the exact tagged source contain
 `Copyright (c) 2014 Call-Em-All` with an MIT grant. If that code ships in the
 TA, retain the complete MIT text and Call-Em-All attribution in a supporting
-notice; the main copyright can remain empty after complete review. Inspect
-the exact TA bundle/sourcemap before asserting the supporting code ships.
+notice. The main report field may retain a documented manual `Splunk Inc.`
+attribution even though the exact LICENSE does not declare that holder. Keep
+that policy choice distinct from the upstream finding; the filled Cisco
+copyright appendix in a newer `@splunk/react-ui` version is not a replacement
+for this exact-version rule. Inspect the exact TA bundle/sourcemap before
+asserting the supporting code ships.
 
-If complete evidence reveals no declared owner for the main component, set the reviewed
-`copyright_holder` override to `""` and list the artifact/paths checked in
-the rule's reason and source. Inaccessibility, an absent CSV cell, or a
-detector failure is not a completed upstream review. Do not use an empty
-value to replace a holder that upstream actually names. Required supporting
-attributions remain required.
+If complete evidence reveals no declared owner for the main component and no
+explicit manual attribution was chosen, set the reviewed `copyright_holder`
+override to `""` and list the artifact/paths checked in the rule's reason and
+source. A manual attribution must name its decision and scope in the rule; an
+author field alone is not upstream ownership evidence. Inaccessibility, an
+absent CSV cell, or a detector failure is not a completed upstream review. Do
+not use an empty value to replace a holder that upstream actually names.
+Required supporting attributions remain required.
 
 ## Primary reference material
 

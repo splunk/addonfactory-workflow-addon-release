@@ -59,6 +59,16 @@ upstream holder declaration. Omit a copyright override that is still
 unresolved; the draft `TBD` then blocks completeness. The legacy CSV
 processor retains its separate validation contract.
 
+The JSON `copyright_holder` field is the public report attribution. It can be
+an exact upstream copyright statement or an explicitly chosen manual
+attribution. When a manual value is used, `reason` must say it is a manual
+decision, identify its scope and decision provenance, and state separately
+whether the exact upstream artifact declares a holder. `source` identifies the
+exact artifacts checked. An npm `author` field can inform that decision but
+must not be presented as a copyright declaration. Preserve such a reviewed
+exact-version rule unless its decision is explicitly revised; a nearby-version
+cache entry cannot override it.
+
 Exact-version reviewed overrides take precedence over FOSSA results, including
 `TBD`. A rule for another version of the same library is a research lead, not
 an override. For the JSON route, a scanned component with same-name rules but

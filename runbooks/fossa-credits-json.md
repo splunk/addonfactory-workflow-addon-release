@@ -3,7 +3,30 @@
 Run two local commands from this repository against a TA checkout. The first
 fetches the exact revision's FOSSA attribution JSON V2 and writes a reviewable
 draft; the second applies TA-owned reviewed rules without network access.
-No workflow, new scan, build, or publication is performed.
+These commands do not start a scan, build, or publication; arrange the fresh
+scan separately before fetching its attribution.
+
+## Fresh release scan and inventory decision
+
+For a release-specific report, branch from the TA release tag, point its caller
+at the intended released reusable workflow version, and trigger CI on that
+branch. For an AWS TA 8.2.1 review, branch from `v8.2.1`, call
+`reusable-build-test-release.yml@v5.6`, and use its fresh `fossa-scan` job.
+Record the TA tag, branch head, workflow reference, run URL, scan job result,
+and FOSSA response revision. Check the **scan job** for the selected commit;
+an earlier successful run or an aggregate workflow result is not its result.
+The local draft command below consumes the resulting FOSSA attribution; it
+does not replace the CI scan.
+
+State the report's inventory policy before resolving licenses. The AWS TA
+8.2.1 review uses every exact name/version identity in FOSSA's direct and deep
+dependency arrays as the public credits inventory, with no `additions` or
+`exclusions`. This is an explicit report policy, not a claim that a repository
+scan proves each component is physically present in the published SPL. Use
+the published SPL, source maps, wheels, and binary build evidence to decide
+license and notice applicability. If another review chooses a package-scoped
+inventory, document that separately and apply its additions/exclusions only
+with exact distribution evidence.
 
 ## Set up the TA and generate a draft
 
@@ -61,10 +84,13 @@ the draft keeps that FOSSA text as a candidate and sets `license_text` to
 part of the canonical license. A reviewed `license_text` override with an
 unfilled operative holder slot is rejected. This check applies even if a
 separate copyright field has been resolved.
-Component-local explicit copyright statements may populate the holder;
-authors or report-wide maps cannot. Missing or ambiguous fields remain
-`TBD`. Common license boilerplate about copyright notices or liability is
-not a holder statement and is rejected from reviewed copyright overrides.
+Component-local explicit copyright statements may populate the automatically
+extracted draft holder; authors or report-wide maps cannot establish upstream
+copyright. Missing or ambiguous draft fields remain `TBD`. Common license
+boilerplate about copyright notices or liability is not a holder statement
+and is rejected from reviewed copyright overrides. A later reviewed rule may
+carry an explicit **manual report attribution**, provided its `reason`
+identifies the decision and distinguishes it from upstream declarations.
 Draft `notices` stays empty for review; source notice files stay in
 `fossa_evidence`. Direct dependencies precede deep dependencies in source
 order. No dependency is excluded by name or development label.
@@ -92,6 +118,13 @@ damaged cache or invalid input. Use `--full` to inspect its complete license
 text. A hit is a starting point for the reviewed rule, not an automatic
 override: check the cache provenance and the exact upstream artifact,
 especially when the cache copyright was derived from curated license text.
+For a complete credits audit, compare every final component with the pinned
+cache: exact version, nearby version of the same name, or no match. Compare
+SPDX, legal text, and holder/notice coverage only where those cache fields
+exist. Inspect both exact upstream versions to explain a nearby-version
+difference; do not copy the nearby holder, and do not silently replace a
+documented manual attribution. Record the cache commit and the disposition
+of each material difference beside the report.
 To update the snapshot after checking the generator's current `main` head,
 clone it to an isolated local directory and run
 `python .agents/skills/resolve-fossa-credits/scripts/refresh_pristine_cache.py
@@ -140,9 +173,14 @@ Legacy schema-version-1 rules remain accepted. New rules add structured
 
 Unsupported applicability, missing/stale candidate decisions, and unresolved
 dispositions block completeness. Do not manufacture a main/supporting split.
-Use an explicit `"copyright_holder": ""` override only after documented
-inspection of the exact upstream artifact. Omitted or unreviewed copyright
-stays `TBD` and blocks completeness. Complete supporting terms and
+Use an explicit `"copyright_holder": ""` override after documented inspection
+of the exact upstream artifact finds no main holder and no manual report
+attribution was chosen. Omitted or unreviewed copyright stays `TBD` and blocks
+completeness. A manual attribution such as `Splunk Inc.` is allowed when the
+exact-version rule records that deliberate choice, its scope, and the upstream
+files checked; an npm `author` field alone is not a copyright declaration.
+Do not replace a documented manual choice with a nearby-version cache holder.
+Complete supporting terms and
 attribution go in `notices`, even when their license matches the main license.
 Each notice requires name/license/copyright_holder/license_text/source/reason;
 optional `notice_text` holds the complete separate upstream notice.
@@ -186,6 +224,15 @@ provenance, FOSSA evidence, `licenses_to_verify`, and
 `licenses_text_to_verify` are removed. Included components preserve order.
 Unmatched rules warn and exclusions report reasons. `--output-dir` defaults
 to the current directory.
+
+For a FOSSA-only inventory such as the AWS TA 8.2.1 report, compare the raw
+direct/deep dependency name/version multiset with the final components and
+require no missing, extra, or duplicate identities. Normalize case only for
+known display-name differences. The generator checks structure and unresolved
+fields; its exit `0` does not itself assert this inventory policy. Run the
+`resolve-fossa-credits` review queue and require no current unresolved
+components. Keep its diagnostics and the exact configuration snapshot with
+the raw, draft, and final outputs.
 
 ## Run another TA release with the same reviewed rules
 

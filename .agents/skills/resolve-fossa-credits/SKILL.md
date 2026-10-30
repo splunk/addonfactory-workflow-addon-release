@@ -18,6 +18,11 @@ add-on's resolution configuration and regenerate credits with the processor.
    artifact or reproducible build inputs. Keep dependency versions separate
    from the TA release version. Preserve dirty checkouts; inspect immutable
    refs or use an isolated checkout for builds.
+   Record the report's inventory policy before editing rules. A review may
+   deliberately use FOSSA's exact name/version set as its public inventory;
+   under that policy keep `additions` and `exclusions` empty and reconcile the
+   final identities 1:1 with the raw FOSSA JSON. Treat release-artifact findings
+   as license/notice evidence, not as permission to silently change that set.
    When processing another release of the same TA, reuse its existing
    `fossa-license-resolutions.json`; never replace it with the example or a
    newly generated empty file. Snapshot the configuration beside each run's
@@ -96,6 +101,14 @@ add-on's resolution configuration and regenerate credits with the processor.
    writes deterministic gzip bytes plus a manifest. If access is unavailable,
    state the snapshot commit and
    continue with exact upstream evidence.
+   For a full-report audit, classify every component as exact cache match,
+   same-name/different-version match, or no same-name entry. Compare available
+   SPDX IDs, complete text and holder/notice coverage; a holder-only cache
+   entry with no SPDX or text is not a license conflict. Investigate material
+   differences against the exact current artifact and, for version-driven
+   claims, the cached version's own artifact. Record why the entries differ
+   and which exact-version decision applies. Do not turn a comparison into an
+   automatic override of a documented manual report attribution.
 2. Read its source candidates, text blocks, existing notices, and exact-version
    configuration rule. Use `project_url` as a starting point; it can be a
    registry page rather than a source repository. With a missing URL, locate
@@ -188,10 +201,17 @@ add-on's resolution configuration and regenerate credits with the processor.
   required whole-component license as incidental bundled code.
 - Determine copyright from actual declarations in the exact upstream
   artifact: notice files, licensing files, metadata, and relevant source
-  headers. Preserve multiple applicable statements. Do not substitute an
-  author list, maintainer, vendor, or generic template holder. In particular,
-  `"author": "Splunk Inc."` in an npm package does not by itself establish a
-  `Copyright Splunk Inc.` statement. Keep copyright for embedded code in its
+  headers. Preserve multiple applicable statements. Do not infer an upstream
+  copyright declaration from an author list, maintainer, vendor, or generic
+  template holder. In particular, `"author": "Splunk Inc."` in an npm package
+  does not by itself establish a `Copyright Splunk Inc.` statement. A reviewer
+  may nevertheless retain an explicitly chosen **manual report attribution**
+  such as `Splunk Inc.` when the exact-version rule records who made that
+  choice, its scope, and the upstream files checked. Label it as a manual
+  decision in `reason`; never describe it as an upstream statement or silently
+  replace it with a different version's copyright. If exact upstream evidence
+  conflicts with the manual choice, surface the conflict for review. Keep
+  copyright for embedded code in its
   supporting notice rather than assigning it to the main package. Reject
   ordinary license clauses such as `copyright notice, this list of conditions`
   and `COPYRIGHT HOLDERS BE LIABLE`; these mention copyright but name no
@@ -210,13 +230,16 @@ add-on's resolution configuration and regenerate credits with the processor.
   `license_text` complete. The Apache-2.0 appendix's instructional
   `Copyright [yyyy] [name of copyright owner]` is part of the canonical
   license and is not a package attribution to fill in.
-- If that review finds no holder declaration for the main component, set
-  `copyright_holder` to **`""`** in the exact-version resolution rule.
-  Record what was checked and its exact version in `reason`/`source`; the
-  empty value is a reviewed outcome, not a missing override. Apply the same
-  rule to each supporting notice's own covered code. If upstream was inaccessible or the review is
-  incomplete, leave `TBD`; an empty FOSSA cell alone proves nothing about
-  upstream declarations.
+- If that review finds no holder declaration for the main component and no
+  explicit manual report attribution applies, set `copyright_holder` to
+  **`""`** in the exact-version resolution rule. Record what was checked and
+  its exact version in `reason`/`source`; the empty value is a reviewed outcome,
+  not a missing override. Preserve a documented manual attribution when
+  carrying the rule to another TA release at the same dependency version;
+  recheck its scope and notices against that release. Apply the same upstream
+  review to each supporting notice's own covered code. If upstream was
+  inaccessible or the review is incomplete, leave `TBD`; an empty FOSSA cell
+  alone proves nothing about upstream declarations.
 - For JSON input, preserve native `licenses` and `otherLicenses` categories.
   Add structured `evidence` with a disposition, reason, and immutable
   references for every candidate in each native group, plus
@@ -252,6 +275,10 @@ Re-read the generated JSON. Confirm primary text, supporting license and
 notice text, exact versions, unchanged unrelated components, and remaining
 `TBD` paths and unresolved applicability diagnostics. A license override
 alone does not resolve ambiguous text or applicability.
+If the review selected a FOSSA-only inventory, compare the raw and final
+name/version multisets (normalizing case only for known display-name casing)
+and require zero missing, extra, or duplicate identities. A successful
+structural generation does not perform this policy check for you.
 Run `list_review_queue.py` again after regeneration and compare each remaining
 item with diagnostics. The final generator's exit `1` means the work is still
 pending, even if the example just researched is resolved.
