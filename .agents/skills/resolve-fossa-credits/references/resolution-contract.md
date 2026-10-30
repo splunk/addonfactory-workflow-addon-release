@@ -59,6 +59,14 @@ upstream holder declaration. Omit a copyright override that is still
 unresolved; the draft `TBD` then blocks completeness. The legacy CSV
 processor retains its separate validation contract.
 
+Exact-version reviewed overrides take precedence over FOSSA results, including
+`TBD`. A rule for another version of the same library is a research lead, not
+an override. For the JSON route, a scanned component with same-name rules but
+no exact-version rule generates a blocking version-review diagnostic, even
+when FOSSA supplied complete fields. Inspect the new version upstream and its
+TA shipping evidence, then add an exact-version rule without deleting the old
+research. Recheck supporting notices and exclusions as well as the main grant.
+
 `notices` is an array replacing the component's entire reviewed notices
 array. It defaults to `[]`; preserve existing applicable notices when editing.
 Each notice requires `name`, `license`, `copyright_holder`, `license_text`,

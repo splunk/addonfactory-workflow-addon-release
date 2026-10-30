@@ -113,6 +113,78 @@ def config(rule=None):
     return {"schema_version": 1, "resolutions": [rule or legacy_rule()], "exclusions": []}
 
 
+def addition(**overrides):
+    value = {"name": "shipped-only", "version": "2.0", "license": "MIT",
+             "copyright_holder": "Copyright 2026 Example",
+             "license_text": "Complete MIT license text", "project_url": None,
+             "notices": [], "reason": "Found in the published add-on archive",
+             "source": "archive SHA-256 and exact installed path"}
+    value.update(overrides)
+    return value
+
+
+def test_shipped_component_missing_from_fossa_is_added_from_same_config(trio, tmp_path):
+    value = config(reviewed_rule(notices=[]))
+    value["additions"] = [addition()]
+    assert load_config(config_file(tmp_path, value)) == value
+    credits, diagnostics, status = build_credits(trio[0], value)
+    assert status == 0
+    assert [(item["name"], item["version"]) for item in credits["components"]] == [
+        ("example", "1.0"), ("shipped-only", "2.0")]
+    assert set(credits["components"][1]) == {"name", "version", "license",
+                                                  "copyright_holder", "license_text",
+                                                  "project_url", "notices"}
+    assert any(line.startswith("Added shipped-only 2.0:") for line in diagnostics)
+
+
+def test_unresolved_addition_blocks_completion_and_is_written(trio, tmp_path):
+    from scripts.generate_credits import main
+
+    value = config(reviewed_rule(notices=[]))
+    value["additions"] = [addition(license="TBD", license_text="TBD")]
+    rules = config_file(tmp_path, value)
+    assert main(["--draft", str(trio[1]), "--config", str(rules),
+                 "--output-dir", str(tmp_path)]) == 1
+    credits = json.loads((tmp_path / "Example_TA-1.0-credits.json").read_text())
+    assert credits["components"][1]["license"] == "TBD"
+    assert credits["components"][1]["license_text"] == "TBD"
+
+
+def test_addition_validation_and_fossa_collision(trio, tmp_path):
+    for bad in (addition(reason=""), addition(source=""), addition(extra="field"),
+                addition(license="MIT OR Apache-2.0"),
+                addition(license_text="MIT License\nCopyright (c) <year> <copyright holders>\n")):
+        value = config()
+        value["additions"] = [bad]
+        with pytest.raises(ValueError):
+            load_config(config_file(tmp_path, value))
+    for additions in ([addition(), addition()], [addition(name="example", version="1.0")]):
+        value = config()
+        value["additions"] = additions
+        with pytest.raises(ValueError):
+            load_config(config_file(tmp_path, value))
+    value = config(reviewed_rule(notices=[]))
+    value["additions"] = [addition(name="example", version="1.0")]
+    value["resolutions"] = []
+    with pytest.raises(ValueError, match="already appears in FOSSA draft"):
+        build_credits(trio[0], value)
+
+
+@pytest.mark.parametrize("field", ["copyright_holder", "license_text"])
+def test_curly_templates_are_rejected_in_rules_additions_and_notices(tmp_path, field):
+    placeholder = "Copyright {yyyy} {name of copyright owner}"
+    for key, entry in (("resolutions", reviewed_rule(**{field: placeholder})),
+                       ("additions", addition(**{field: placeholder}))):
+        rules = {"schema_version": 1, "resolutions": [], "exclusions": [], key: [entry]}
+        with pytest.raises(ValueError, match="placeholder"):
+            load_config(config_file(tmp_path, rules))
+    notice = dict(legacy_rule()["notices"][0], license="MIT",
+                  copyright_holder="Copyright Example", license_text="Full terms")
+    notice[field] = placeholder
+    with pytest.raises(ValueError, match="placeholder"):
+        load_config(config_file(tmp_path, config(reviewed_rule(notices=[notice]))))
+
+
 def evidence():
     return {"candidates": [{"source_group": "otherLicenses", "name": "MIT",
                 "disposition": "unresolved", "reason": "Need artifact", "references": ["exact ref"]}],
@@ -453,6 +525,42 @@ def test_exclusions_and_unmatched_rules(trio):
     assert any("example" in item and "Not distributed" in item for item in diagnostics)
     assert any("absent" in item and "unmatched" in item.lower() for item in diagnostics)
     assert any("absent-too" in item and "unmatched" in item.lower() for item in diagnostics)
+
+
+@pytest.mark.parametrize("kind", ["resolutions", "additions", "exclusions"])
+def test_other_version_rules_trigger_upstream_review_without_replacing_fossa_fields(trio, kind):
+    draft = deepcopy(trio[0])
+    draft["components"][0]["version"] = "2.0"
+    rules = {"schema_version": 1, "resolutions": [], "exclusions": []}
+    if kind == "resolutions":
+        prior = reviewed_rule(license="BSD-3-Clause", notices=[])
+    elif kind == "additions":
+        prior = addition(name="example", version="1.0", license="BSD-3-Clause")
+    else:
+        prior = {"name": "example", "version": "1.0", "reason": "Prior release did not ship it"}
+    rules[kind] = [prior]
+    credits, diagnostics, status = build_credits(draft, rules)
+    assert status == 1
+    assert credits["components"][0]["license"] == "MIT"
+    assert any(line.startswith("Unresolved example 2.0:") and "1.0" in line
+               and "upstream" in line for line in diagnostics)
+
+
+def test_exact_reviewed_rule_takes_precedence_over_all_fossa_tbd_fields(trio):
+    draft = deepcopy(trio[0])
+    component = draft["components"][0]
+    component.update(version="2.0", license="TBD", license_text="TBD", copyright_holder="TBD")
+    old = reviewed_rule(license="MIT", notices=[])
+    new = dict(reviewed_rule(license="BSD-3-Clause", license_text="Exact 2.0 BSD terms",
+                            copyright_holder="Copyright 2026 New Contributors", notices=[]), version="2.0")
+    rules = {"schema_version": 1, "resolutions": [old, new], "exclusions": []}
+    credits, diagnostics, status = build_credits(draft, rules)
+    result = credits["components"][0]
+    assert status == 0
+    assert result["license"] == "BSD-3-Clause"
+    assert result["license_text"] == "Exact 2.0 BSD terms"
+    assert result["copyright_holder"] == "Copyright 2026 New Contributors"
+    assert not any(line.startswith("Unresolved") for line in diagnostics)
 
 
 def test_final_cli_writes_on_one_and_zero(trio, tmp_path, capsys, monkeypatch):

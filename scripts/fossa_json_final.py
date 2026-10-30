@@ -175,6 +175,26 @@ def _resolution(rule):
         _evidence(rule["evidence"])
 
 
+def _additions(values):
+    required = FINAL_FIELDS | {"reason", "source"}
+    seen = set()
+    for rule in _array(values):
+        _fields(rule, required)
+        identity = _identity(rule)
+        if identity in seen:
+            raise ValueError("Duplicate exact-version addition")
+        seen.add(identity)
+        _text(rule["reason"])
+        _text(rule["source"])
+        if rule["project_url"] is not None:
+            _text(rule["project_url"])
+        for field in REVIEW_FIELDS:
+            if rule[field] != "TBD":
+                _override(field, rule[field])
+        _notices(rule["notices"])
+    return seen
+
+
 def load_config(path: Path) -> dict:
     """Return validated schema-version-one configuration, including legacy rules."""
     _, data = _read_json(path)
@@ -183,13 +203,16 @@ def load_config(path: Path) -> dict:
 
 
 def _validate_config(data):
-    _fields(data, {"schema_version", "resolutions", "exclusions"})
+    _fields(data, {"schema_version", "resolutions", "exclusions"}, {"additions"})
     if type(data["schema_version"]) is not int or data["schema_version"] != 1:
         raise ValueError("Expected schema_version 1")
     resolutions = _rules(data["resolutions"], "resolutions")
     exclusions = _rules(data["exclusions"], "exclusions")
     if resolutions & exclusions:
         raise ValueError("Resolution and exclusion rules overlap")
+    additions = _additions(data.get("additions", []))
+    if additions & (resolutions | exclusions):
+        raise ValueError("Addition overlaps a resolution or exclusion")
 
 
 def _candidates(value, text=False):
@@ -345,6 +368,48 @@ def _component_reasons(component, result, rule):
     return reasons
 
 
+def _addition_reasons(addition, component):
+    reasons = [f"{field} is TBD" for field in sorted(REVIEW_FIELDS)
+               if component[field] == "TBD"]
+    for notice in component["notices"]:
+        reasons.extend(f"notice {notice['name']}: {field} is TBD"
+                       for field in sorted(REVIEW_FIELDS | {"notice_text"})
+                       if notice.get(field) == "TBD")
+    reasons.extend(_notice_applicability_reasons(addition))
+    return reasons
+
+
+def _append_additions(components, diagnostics, seen, additions):
+    status = 0
+    for addition in additions:
+        identity = (addition["name"], addition["version"])
+        if identity in seen:
+            raise ValueError(f"Addition already appears in FOSSA draft: {identity[0]} {identity[1]}")
+        label = f"{identity[0]} {identity[1]}"
+        component = _apply_rule(addition, {})
+        components.append(component)
+        diagnostics.append(f"Added {label}: {addition['reason']} (Source: {addition['source']})")
+        reasons = _addition_reasons(addition, component)
+        diagnostics.extend(f"Unresolved {label}: {reason}" for reason in reasons)
+        if reasons:
+            status = 1
+    return status
+
+
+def _version_review_reasons(identity, config):
+    """Prior versions seed upstream research; they never override another version."""
+    configured = {(rule["name"], rule["version"])
+                  for kind in ("resolutions", "additions", "exclusions")
+                  for rule in config.get(kind, [])}
+    if identity in configured:
+        return []
+    versions = sorted(version for name, version in configured if name == identity[0])
+    if not versions:
+        return []
+    return ["version review required: configuration exists for " + ", ".join(versions)
+            + "; verify this version's upstream license, notices and TA scope, then add an exact-version rule"]
+
+
 def build_credits(draft: dict, config: dict) -> Tuple[dict, List[str], int]:
     """Apply exact-version research, returning public credits and completeness.
 
@@ -368,11 +433,12 @@ def build_credits(draft: dict, config: dict) -> Tuple[dict, List[str], int]:
             continue
         rule = resolutions.get(identity, {})
         result = _apply_rule(component, rule)
-        reasons = _component_reasons(component, result, rule)
+        reasons = _component_reasons(component, result, rule) + _version_review_reasons(identity, config)
         diagnostics.extend(f"Unresolved {label}: {reason}" for reason in reasons)
         if reasons:
             status = 1
         components.append(result)
+    status |= _append_additions(components, diagnostics, seen, config.get("additions", []))
     for kind, rules in (("resolution", resolutions), ("exclusion", exclusions)):
         for name, version in sorted(rules.keys() - seen):
             diagnostics.append(f"Warning: unmatched {kind} rule: {name} {version}")

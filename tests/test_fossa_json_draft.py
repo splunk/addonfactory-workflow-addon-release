@@ -95,6 +95,26 @@ def test_requests_notice_sets_holder():
     assert component["licenses_to_verify"] == {"licenses": [], "otherLicenses": []}
 
 
+def test_curly_copyright_template_is_never_a_holder_or_complete_text():
+    text = "Apache License\nCopyright {yyyy} {name of copyright owner}\nterms"
+    item = dependency("deprecation", "2.1.0", [attribution("Apache-2.0", text)])
+    component = converter().build_component(item, "direct")
+    assert component["license"] == "Apache-2.0"
+    assert component["copyright_holder"] == "TBD"
+    assert component["license_text"] == "TBD"
+
+
+@pytest.mark.parametrize("example", ["Copyright [yyyy] [name of copyright owner]",
+                                     "Copyright {yyyy} {name of copyright owner}"])
+def test_apache_appendix_example_remains_license_text_but_not_holder(example):
+    text = ("Apache License\nAPPENDIX: How to apply the Apache License to your work.\n"
+            + example + "\n")
+    component = converter().build_component(dependency(
+        licenses=[attribution("Apache-2.0", text)]), "direct")
+    assert component["license_text"] == text
+    assert component["copyright_holder"] == "TBD"
+
+
 def test_lodash_and_arrow_keep_named_candidates():
     lodash = dependency("lodash", "4.18.1", [attribution("MIT", "full MIT text"),
                                                attribution("CC0-1.0", "full CC0 text")])

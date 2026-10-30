@@ -44,7 +44,8 @@ COPYRIGHT_BOILERPLATE = re.compile(
 COPYRIGHT_HOLDER_PREFIX = re.compile(r"^(?:owners?|holders?)(?::\s*|\s+)", re.IGNORECASE)
 PLACEHOLDER = re.compile(
     r"<\s*(?:year|copyright holders?|copyright owners?|author|name)\b[^>]*>"
-    r"|\[\s*(?:yyyy|year|name of copyright owner|copyright holders?)\s*\]",
+    r"|\[\s*(?:yyyy|year|name of copyright owner|copyright holders?)\s*\]"
+    r"|\{\s*(?:yyyy|year|name of copyright owner|copyright holders?)\s*\}",
     re.IGNORECASE,
 )
 APACHE_APPENDIX_MARKER = "appendix: how to apply the apache license to your work."
@@ -62,7 +63,8 @@ def has_unfilled_copyright_slot(license_text):
         if APACHE_APPENDIX_MARKER in line.casefold():
             in_apache_appendix = True
         if COPYRIGHT.search(line) and PLACEHOLDER.search(line):
-            if not (line.strip().casefold() == APACHE_APPENDIX_EXAMPLE
+            example = line.strip().casefold().translate(str.maketrans("{}", "[]"))
+            if not (example == APACHE_APPENDIX_EXAMPLE
                     and in_apache_appendix):
                 return True
     return False

@@ -34,5 +34,18 @@
       }
     }
   ],
-  "exclusions": []
+  "exclusions": [],
+  "additions": [
+    {
+      "name": "example-shipped-but-unscanned",
+      "version": "2.0.0",
+      "license": "TBD",
+      "copyright_holder": "TBD",
+      "license_text": "TBD",
+      "project_url": null,
+      "notices": [],
+      "reason": "Illustrative shape only: installed package found in the published add-on but omitted from the FOSSA report.",
+      "source": "https://example.org/releases/add-on-1.0.0.spl SHA256 example; lib/example-shipped-but-unscanned-2.0.0.dist-info"
+    }
+  ]
 }

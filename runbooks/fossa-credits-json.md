@@ -103,14 +103,30 @@ validator-checked shape example, **not publishable licensing research**.
 Its example.org references are illustrative, and its secondary candidate
 remains explicitly unresolved. Never copy it as a real legal decision.
 
-Configuration contains `schema_version: 1`, `resolutions`, and `exclusions`.
-Rules match exact component `name`/`version` and require nonempty `reason`
-and `source`. Resolution rules override any of `license`,
+Configuration contains `schema_version: 1`, `resolutions`, and `exclusions`,
+plus optional `additions` for shipped components omitted by FOSSA. All three
+arrays live in the same Git-tracked file. Rules match exact component
+`name`/`version`. Resolution rules require nonempty `reason` and `source`
+and override any of `license`,
 `copyright_holder`, `license_text`, `notices`; unknown primary fields are
 omitted, not overridden with `TBD`. Candidate lists stay in the draft and
 are omitted from final credits. A notices override replaces the whole array.
-Exclusions contain exactly name/version/reason
-and require evidence of absence from the distributed TA.
+Exclusions contain exactly name/version/reason and require evidence of absence
+from the distributed TA. Additions contain all seven public component fields
+(`name`, `version`, `license`, `copyright_holder`, `license_text`, `project_url`,
+`notices`) plus `reason` and `source`. Their provenance must identify the exact
+shipped artifact and installed path. An addition may use `TBD` for an
+unreviewed primary field; this keeps the shipped component in the output and
+the completeness check red. Additions appear after FOSSA components, in rule
+order. An addition must not overlap another rule or a FOSSA component.
+
+Reviewed exact-version rules override FOSSA values, including `TBD`. If the
+configuration knows the same library under another version but has no rule
+for the current scanned version, generation exits `1` with a version-review
+diagnostic. Use the earlier sources and notice decisions to guide research
+against the current exact upstream artifact and TA package. Add an exact-version
+rule after checking the license, full text, copyright and embedded notices;
+do not copy another version automatically. Preserve prior reviewed versions.
 
 Legacy schema-version-1 rules remain accepted. New rules add structured
 `evidence` with these fields:
@@ -173,16 +189,16 @@ to the current directory.
 
 ## Run another TA release with the same reviewed rules
 
-Keep one TA-owned `fossa-license-resolutions.json` as the editable rule set.
-Neither generator writes that file. Rules match **exact dependency name and
-dependency version**, independent of the TA release version. Existing rules
-therefore remain available for 8.2.1, 8.1.2, and later runs; rules absent from
-a particular report produce warnings and are not removed. Add new or corrected
-rules to this same file instead of replacing it with a fresh template.
+Keep one Git-tracked TA-owned `fossa-license-resolutions.json` with both
+`resolutions` and `exclusions`. Neither generator writes it. Do not create
+release-numbered configuration files or separate removal lists. Rules match
+**exact dependency name and dependency version**. Rules absent from a report
+produce warnings and are not removed. Add reviewed decisions to this same
+file, then commit them. The Git commit identifies the configuration revision
+used for a particular credits run.
 
-Use a separate output directory for each TA release. Snapshot the current
-rules into that directory, and use the snapshot as the final generator's input
-so the report can be reproduced after the editable configuration changes:
+Use a separate output directory for each TA release, but pass the tracked
+configuration directly to the final generator:
 
 ```sh
 TA_REPO=/path/to/splunk-add-on-for-amazon-web-services
@@ -193,20 +209,19 @@ mkdir -p "$OUT"
 python3.13 "$TOOLS/scripts/generate_draft_credits.py" \
   --ta-repo "$TA_REPO" --ta-version "$VERSION" \
   --token-file /path/to/private/fossa-api-token --output-dir "$OUT"
-cp "$TA_REPO/fossa-license-resolutions.json" \
-  "$OUT/fossa-license-resolutions.snapshot.json"
 python3.13 "$TOOLS/scripts/generate_credits.py" \
   --draft "$OUT/Splunk_TA_aws-$VERSION-credits-draft.json" \
-  --config "$OUT/fossa-license-resolutions.snapshot.json" \
+  --config "$TA_REPO/fossa-license-resolutions.json" \
   --output-dir "$OUT" 2>"$OUT/credits-diagnostics.txt"
 ```
 
 Set `VERSION=8.1.2` and a distinct `OUT` and repeat. Exit `1` still writes
 credits and diagnostics; resolve those findings in the editable configuration,
-then refresh the snapshot and regenerate. Do not delete rules that are
-unmatched in one release. Keep the editable configuration under version
-control after review; a snapshot is a recovery copy, not a replacement for
-the TA-owned source file.
+then regenerate and commit the reviewed file. Do not delete rules that are
+unmatched in one release. Record the TA checkout's `git rev-parse HEAD` in the
+review record after committing, so the configuration used by the run can be
+retrieved from Git history. An uncommitted configuration is suitable for local
+iteration but is not a reproducible final input.
 
 An exact dependency-version match reuses upstream facts such as license text
 and named copyright statements. It does **not** prove that the same vendored

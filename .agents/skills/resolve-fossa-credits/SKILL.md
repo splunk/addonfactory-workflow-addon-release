@@ -24,6 +24,14 @@ add-on's resolution configuration and regenerate credits with the processor.
    artifacts. Exact name/version rules can carry upstream facts forward, but
    recheck their distribution findings, supporting notices and exclusions
    against the newly selected TA release before accepting them.
+   Look up every current component by library name across the configuration's
+   resolutions, additions and exclusions, including other versions. An exact
+   reviewed rule takes precedence over FOSSA fields, including `TBD`. When
+   only another version is configured, use its sources, copyright findings and
+   embedded notices as research leads: check the current exact upstream
+   artifact and TA distribution, then add a rule for the current version.
+   Preserve prior versions; never apply their values or exclusions blindly.
+   This review also applies when the new version's FOSSA fields look complete.
 3. Build a queue in component order containing `TBD` in `license`,
    `copyright_holder`, `license_text`, or nested `notices`, unresolved or
    uncovered native license candidates, and unignored notice files without
@@ -42,7 +50,11 @@ add-on's resolution configuration and regenerate credits with the processor.
    ```
 
    This command groups both `TBD` fields and diagnostic-only blockers such as
-   unreviewed native notice files and license candidates. Exit `1` means the
+   unreviewed native notice files, license candidates and versions needing
+   upstream review because another version of that library is configured.
+   A prior version's supporting notice must be checked again; an empty new
+   `notices` array is not proof that the embedded code disappeared.
+   Exit `1` means the
    queue is incomplete; exit `0` means the current generator has no unresolved
    diagnostics. Reconcile its groups with the final generator's diagnostics.
    Work every
