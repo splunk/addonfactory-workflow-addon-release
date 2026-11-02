@@ -204,6 +204,15 @@ organization's approved private security-reporting channel.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
+* `rfct-enabled` - opt this add-on into RFCT CIM changes planning and comparison, default `false`.
+  When `false` neither `plan-rfct` nor `run-rfct` appears in the run.
+* `rfct-image` - full `ta-automation/rfct` ECR image reference. A tag is resolved to a digest before
+  execution and overrides are restricted to that ECR repository. Defaults to the verified
+  `1.0.0-beta.7` digest, whose formatter is rejected by the compatibility preflight.
+* `rfct-baseline-release` - explicit baseline release tag or version; when empty the latest eligible
+  stable release is selected
+* `rfct-candidate-release` - manual-dispatch override selecting a published release as the candidate;
+  automatic runs always use the current build
 
 ## Workflow Secrets
 
@@ -234,6 +243,14 @@ the calling repository's workflow (see [addonfactory-repository-template](https:
 * `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` - Atlassian user credentials used by the `comment-on-jira` job to
   post commit-reference comments on Jira tickets; the user needs comment permission on
   `https://splunk.atlassian.net`.
+
+The following secrets are declared `required: false`. They are needed only when `rfct-enabled` is
+`true` and `plan-rfct` decides to proceed:
+
+* `RFCT_ECR_AWS_ACCESS_KEY_ID`, `RFCT_ECR_AWS_SECRET_ACCESS_KEY` - read-only AWS credentials for the
+  RFCT ECR repository in account `956110764581`, region `us-west-2`, used by `run-rfct` to pull
+  `ta-automation/rfct`. Request only ECR authentication and image/layer reads for that repository; do
+  not reuse the RFCT publisher's write credentials or broaden the `GSSA_AWS_*` identity.
 
 ## Contributing and validation
 
@@ -1106,6 +1123,157 @@ argo-logs
 ```
 
 
+
+## [Job] plan-rfct
+
+**Description:**
+
+- Decides whether a Regression Field Comparison Tool (RFCT) CIM changes comparison should run, and
+  freezes the revisions it will compare so a release published mid-run cannot change the choice.
+
+- The whole job is gated on `inputs.rfct-enabled`, so callers that have not opted in see no RFCT jobs.
+
+- Routing: same-repository pull requests targeting `develop`, `main`, or `release/**` and pushes to
+  those branches run when a supported mapping or knowledge-data path changes. Manual dispatch runs
+  without a changed-path requirement. Fork pull requests and `pull_request_target` are skipped before
+  any credential is used. Every other event is skipped with a recorded reason.
+
+- Recognized paths are `package/**/*.conf`, `package/default/data/models/**`,
+  `package/default/data/spl2/**`, `package/lookups/**`, `globalConfig.json`, and `tests/knowledge/**`.
+  Added, modified, deleted, and both sides of renamed paths all count. This is a deliberately
+  conservative trigger set: a supported configuration change requests a comparison even when the
+  report later finds no CIM change.
+
+- Diff ranges are event-aware. A pull request compares the event base SHA against the revision that is
+  actually built (the merge commit) and records the head SHA separately. A push compares
+  `before`/`after`, falling back to the frozen baseline commit when the branch was just created. API
+  file lists are paginated so a long diff is never truncated.
+
+- Baseline selection takes an explicit `rfct-baseline-release` when given, otherwise the highest
+  eligible stable semantic-version release, excluding drafts, prereleases, and the candidate revision
+  itself. Each side must publish exactly one `.spl` asset.
+
+**Action used:**
+- `splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct` — loaded from this reviewed
+  workflow repository rather than a relative path, which would resolve inside the add-on checkout and
+  execute add-on-controlled code.
+
+**Pass/fail behaviour:**
+
+- A recorded skip (`disabled`, `fork-pull-request`, `unsupported-event`, `unsupported-branch`,
+  `no-mapping-changes`, `no-baseline`) succeeds and `run-rfct` does not start.
+
+- An invalid input fails the job: an unparsable release reference, an explicit baseline that is missing
+  or is a draft, a release without exactly one `.spl` asset, a baseline that is not older than the
+  candidate, identical baseline and candidate, a candidate override outside manual dispatch, or a
+  release override combined with `custom-version`.
+
+**Artifacts:**
+- `rfct-plan-<run-id>-<attempt>` containing the frozen `rfct-plan.json` decision document.
+
+## [Job] run-rfct
+
+**Description:**
+
+- Acquires the two packages, authenticates to ECR and pulls the pinned RFCT image, prepares the paired
+  Splunk environments, invokes the RFCT composite action, uploads evidence, and tears the environments
+  down even after a failure.
+
+- Needs `plan-rfct`, `build`, and `meta`. A build candidate requires this run's successful `build` and
+  never falls back to an artifact from another run. A manual release candidate tolerates a skipped
+  `build` because it compares two published packages.
+
+- Both sides use the same explicit supported Splunk version selected from `meta`, so the comparison
+  isolates add-on changes from Splunk changes.
+
+- Registry credentials are removed before any add-on code, build hook, or sample runs. The candidate
+  source is checked out with `persist-credentials: false` and exported without `.git`. The temporary
+  RFCT configuration holds endpoint credentials and is never uploaded.
+
+> **Not yet runnable.** The runtime backend for provisioning two paired Splunk environments is still
+> open (existing WFE infrastructure, another supported remote backend, or runner-local Docker). The WFE
+> path used by `run-knowledge-tests` submits an Argo workflow that runs the tests itself and returns
+> results through S3; it exposes no supported contract for two live Splunk endpoints held open across a
+> comparison. Until a backend is selected, the `Prepare paired Splunk environments` step fails with
+> `backend-not-selected` and the comparison is never reported as a result. Both stub steps are marked
+> `TODO: backend TBD (ADDON-90824)` and document the contract their replacement must satisfy.
+
+**Action used:**
+- `splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct`
+- `aws-actions/configure-aws-credentials`, `aws-actions/amazon-ecr-login`, `actions/checkout`,
+  `actions/download-artifact`, `actions/upload-artifact`
+
+**Pass/fail behaviour:**
+
+| Outcome | Job result |
+|---|---|
+| Valid CIM differences | Success, `status: changes`, comparison JSON and versioned docs |
+| Valid run with no CIM differences | Success, `status: no-changes`, comparison JSON and an explicitly labelled no-change page. Missing output never implies no change |
+| Ineligible, disabled, or no automatic baseline | `plan-rfct` records the skip and this job does not run |
+| Invalid input, package, or image contract | Failure with a specific reason; the result manifest and sanitized diagnostics are still uploaded |
+| Provisioning, ingestion, comparison, or formatter failure | Failure retaining the failing phase's exit status and available evidence. No success or no-change page is generated |
+
+- The job is advisory: it is deliberately not part of `pre-publish`. The publication policy is still
+  open. If blocking is later agreed, add RFCT to the existing `pre-publish` decision only for opted-in
+  comparisons, where a skipped, missing, or failed `run-rfct` cannot satisfy a comparison that
+  `plan-rfct` required.
+
+- The image compatibility preflight runs before provisioning and rejects an image whose formatter lacks
+  `--ta-repo-path`. `1.0.0-beta.7` predates the Table 1/Table 2 implementation, so it can validate
+  image acquisition and comparison plumbing but can never produce a conforming documentation result.
+
+**Artifacts:**
+- `rfct-cim-changes-<run-id>-<attempt>` with a fixed internal layout:
+
+```text
+result.json
+execution.json
+comparison/report.json
+docs/CIMChanges/<candidate-version>/index.md
+docs/... additional formatter outputs
+logs/... sanitized logs from steps that ran
+```
+
+- `result.json` is workflow-owned provenance (`schema_version: 1`, status, reason, run and attempt
+  identifiers, event and source revisions, app and add-on versions, package checksums, RFCT image
+  digest, Splunk and SC4S versions, changed paths, phase exit codes, produced paths). `execution.json`
+  is action-owned and carries no workflow event or release API data. Neither contains endpoint
+  passwords, HEC tokens, or repository and cloud tokens.
+
+- The JSON comparison and input samples are evidence inside the calling add-on's artifact access
+  boundary. Do not publish them to a public documentation site.
+
+### Calling the RFCT action directly
+
+The composite action is narrow on purpose: it validates prepared inputs, checks image capabilities,
+runs `compare report` then `format-report docs-markdown`, and preserves the execution status. It does
+not provision environments, fetch packages, or accept any cloud or repository credential. A direct
+caller owns preparation and upload:
+
+```yaml
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      # Your own steps must: pull the image, provision and populate both Splunk
+      # environments, verify app identity, and write the RFCT configuration.
+      - id: rfct
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@<tag-or-sha>
+        with:
+          config-path: ${{ runner.temp }}/rfct/config.json
+          candidate-source: ${{ runner.temp }}/rfct/source
+          app-code-name: Splunk_TA_example
+          rfct-image: 956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/rfct@sha256:<digest>
+          output-directory: ${{ runner.temp }}/rfct/output
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: rfct-cim-changes-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rfct/output
+```
+
+Always upload the known output directory rather than depending on a failed step's outputs. The action
+writes `execution.json` before comparison and finalizes it with sanitized diagnostics on failure.
 
 ## [Job] pre-publish
 

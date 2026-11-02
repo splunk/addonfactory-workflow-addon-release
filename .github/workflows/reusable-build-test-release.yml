@@ -82,6 +82,27 @@ on:
         description: "TA Validator tool version"
         type: string
         default: "0.3"
+      rfct-enabled:
+        required: false
+        description: "Opt this add-on into RFCT CIM changes planning and comparison"
+        type: boolean
+        default: false
+      rfct-image:
+        required: false
+        description: >-
+          Full ta-automation/rfct ECR image reference. Tags are resolved to a digest before execution. The default is the verified 1.0.0-beta.7 digest, whose formatter is rejected by the action preflight; update it when the first stable image is published.
+        type: string
+        default: "956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/rfct@sha256:4d8cbe68865c6ac7d2b035aaab0a46d1bf09828acaea9f134bb883ad1fc5e9c2"
+      rfct-baseline-release:
+        required: false
+        description: "Explicit baseline release tag or version; otherwise the latest eligible stable release is used"
+        type: string
+        default: ""
+      rfct-candidate-release:
+        required: false
+        description: "Manual-dispatch override selecting a published release as the candidate; automatic runs use the current build"
+        type: string
+        default: ""
     secrets:
       GH_APP_CLIENT_ID:
         description: GitHub App Client ID for authentication
@@ -137,6 +158,14 @@ on:
       ATLASSIAN_TOKEN:
         description: API token for the Atlassian user used to post Jira ticket comments
         required: true
+      RFCT_ECR_AWS_ACCESS_KEY_ID:
+        description: >-
+          Read-only AWS access key id for the RFCT ECR repository. Required only when rfct-enabled is true and a comparison is eligible.
+        required: false
+      RFCT_ECR_AWS_SECRET_ACCESS_KEY:
+        description: >-
+          Read-only AWS secret access key for the RFCT ECR repository. Required only when rfct-enabled is true and a comparison is eligible.
+        required: false
 permissions:
   contents: read
   packages: read
@@ -926,6 +955,8 @@ jobs:
     if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
+      package-version: ${{ steps.BuildVersion.outputs.VERSION }}
+      source-sha: ${{ github.sha }}
     permissions:
       contents: write
       packages: read
@@ -3727,6 +3758,502 @@ jobs:
         with:
           name: |
             summary-spl2_integration_tests*
+
+  plan-rfct:
+    name: plan-rfct
+    # Opted-in add-ons only. Disabled callers see no RFCT jobs at all.
+    if: ${{ !cancelled() && inputs.rfct-enabled }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      decision: ${{ steps.plan.outputs.decision }}
+      status: ${{ steps.plan.outputs.status }}
+      reason: ${{ steps.plan.outputs.reason }}
+      changed-paths: ${{ steps.plan.outputs.changed-paths }}
+      baseline-tag: ${{ steps.plan.outputs.baseline-tag }}
+      baseline-version: ${{ steps.plan.outputs.baseline-version }}
+      baseline-commit: ${{ steps.plan.outputs.baseline-commit }}
+      baseline-release-id: ${{ steps.plan.outputs.baseline-release-id }}
+      baseline-asset-id: ${{ steps.plan.outputs.baseline-asset-id }}
+      baseline-asset-name: ${{ steps.plan.outputs.baseline-asset-name }}
+      candidate-source: ${{ steps.plan.outputs.candidate-source }}
+      candidate-tag: ${{ steps.plan.outputs.candidate-tag }}
+      candidate-version: ${{ steps.plan.outputs.candidate-version }}
+      candidate-commit: ${{ steps.plan.outputs.candidate-commit }}
+      candidate-release-id: ${{ steps.plan.outputs.candidate-release-id }}
+      candidate-asset-id: ${{ steps.plan.outputs.candidate-asset-id }}
+      candidate-asset-name: ${{ steps.plan.outputs.candidate-asset-name }}
+    steps:
+      # The planner is loaded from this reviewed workflow repository rather than a
+      # relative path, which would resolve inside the add-on checkout and run
+      # add-on-controlled code. It never checks out the add-on and it skips fork
+      # pull requests before any credential is used.
+      - name: Plan RFCT comparison
+        id: plan
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@feat/addon-90824-rfct-cim-changes
+        with:
+          enabled: ${{ inputs.rfct-enabled }}
+          repository: ${{ github.repository }}
+          token: ${{ github.token }}
+          event-name: ${{ github.event_name }}
+          base-branch: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+          is-fork: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork || 'false' }}
+          pull-request-base-sha: ${{ github.event.pull_request.base.sha }}
+          pull-request-head-sha: ${{ github.event.pull_request.head.sha }}
+          build-sha: ${{ github.sha }}
+          push-before: ${{ github.event.before }}
+          push-after: ${{ github.event.after }}
+          baseline-release: ${{ inputs.rfct-baseline-release }}
+          candidate-release: ${{ inputs.rfct-candidate-release }}
+          custom-version: ${{ inputs.custom-version }}
+          output-path: ${{ runner.temp }}/rfct-plan.json
+      - name: Upload RFCT plan
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: rfct-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rfct-plan.json
+          retention-days: 7
+      - name: Summarize RFCT plan
+        if: ${{ !cancelled() }}
+        env:
+          DECISION: ${{ steps.plan.outputs.decision }}
+          REASON: ${{ steps.plan.outputs.reason }}
+          BASELINE_TAG: ${{ steps.plan.outputs.baseline-tag }}
+          CANDIDATE_SOURCE: ${{ steps.plan.outputs.candidate-source }}
+        run: |
+          {
+            echo "## RFCT CIM changes plan"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Decision | $DECISION |"
+            echo "| Reason | $REASON |"
+            echo "| Baseline | $BASELINE_TAG |"
+            echo "| Candidate source | $CANDIDATE_SOURCE |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  run-rfct:
+    name: run-rfct
+    needs:
+      - plan-rfct
+      - build
+      - meta
+    # A build candidate requires this run's successful build and never falls back
+    # to an artifact from another run. A manual release candidate tolerates a
+    # skipped build because it compares two published packages.
+    if: >-
+      ${{ !cancelled()
+          && needs.plan-rfct.result == 'success'
+          && needs.plan-rfct.outputs.decision == 'proceed'
+          && needs.meta.result == 'success'
+          && (needs.plan-rfct.outputs.candidate-source == 'release'
+              || needs.build.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      RFCT_ARTIFACT_NAME: rfct-cim-changes-${{ github.run_id }}-${{ github.run_attempt }}
+      RFCT_LEASE_ID: rfct-${{ github.run_id }}-${{ github.run_attempt }}
+    outputs:
+      status: ${{ steps.result.outputs.status }}
+      candidate-version: ${{ steps.result.outputs.candidate-version }}
+      image-digest: ${{ steps.resolve-image.outputs.digest }}
+      artifact-name: ${{ env.RFCT_ARTIFACT_NAME }}
+    steps:
+      - name: Resolve RFCT working paths
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/rfct"
+          mkdir -p "$root/output" "$root/baseline" "$root/candidate"
+          {
+            echo "RFCT_ROOT=$root"
+            echo "RFCT_OUTPUT=$root/output"
+            echo "RFCT_CONFIG=$root/config.json"
+            echo "RFCT_SOURCE=$root/source"
+            echo "RFCT_BASELINE_DIR=$root/baseline"
+            echo "RFCT_CANDIDATE_DIR=$root/candidate"
+          } >> "$GITHUB_ENV"
+
+      # Initialized before environment preparation so a failure earlier than the
+      # action invocation still produces uploadable evidence.
+      - name: Initialize RFCT result manifest
+        env:
+          BUILD_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASELINE_TAG: ${{ needs.plan-rfct.outputs.baseline-tag }}
+          BASELINE_VERSION: ${{ needs.plan-rfct.outputs.baseline-version }}
+          BASELINE_COMMIT: ${{ needs.plan-rfct.outputs.baseline-commit }}
+          CANDIDATE_SOURCE: ${{ needs.plan-rfct.outputs.candidate-source }}
+          CANDIDATE_TAG: ${{ needs.plan-rfct.outputs.candidate-tag }}
+          CANDIDATE_VERSION: ${{ needs.plan-rfct.outputs.candidate-source == 'release' && needs.plan-rfct.outputs.candidate-version || needs.build.outputs.package-version }}
+          CANDIDATE_COMMIT: ${{ needs.plan-rfct.outputs.candidate-source == 'release' && needs.plan-rfct.outputs.candidate-commit || needs.build.outputs.source-sha }}
+          # Changed paths originate from the add-on's own diff, so they are passed
+          # through the environment and never interpolated into the shell body.
+          CHANGED_PATHS: ${{ needs.plan-rfct.outputs.changed-paths }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg status "running" \
+            --arg reason "" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg event_name "$GITHUB_EVENT_NAME" \
+            --arg build_sha "$BUILD_SHA" \
+            --arg pull_request_head_sha "$PR_HEAD_SHA" \
+            --arg workflow_ref "$GITHUB_WORKFLOW_REF" \
+            --arg baseline_tag "$BASELINE_TAG" \
+            --arg baseline_version "$BASELINE_VERSION" \
+            --arg baseline_commit "$BASELINE_COMMIT" \
+            --arg candidate_source "$CANDIDATE_SOURCE" \
+            --arg candidate_tag "$CANDIDATE_TAG" \
+            --arg candidate_version "$CANDIDATE_VERSION" \
+            --arg candidate_commit "$CANDIDATE_COMMIT" \
+            --arg artifact_name "$RFCT_ARTIFACT_NAME" \
+            --argjson changed_paths "$CHANGED_PATHS" \
+            '{
+              schema_version: 1,
+              status: $status,
+              reason: $reason,
+              run: {id: $run_id, attempt: $run_attempt, event_name: $event_name, workflow_ref: $workflow_ref, artifact_name: $artifact_name},
+              revisions: {build_sha: $build_sha, pull_request_head_sha: $pull_request_head_sha},
+              baseline: {tag: $baseline_tag, version: $baseline_version, commit: $baseline_commit, package_sha256: ""},
+              candidate: {source: $candidate_source, tag: $candidate_tag, version: $candidate_version, commit: $candidate_commit, package_sha256: ""},
+              app_code_name: "",
+              rfct_image_digest: "",
+              splunk_version: "",
+              sc4s_version: "",
+              changed_paths: $changed_paths,
+              phases: {},
+              produced: []
+            }' > "$RFCT_OUTPUT/result.json"
+
+      # Package and source acquisition are trusted steps that run before any
+      # add-on code is executed.
+      - name: Download candidate package from this run
+        if: ${{ needs.plan-rfct.outputs.candidate-source == 'build' }}
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: package-splunkbase
+          path: ${{ env.RFCT_CANDIDATE_DIR }}
+
+      - name: Download candidate package from the requested release
+        if: ${{ needs.plan-rfct.outputs.candidate-source == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ needs.plan-rfct.outputs.candidate-asset-id }}
+          ASSET_NAME: ${{ needs.plan-rfct.outputs.candidate-asset-name }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/octet-stream" \
+            "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            > "$RFCT_CANDIDATE_DIR/$ASSET_NAME"
+
+      - name: Download baseline package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ needs.plan-rfct.outputs.baseline-asset-id }}
+          ASSET_NAME: ${{ needs.plan-rfct.outputs.baseline-asset-name }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/octet-stream" \
+            "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            > "$RFCT_BASELINE_DIR/$ASSET_NAME"
+
+      - name: Verify package identity and record checksums
+        id: packages
+        run: |
+          set -euo pipefail
+          sole_package() {
+            found=$(find "$1" -maxdepth 1 -type f -name '*.spl' | sort)
+            count=$(printf '%s\n' "$found" | grep -c . || true)
+            if [ "$count" -ne 1 ]; then
+              echo "::error::Expected exactly one .spl package in $1, found $count"
+              exit 1
+            fi
+            printf '%s' "$found"
+          }
+          baseline=$(sole_package "$RFCT_BASELINE_DIR")
+          candidate=$(sole_package "$RFCT_CANDIDATE_DIR")
+
+          # The archive is untrusted data: list entry names only, never extract.
+          app_name_of() {
+            tar -tzf "$1" | head -n 1 | cut -d/ -f1
+          }
+          baseline_app=$(app_name_of "$baseline")
+          candidate_app=$(app_name_of "$candidate")
+          if [ -z "$candidate_app" ] || [ "$baseline_app" != "$candidate_app" ]; then
+            echo "::error::App identity mismatch: baseline '$baseline_app' candidate '$candidate_app'"
+            exit 1
+          fi
+          {
+            echo "app-code-name=$candidate_app"
+            echo "baseline-package=$baseline"
+            echo "candidate-package=$candidate"
+            echo "baseline-sha256=$(sha256sum "$baseline" | cut -d' ' -f1)"
+            echo "candidate-sha256=$(sha256sum "$candidate" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout candidate source for formatter attribution
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan-rfct.outputs.candidate-source == 'release' && needs.plan-rfct.outputs.candidate-commit || github.sha }}
+          path: rfct-candidate-source
+          persist-credentials: false
+
+      - name: Export candidate source without history
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/rfct-candidate-source/.git"
+          rm -rf "$RFCT_SOURCE"
+          mv "$GITHUB_WORKSPACE/rfct-candidate-source" "$RFCT_SOURCE"
+
+      - name: Select the Splunk version used on both sides
+        id: splunk-version
+        env:
+          LATEST_SPLUNK: ${{ needs.meta.outputs.matrix_latestSplunk }}
+          SUPPORTED_SC4S: ${{ needs.meta.outputs.matrix_supportedSC4S }}
+        run: |
+          set -euo pipefail
+          # One explicit supported version on both sides rather than a matrix, so
+          # the comparison isolates add-on changes from Splunk changes.
+          version=$(printf '%s' "$LATEST_SPLUNK" | jq -r '.[0].version')
+          sc4s=$(printf '%s' "$SUPPORTED_SC4S" | jq -r '.[0].version')
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "::error::Could not select a Splunk version from the meta job"
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "sc4s-version=$sc4s"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials for the RFCT registry
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.RFCT_ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.RFCT_ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2.1.7
+
+      - name: Pull the RFCT image and pin it by digest
+        id: resolve-image
+        env:
+          RFCT_IMAGE: ${{ inputs.rfct-image }}
+        run: |
+          set -euo pipefail
+          repository="956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/rfct"
+          case "$RFCT_IMAGE" in
+            "$repository"@sha256:*|"$repository":*) ;;
+            *)
+              echo "::error::rfct-image must reference $repository"
+              exit 1
+              ;;
+          esac
+          docker pull "$RFCT_IMAGE"
+          digest=$(docker image inspect "$RFCT_IMAGE" \
+            --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+            | grep "^$repository@" | head -n 1 | cut -d'@' -f2)
+          if [ -z "$digest" ]; then
+            echo "::error::Could not resolve a digest for $RFCT_IMAGE"
+            exit 1
+          fi
+          echo "Resolved $RFCT_IMAGE to $digest"
+          {
+            echo "digest=$digest"
+            echo "pinned=$repository@$digest"
+          } >> "$GITHUB_OUTPUT"
+
+      # Checked before expensive provisioning. The action repeats this check so a
+      # direct action caller is protected too.
+      - name: Check RFCT formatter compatibility
+        env:
+          PINNED_IMAGE: ${{ steps.resolve-image.outputs.pinned }}
+        run: |
+          set -euo pipefail
+          if ! help=$(docker run --rm --network none "$PINNED_IMAGE" format-report docs-markdown --help 2>&1); then
+            echo "::error::The RFCT image could not report formatter capabilities"
+            echo "$help"
+            exit 1
+          fi
+          if ! printf '%s' "$help" | grep -q -- '--ta-repo-path'; then
+            echo "::error::The RFCT image formatter does not support --ta-repo-path, so it predates the required CIM changes tables. Set rfct-image to a compatible release."
+            exit 1
+          fi
+
+      # The registry credentials are removed before any add-on code, build hook, or
+      # sample runs. Only the image, already pulled, is needed from here on.
+      - name: Remove registry credentials
+        run: |
+          set -euo pipefail
+          docker logout "956110764581.dkr.ecr.us-west-2.amazonaws.com" || true
+          rm -f "$HOME/.docker/config.json"
+          {
+            echo "AWS_ACCESS_KEY_ID="
+            echo "AWS_SECRET_ACCESS_KEY="
+            echo "AWS_SESSION_TOKEN="
+            echo "AWS_DEFAULT_REGION="
+            echo "AWS_REGION="
+          } >> "$GITHUB_ENV"
+
+      # TODO: backend TBD (ADDON-90824). The runtime backend for two paired Splunk
+      # environments is unresolved: existing WFE infrastructure, another supported
+      # remote backend, or runner-local Docker. The WFE path used by
+      # run-knowledge-tests submits an Argo workflow that runs the tests itself and
+      # returns results through S3; it exposes no supported contract for two live
+      # Splunk endpoints held open across a comparison, so it cannot be reused as is.
+      #
+      # Contract this step must satisfy once the backend is selected:
+      #   reads    $RFCT_BASELINE_DIR / $RFCT_CANDIDATE_DIR  single .spl per side
+      #            steps.packages.outputs.app-code-name      verified app identity
+      #            steps.splunk-version.outputs.version      same version both sides
+      #            steps.splunk-version.outputs.sc4s-version
+      #            $RFCT_LEASE_ID                            unique per run and attempt
+      #   installs each package into its own environment and verifies the installed
+      #            app version and app code name on both sides
+      #   ingests  one frozen raw corpus into both environments, proving each add-on
+      #            version parses it independently rather than relying on cooked
+      #            forwarding, and records input checksums, event counts, and
+      #            matching keys. Missing input, failed ingestion, or an empty
+      #            expected sourcetype is an execution failure.
+      #   masks    every endpoint credential with ::add-mask:: before add-on code runs
+      #   writes   $RFCT_CONFIG with endpoints, temporary credentials, app versions,
+      #            and comparison queries, readable by the image's UID 10001
+      #   sets     prepared=true and splunk-version / sc4s-version in GITHUB_OUTPUT
+      # The lease must expire on its own so cancellation or runner loss cannot leak
+      # environments when the teardown step never executes.
+      - name: Prepare paired Splunk environments
+        id: prepare-environments
+        run: |
+          set -euo pipefail
+          echo "reason=backend-not-selected" >> "$GITHUB_OUTPUT"
+          echo "::error::RFCT environment preparation is not implemented. The runtime backend for two paired Splunk environments has not been selected (ADDON-90824), so no comparison can run and no result may be reported."
+          exit 1
+
+      - name: Run RFCT comparison
+        id: rfct
+        if: ${{ steps.prepare-environments.outputs.prepared == 'true' }}
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@feat/addon-90824-rfct-cim-changes
+        with:
+          config-path: ${{ env.RFCT_CONFIG }}
+          candidate-source: ${{ env.RFCT_SOURCE }}
+          app-code-name: ${{ steps.packages.outputs.app-code-name }}
+          rfct-image: ${{ steps.resolve-image.outputs.pinned }}
+          output-directory: ${{ env.RFCT_OUTPUT }}
+
+      - name: Assemble RFCT result manifest
+        id: result
+        if: ${{ !cancelled() }}
+        env:
+          ACTION_STATUS: ${{ steps.rfct.outputs.status }}
+          ACTION_CANDIDATE_VERSION: ${{ steps.rfct.outputs.candidate-version }}
+          PREPARE_REASON: ${{ steps.prepare-environments.outputs.reason }}
+          # Derived from the untrusted package archive, so it is never interpolated
+          # into the shell body.
+          APP_CODE_NAME: ${{ steps.packages.outputs.app-code-name }}
+          BASELINE_SHA256: ${{ steps.packages.outputs.baseline-sha256 }}
+          CANDIDATE_SHA256: ${{ steps.packages.outputs.candidate-sha256 }}
+          IMAGE_DIGEST: ${{ steps.resolve-image.outputs.digest }}
+          SPLUNK_VERSION: ${{ steps.splunk-version.outputs.version }}
+          SC4S_VERSION: ${{ steps.splunk-version.outputs.sc4s-version }}
+        run: |
+          set -euo pipefail
+          status="${ACTION_STATUS:-failed}"
+          reason=""
+          if [ -z "${ACTION_STATUS:-}" ]; then
+            reason="${PREPARE_REASON:-execution-incomplete}"
+          fi
+          execution="$RFCT_OUTPUT/execution.json"
+          phases="{}"
+          if [ -f "$execution" ]; then
+            phases=$(jq -c '.phases // {}' "$execution")
+          fi
+          produced=$(cd "$RFCT_OUTPUT" && find . -type f | sed 's|^\./||' | sort | jq -R . | jq -sc .)
+          jq \
+            --arg status "$status" \
+            --arg reason "$reason" \
+            --arg app_code_name "$APP_CODE_NAME" \
+            --arg baseline_sha256 "$BASELINE_SHA256" \
+            --arg candidate_sha256 "$CANDIDATE_SHA256" \
+            --arg image_digest "$IMAGE_DIGEST" \
+            --arg splunk_version "$SPLUNK_VERSION" \
+            --arg sc4s_version "$SC4S_VERSION" \
+            --argjson phases "$phases" \
+            --argjson produced "$produced" \
+            '.status = $status
+             | .reason = $reason
+             | .app_code_name = $app_code_name
+             | .baseline.package_sha256 = $baseline_sha256
+             | .candidate.package_sha256 = $candidate_sha256
+             | .rfct_image_digest = $image_digest
+             | .splunk_version = $splunk_version
+             | .sc4s_version = $sc4s_version
+             | .phases = $phases
+             | .produced = $produced' \
+            "$RFCT_OUTPUT/result.json" > "$RFCT_OUTPUT/result.json.tmp"
+          mv "$RFCT_OUTPUT/result.json.tmp" "$RFCT_OUTPUT/result.json"
+          {
+            echo "status=$status"
+            echo "candidate-version=${ACTION_CANDIDATE_VERSION:-}"
+          } >> "$GITHUB_OUTPUT"
+
+      # The live configuration holds endpoint credentials and is never uploaded.
+      - name: Upload RFCT evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ env.RFCT_ARTIFACT_NAME }}
+          path: |
+            ${{ env.RFCT_OUTPUT }}/result.json
+            ${{ env.RFCT_OUTPUT }}/execution.json
+            ${{ env.RFCT_OUTPUT }}/comparison
+            ${{ env.RFCT_OUTPUT }}/docs
+            ${{ env.RFCT_OUTPUT }}/logs
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Summarize RFCT comparison
+        if: ${{ !cancelled() }}
+        env:
+          STATUS: ${{ steps.result.outputs.status }}
+          BASELINE_TAG: ${{ needs.plan-rfct.outputs.baseline-tag }}
+          CANDIDATE_VERSION: ${{ steps.result.outputs.candidate-version }}
+          SPLUNK_VERSION: ${{ steps.splunk-version.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.resolve-image.outputs.digest }}
+        run: |
+          {
+            echo "## RFCT CIM changes"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Status | $STATUS |"
+            echo "| Baseline | $BASELINE_TAG |"
+            echo "| Candidate | $CANDIDATE_VERSION |"
+            echo "| Splunk | $SPLUNK_VERSION |"
+            echo "| RFCT image digest | $IMAGE_DIGEST |"
+            echo "| Artifact | $RFCT_ARTIFACT_NAME |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # TODO: backend TBD (ADDON-90824). Teardown must be idempotent, must remove
+      # every resource tagged with $RFCT_LEASE_ID, and must not mask the original
+      # failure. It cannot be the only safeguard: cancellation or runner loss can
+      # prevent it from running at all, so the backend needs disposable local
+      # infrastructure or server-side lease expiry.
+      - name: Tear down paired Splunk environments
+        if: ${{ always() }}
+        run: |
+          echo "::warning::RFCT environment teardown is a placeholder until the runtime backend is selected (ADDON-90824). Nothing was provisioned for lease $RFCT_LEASE_ID."
+
+      - name: Remove temporary RFCT credentials and configuration
+        if: ${{ always() }}
+        run: |
+          rm -f "$RFCT_CONFIG"
+          rm -f "$HOME/.docker/config.json"
 
   pre-publish:
     if: ${{ !cancelled() }}
