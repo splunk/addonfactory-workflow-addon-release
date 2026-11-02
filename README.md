@@ -242,7 +242,7 @@ E2E testing, evidence requirements, cleanup, and the workflow/template release h
 
 ## Design proposals
 
-* [RFCT CIM changes workflow job (ADDON-90824)](specs/ADDON-90824-rfct-cim-changes-workflow.md) describes the proposed opt-in integration and its beta-to-stable image transition. This is a specification; the job is not available yet.
+* [RFCT action and CIM changes workflow job (ADDON-90824)](specs/ADDON-90824-rfct-cim-changes-workflow.md) describes a proposed composite action, its opt-in workflow integration, and the beta-to-stable image transition. This is a specification; the action and job are not available yet.
 
 ## General troubleshooting
 

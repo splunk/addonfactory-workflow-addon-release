@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# RFCT CIM changes job for the reusable release workflow
+# RFCT action and CIM changes job for the reusable release workflow
 
 Status: proposal for ADDON-90824. This document specifies the feature; the
-workflow job is not implemented by this specification PR.
+action and workflow job are not implemented by this specification PR.
 
 Issue: [ADDON-90824](https://splunk.atlassian.net/browse/ADDON-90824).
 Workflow baseline: `develop` at
@@ -49,35 +49,109 @@ adding release assets are later consumers of this artifact contract.
   integration therefore needs an explicit required-versus-skipped decision.
 - Existing GSSA AWS credentials are documented for the GS Scorecard repository;
   their permission to pull `ta-automation/rfct` has not been established.
+- `.github/actions/run-ta-validator` provides a precedent for a composite action
+  in this repository. RFCT needs its own execution and artifact contract.
 
 ## Proposed job layout
 
 ```mermaid
 flowchart LR
   events[TA caller events] --> plan[plan-rfct]
-  plan --> run[run-rfct]
-  build[build: package-splunkbase] --> run
-  releases[Baseline / manual candidate releases] --> run
-  meta[meta: Splunk and SC4S versions] --> run
-  run --> evidence[RFCT evidence and docs artifacts]
-  run --> gate[pre-publish]
+  plan --> prepare
+  build[build: package-splunkbase] --> prepare
+  releases[Baseline / manual candidate releases] --> prepare
+  meta[meta: Splunk and SC4S versions] --> prepare
+  subgraph run[run-rfct job]
+    prepare[Acquire packages and pull image] --> action[run-rfct composite action]
+    action --> evidence[Upload RFCT evidence and docs]
+  end
+  evidence --> gate[pre-publish]
 ```
 
 Add `plan-rfct` for input validation, event eligibility, changed-path detection,
-and immutable revision selection. Add `run-rfct` for package acquisition, image
-preflight, isolated Splunk provisioning, comparison, formatting, and cleanup.
-Use repository-owned Python and POSIX shell helpers for the orchestration.
+and immutable revision selection. Add a `run-rfct` job that acquires packages,
+authenticates and pulls the image, invokes the RFCT action, uploads evidence,
+and exposes the outcome to the release gate.
 
 `run-rfct` needs `plan-rfct`, `build`, and `meta`. Its condition must explicitly
 handle a skipped `build` when a manual run uses a published candidate package.
 Automatic runs require a successful current-run `build`; they must not download
 an artifact from a different run as a fallback.
 
-The trusted helpers must come from a reviewed revision of this workflow
-repository, independently of the TA checkout. During implementation validation,
-pin and record both the reusable-workflow revision and any helper/action revision.
-The caller's `github.workflow_sha` must not be assumed to identify this reusable
-workflow's source revision.
+## Proposed action boundary
+
+Implement a composite action at `.github/actions/run-rfct/action.yml` in this
+repository, following the existing action layout. It runs Python and POSIX shell
+helpers from its own action directory. Keep RFCT itself in the published ECR
+image; the action orchestrates that image and the paired Splunk runtime.
+
+Start in this repository so the action and workflow contract can be reviewed
+and released together. A separate action repository and release process are
+unnecessary for the first consumer. Preserve the explicit inputs and outputs so
+another workflow can invoke the action directly or it can be extracted later.
+
+| Owner | Responsibilities |
+| --- | --- |
+| TA caller | Event subscriptions, manual dispatch fields, opt-in, approved secrets/permissions. |
+| Reusable workflow | Eligibility and changed paths; baseline/candidate release selection; package/source acquisition and provenance; AWS/ECR authentication and digest resolution; runner/timeouts; artifact upload, summary, and release gating. |
+| RFCT composite action | Validate local inputs and image capabilities; provision paired Splunk/SC4S; materialize and replay the corpus; run RFCT and formatter; sanitize evidence; write the result manifest and docs; clean up runtime resources. |
+| RFCT image | RFCT comparison and report formatting implementations. |
+
+The action does not inspect the triggering event, choose GitHub releases, fetch
+packages, or receive repository/cloud credentials. It requires a Linux amd64
+runner with Docker, Python, and an already pulled RFCT image. A composite action
+allows preparation and artifact-upload steps around execution in the same job;
+the job remains responsible for selecting sufficient runner capacity.
+
+### Action inputs and outputs
+
+Action inputs are strings with kebab-case names. Paths are absolute, validated
+local paths; the workflow downloads assets into separate directories before
+invocation. Package identity and versions are verified against the manifest.
+
+| Input | Required | Meaning |
+| --- | --- | --- |
+| `baseline-package` | yes | Path to the resolved baseline `.spl`. |
+| `candidate-package` | yes | Path to the current-build or selected-release `.spl`. |
+| `candidate-source` | yes | Candidate source and knowledge fixtures, without `.git`. |
+| `comparison-manifest` | yes | Versioned JSON containing resolved app/package versions, checksums, source/release provenance, changed paths, and workflow run identifiers; no credentials. |
+| `rfct-image` | yes | Already pulled, approved ECR image reference pinned by digest. |
+| `splunk-version` | yes | Explicit supported version used for both instances. |
+| `sc4s-version` | no | Explicit supported version when the corpus needs syslog; fail if required but absent. |
+| `output-directory` | yes | Dedicated empty directory for the artifact contract below. |
+| `resource-prefix` | yes | Validated, unique prefix for containers, network, and temporary state, including run ID and attempt. |
+
+The source directory is read-only input. The action creates job-scoped Splunk
+credentials internally; workflow permissions and secrets are not action inputs.
+No arbitrary command, Docker flags, or mount list is accepted.
+
+Expose action outputs `status`, `candidate-version`, `image-digest`,
+`result-path`, and `artifact-directory`. `status` uses the result contract below;
+planning skips are emitted by the workflow without invoking the action. On an
+execution failure the action fails its step after writing diagnostics. Always
+upload the known output directory; do not depend on failed-step outputs being
+populated. Artifact naming, retention, upload, and URLs remain workflow concerns.
+
+### Trusted action source and lifecycle
+
+Load the action and planners from a reviewed revision of this workflow
+repository, independently of the TA checkout. Use an explicit immutable action
+commit in the workflow during implementation validation; a relative
+`./.github/actions/run-rfct` path in a TA checkout would load TA-controlled code.
+Use `github.action_path` for the action's bundled helpers. Record the action,
+reusable-workflow, and caller revisions separately; the caller's
+`github.workflow_sha` does not identify the reusable workflow's source revision.
+When releasing or updating the action, update its workflow reference deliberately
+and validate that exact pair before the template release handoff.
+
+Write an initial result manifest before provisioning, update it after each
+phase, and finalize it with sanitized diagnostics on failure. Use a cleanup trap
+plus an `always()` cleanup step in the composite action. The enclosing job also
+attempts idempotent cleanup by resource prefix using trusted helpers and uploads
+available evidence with `always()`. Do not use `continue-on-error` to turn action
+failures into a successful comparison. Forced runner termination can prevent
+cleanup steps: the first backend must use disposable runners, with resources
+local to the job and bounded container lifetimes.
 
 ## Proposed public inputs and credentials
 
@@ -194,8 +268,8 @@ Validate the replay adapter with a fixture whose index-time parsing changes;
 record event counts, keys, and a corpus checksum on each side. A missing corpus,
 failed ingestion, or an empty sourcetype is a failed run, not a no-change result.
 
-Generate a temporary RFCT configuration for these endpoints, credentials,
-app versions, and sourcetype queries. Request event-level comparison evidence
+The action generates a temporary RFCT configuration for these endpoints,
+credentials, app versions, and sourcetype queries. Request event-level comparison evidence
 needed by the formatter, then execute `format-report docs-markdown` with the
 candidate TA source available for eventtype/sample attribution. A compatible
 image must support `--ta-repo-path`; beta.7 does not.
@@ -215,9 +289,10 @@ Use this verified interim image as the initial integration reference:
 ```
 
 It is tagged `1.0.0-beta.7`. Restrict overrides to this ECR repository. Resolve
-any supplied tag once, log the resulting digest, and use that same digest for
-comparison and formatting. Pull after AWS authentication in runner steps rather
-than using a private job-level `container:` that would start before those steps.
+any supplied tag once in the workflow, log the resulting digest, and pass that
+same digest to the action for comparison and formatting. Pull after AWS
+authentication in runner steps rather than using a private job-level
+`container:` that would start before those steps.
 
 **Known acceptance blocker:** beta.7's formatter predates the current Table 1/
 Table 2 implementation, chooses the baseline version for output directories,
@@ -272,9 +347,10 @@ mapping-version provenance (ADDON-89890), and explicit no-change output
 `index.md`. Determinism means identical report/fixture/image inputs produce the
 same docs bytes; run-specific metadata belongs in `result.json`.
 
-Expose `run-rfct` job outputs for status, candidate version, artifact name, and
-image digest. Write a short job summary with the resolved versions, outcome,
-artifact link, and any compatibility failure. Artifact upload and cleanup run
+Map action outputs to `run-rfct` job outputs for status, candidate version, and
+image digest; add the workflow-owned artifact name. Write a short job summary
+with the resolved versions, outcome, artifact link, and any compatibility failure.
+Artifact upload and cleanup run
 after failures; cleanup failure must not hide the original phase failure.
 
 Add RFCT to the existing pre-publish decision only for opted-in comparisons.
@@ -286,7 +362,9 @@ existing reviewed publish-override process is used.
 ## Credential boundaries and cleanup
 
 Acquire release assets and pull the RFCT image using trusted steps before
-executing TA code. Checkouts use `persist-credentials: false`. Mount only the
+executing TA code. Remove acquisition tokens, exported AWS credentials, and the
+temporary Docker login configuration before invoking the action. Checkouts use
+`persist-credentials: false`. Mount only the
 required packages, candidate fixtures/source without `.git`, temporary Splunk
 config, and output directories into RFCT. Give candidate code only job-scoped
 Splunk credentials; do not pass AWS/GitHub credentials, GPG keys, Docker config,
@@ -306,26 +384,32 @@ attempt so concurrent runs cannot reuse each other's state.
 
 ## Implementation and validation plan
 
-1. Implement/test workflow-owned planners and the result-manifest contract.
+1. Define the composite action metadata, comparison-manifest schema, and
+   result-manifest contract. Implement/test workflow-owned planners separately.
    Cover additions/deletions/renames, paginated diffs, missing history, release
    ordering, app identity, artifact provenance, invalid paths, and inputs.
-2. Implement the isolated pair, independent-ingestion proof, image capability
-   preflight, comparison/formatter invocation, artifact sanitization, and cleanup.
-3. Add public inputs/secrets, job wiring, build provenance outputs, and RFCT-aware
-   pre-publish aggregation. Wire every declared input/secret into expressions.
+2. Implement the composite action with the isolated pair, independent-ingestion
+   proof, image capability preflight, comparison/formatter invocation, artifact
+   sanitization, and cleanup. Document a minimal direct-action caller showing
+   authenticated preparation, explicit inputs, and unconditional artifact upload.
+3. Add public workflow inputs/secrets, job wiring, build provenance outputs, and
+   RFCT-aware pre-publish aggregation. Pin the reviewed action revision and wire
+   every declared workflow/action input, output, and secret into expressions.
 4. Update the template feature branch with matching inputs, optional secrets,
    supported caller events, and dispatch fields. During validation reference the
    exact workflow feature commit; do not roll out a moving feature branch.
 5. Run the repository's required pytest/coverage and pre-commit checks. Validate
    fixture-only deterministic rendering, no-change, malformed JSON, failed
    ingestion, empty results, formatter errors, digest lookup failures, missing
-   baseline/assets, cancellation, and required-job skips.
+   baseline/assets, cancellation, and required-job skips. Exercise the action's
+   local-path and manifest validation, output mapping, failed-step evidence,
+   repeated cleanup, and absence of cloud/repository credentials in TA processes.
 6. Inspect the shared `splunk/test-addonfactory-repo` fixture before changes and
    coordinate its use. Record a same-repository mapping-change PR, a docs-only
    skip, trusted `develop`/release-branch pushes, a fork skip, and a dispatch with
    explicit released versions. Include a representative SC4S TA if the fixture
    does not cover that ingestion path. Verify expected called jobs individually.
-7. Record workflow/helper/caller SHAs, TA event/commit, runner capacity, image
+7. Record workflow/action/helper/caller SHAs, TA event/commit, runner capacity, image
    digest, run URLs, event parity, docs artifacts, and cleanup evidence in the
    eventual `feat: ADDON-90824 add RFCT CIM changes workflow job` PR. An aggregate
    green check or `compare --help` alone is insufficient.
@@ -340,4 +424,6 @@ attempt so concurrent runs cannot reuse each other's state.
 - [Formatter after the CIM report changes](https://cd.splunkdev.com/taautomation/regression_field_comparison_tool/-/blob/cbe933b3f5ce01cd3bbfc15743107cb7c8d78ddd/splunk_rfct/scripts/format_report.py)
 - [Authoritative TA caller](https://github.com/splunk/addonfactory-repository-template/blob/develop/adjust/.github/workflows/build-test-release.yml)
 - [Reusable workflow authoring](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+- [Composite actions and reusable workflows](https://docs.github.com/en/actions/concepts/workflows-and-actions/reusing-workflow-configurations)
+- [Action metadata and composite outputs](https://docs.github.com/en/actions/reference/workflows-and-actions/metadata-syntax)
 - [Splunk container app installation](https://splunk.github.io/docker-splunk/ADVANCED.html#install-apps)
