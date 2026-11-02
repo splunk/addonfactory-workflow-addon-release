@@ -497,8 +497,10 @@ class PackageVerificationStepTests(unittest.TestCase):
         )
 
     def test_resolves_the_app_code_name_and_checksums(self):
-        self._package(self.baseline_dir, "Splunk_TA_box-0.8.7.spl", "Splunk_TA_box")
-        self._package(self.candidate_dir, "Splunk_TA_box-0.9.0.spl", "Splunk_TA_box")
+        # Distinct payloads, because two archives built from identical content are
+        # byte-identical and would make the checksum assertion vacuous.
+        self._package(self.baseline_dir, "Splunk_TA_box-0.8.7.spl", "Splunk_TA_box", entries=200)
+        self._package(self.candidate_dir, "Splunk_TA_box-0.9.0.spl", "Splunk_TA_box", entries=400)
         completed = self._run()
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         outputs = self._outputs()
@@ -649,23 +651,32 @@ class WorkflowContractTests(unittest.TestCase):
         ref = refs.pop()
         self.assertRegex(ref, r"\A[0-9a-f]{40}\Z", "a branch or tag ref is mutable")
 
-    def test_the_pinned_commit_is_not_stale(self):
-        """A pin that predates an action edit silently runs the old helper.
-
-        The first fixture run failed this way: the workflow pinned the commit
-        before a planner fix, so CI executed the superseded code.
-        """
-        completed = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", *ACTION_DIRECTORIES],
+    @staticmethod
+    def _git(*arguments):
+        return subprocess.run(
+            ["git", *arguments],
             cwd=REPOSITORY_ROOT,
             capture_output=True,
             text=True,
             check=False,
         )
+
+    def test_the_pinned_commit_is_not_stale(self):
+        """A pin that predates an action edit silently runs the old helper.
+
+        The first fixture run failed this way: the workflow pinned the commit
+        before a planner fix, so CI executed the superseded code. A shallow
+        checkout cannot answer the question, so it skips rather than guessing.
+        """
+        ref = PINNED_REF_RE.findall(WORKFLOW_PATH.read_text(encoding="utf-8"))[0]
+        if self._git("rev-parse", "--is-shallow-repository").stdout.strip() != "false":
+            self.skipTest("a shallow checkout has no history to compare against")
+        if self._git("cat-file", "-e", f"{ref}^{{commit}}").returncode != 0:
+            self.skipTest(f"the pinned commit {ref[:8]} is not present in this checkout")
+        completed = self._git("log", "-1", "--format=%H", "--", *ACTION_DIRECTORIES)
         latest = completed.stdout.strip()
         if completed.returncode != 0 or not latest:
             self.skipTest("git history for the action directories is unavailable")
-        ref = PINNED_REF_RE.findall(WORKFLOW_PATH.read_text(encoding="utf-8"))[0]
         self.assertEqual(
             ref,
             latest,
