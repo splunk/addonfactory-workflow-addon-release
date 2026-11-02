@@ -14,6 +14,7 @@
 
 import importlib.util
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -21,6 +22,12 @@ from pathlib import Path
 from unittest import mock
 
 import yaml
+
+REPOSITORY_ROOT = Path(__file__).parents[1]
+ACTION_DIRECTORIES = (".github/actions/plan-rfct", ".github/actions/run-rfct")
+PINNED_REF_RE = re.compile(
+    r"addonfactory-workflow-addon-release/\.github/actions/(?:plan|run)-rfct@(\S+)"
+)
 
 ACTION_DIRECTORY = Path(__file__).parents[1] / ".github" / "actions" / "run-rfct"
 ACTION_YAML_PATH = ACTION_DIRECTORY / "action.yml"
@@ -532,6 +539,35 @@ class WorkflowContractTests(unittest.TestCase):
     def test_remains_advisory_until_the_publication_policy_is_decided(self):
         self.assertNotIn("run-rfct", self.jobs["pre-publish"]["needs"])
         self.assertNotIn("plan-rfct", self.jobs["pre-publish"]["needs"])
+
+    def test_pins_both_actions_to_the_same_immutable_commit(self):
+        refs = set(PINNED_REF_RE.findall(WORKFLOW_PATH.read_text(encoding="utf-8")))
+        self.assertEqual(len(refs), 1, f"both actions must share one ref, got {refs}")
+        ref = refs.pop()
+        self.assertRegex(ref, r"\A[0-9a-f]{40}\Z", "a branch or tag ref is mutable")
+
+    def test_the_pinned_commit_is_not_stale(self):
+        """A pin that predates an action edit silently runs the old helper.
+
+        The first fixture run failed this way: the workflow pinned the commit
+        before a planner fix, so CI executed the superseded code.
+        """
+        completed = subprocess.run(
+            ["git", "log", "-1", "--format=%H", "--", *ACTION_DIRECTORIES],
+            cwd=REPOSITORY_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        latest = completed.stdout.strip()
+        if completed.returncode != 0 or not latest:
+            self.skipTest("git history for the action directories is unavailable")
+        ref = PINNED_REF_RE.findall(WORKFLOW_PATH.read_text(encoding="utf-8"))[0]
+        self.assertEqual(
+            ref,
+            latest,
+            "re-pin the actions to the commit that last changed them before pushing",
+        )
 
     def test_passes_untrusted_values_through_the_environment_not_the_shell_body(self):
         for job in ("plan-rfct", "run-rfct"):
