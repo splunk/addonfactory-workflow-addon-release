@@ -3970,7 +3970,7 @@ jobs:
             found=$(find "$1" -maxdepth 1 -type f -name '*.spl' | sort)
             count=$(printf '%s\n' "$found" | grep -c . || true)
             if [ "$count" -ne 1 ]; then
-              echo "::error::Expected exactly one .spl package in $1, found $count"
+              echo "::error::Expected exactly one .spl package in $1, found $count" >&2
               exit 1
             fi
             printf '%s' "$found"
@@ -3979,8 +3979,12 @@ jobs:
           candidate=$(sole_package "$RFCT_CANDIDATE_DIR")
 
           # The archive is untrusted data: list entry names only, never extract.
+          # The whole listing is captured before slicing, because closing the pipe
+          # after the first line makes tar fail with a write error under pipefail.
           app_name_of() {
-            tar -tzf "$1" | head -n 1 | cut -d/ -f1
+            listing=$(tar -tzf "$1")
+            first=${listing%%$'\n'*}
+            printf '%s' "${first%%/*}"
           }
           baseline_app=$(app_name_of "$baseline")
           candidate_app=$(app_name_of "$candidate")

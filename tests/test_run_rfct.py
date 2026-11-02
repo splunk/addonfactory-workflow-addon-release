@@ -14,7 +14,9 @@
 
 import importlib.util
 import json
+import os
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -424,6 +426,107 @@ class ActionContractTests(unittest.TestCase):
             self.assertIn("steps.invoke.outputs.", declared["value"], name)
 
 
+class PackageVerificationStepTests(unittest.TestCase):
+    """Execute the package verification step the way the runner does.
+
+    The first fixture run failed here: ``tar -tzf | head -n 1`` closed the pipe
+    after one line, so tar exited 2 with a write error and pipefail propagated it.
+    Nothing short of running the step catches that.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        workflow = yaml.load(WORKFLOW_PATH.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+        cls.body = next(
+            step["run"]
+            for step in workflow["jobs"]["run-rfct"]["steps"]
+            if step.get("name") == "Verify package identity and record checksums"
+        )
+
+    def setUp(self):
+        for tool in ("bash", "tar", "sha256sum", "find", "grep"):
+            if shutil.which(tool) is None:
+                self.skipTest(f"{tool} is unavailable on this platform")
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.baseline_dir = self.root / "baseline"
+        self.candidate_dir = self.root / "candidate"
+        self.baseline_dir.mkdir()
+        self.candidate_dir.mkdir()
+        self.github_output = self.root / "github-output"
+        self.github_output.touch()
+
+    def _package(self, directory, name, app, entries=400):
+        """Write a .spl holding an app directory, as slim produces."""
+        stage = directory / f".stage-{name}"
+        payload = stage / app / "default"
+        payload.mkdir(parents=True)
+        for index in range(entries):
+            (payload / f"inputs_{index:04d}_{'x' * 60}.conf").write_text(
+                f"[stanza{index}]\n", encoding="utf-8"
+            )
+        archive = directory / name
+        subprocess.run(
+            ["tar", "-czf", str(archive), "-C", str(stage), app],
+            check=True,
+            capture_output=True,
+        )
+        shutil.rmtree(stage)
+        return archive
+
+    def _run(self):
+        return subprocess.run(
+            ["bash", "-c", self.body],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={
+                "PATH": os.environ["PATH"],
+                "RFCT_BASELINE_DIR": str(self.baseline_dir),
+                "RFCT_CANDIDATE_DIR": str(self.candidate_dir),
+                "GITHUB_OUTPUT": str(self.github_output),
+            },
+        )
+
+    def _outputs(self):
+        return dict(
+            line.split("=", 1)
+            for line in self.github_output.read_text(encoding="utf-8").splitlines()
+            if line
+        )
+
+    def test_resolves_the_app_code_name_and_checksums(self):
+        self._package(self.baseline_dir, "Splunk_TA_box-0.8.7.spl", "Splunk_TA_box")
+        self._package(self.candidate_dir, "Splunk_TA_box-0.9.0.spl", "Splunk_TA_box")
+        completed = self._run()
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        outputs = self._outputs()
+        self.assertEqual(outputs["app-code-name"], "Splunk_TA_box")
+        self.assertRegex(outputs["baseline-sha256"], r"\A[0-9a-f]{64}\Z")
+        self.assertRegex(outputs["candidate-sha256"], r"\A[0-9a-f]{64}\Z")
+        self.assertNotEqual(outputs["baseline-sha256"], outputs["candidate-sha256"])
+
+    def test_rejects_mismatched_app_identity(self):
+        self._package(self.baseline_dir, "Splunk_TA_box-0.8.7.spl", "Splunk_TA_box")
+        self._package(self.candidate_dir, "Splunk_TA_other-0.9.0.spl", "Splunk_TA_other")
+        completed = self._run()
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("App identity mismatch", completed.stdout + completed.stderr)
+
+    def test_rejects_an_ambiguous_or_absent_package(self):
+        self._package(self.candidate_dir, "Splunk_TA_box-0.9.0.spl", "Splunk_TA_box")
+        completed = self._run()
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("Expected exactly one .spl package", completed.stdout + completed.stderr)
+
+        self._package(self.baseline_dir, "Splunk_TA_box-0.8.7.spl", "Splunk_TA_box")
+        self._package(self.baseline_dir, "Splunk_TA_box-0.8.6.spl", "Splunk_TA_box")
+        completed = self._run()
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("Expected exactly one .spl package", completed.stdout + completed.stderr)
+
+
 class WorkflowContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -579,3 +682,17 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("App identity mismatch", step["run"])
         self.assertIn("Expected exactly one .spl package", step["run"])
         self.assertIn("sha256sum", step["run"])
+
+    def test_does_not_pipe_an_archive_listing_into_an_early_closing_reader(self):
+        """GNU tar exits 2 with a write error when its reader closes the pipe.
+
+        The first fixture run died this way. bsdtar exits 0, so a behavioural
+        test cannot reproduce it off Linux; this check is platform independent.
+        """
+        run = self._step("Verify package identity and record checksums")["run"]
+        offenders = [line.strip() for line in run.splitlines() if "tar -t" in line and "|" in line]
+        self.assertEqual(
+            offenders,
+            [],
+            "capture the listing into a variable before slicing it",
+        )
