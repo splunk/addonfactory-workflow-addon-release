@@ -140,22 +140,43 @@ def resolve_tag_commit(repository, token, tag):
     return commit
 
 
-def sole_package_asset(release, tag):
-    """Require exactly one .spl asset so package identity is unambiguous."""
+def package_asset(release, parsed):
+    """Return the splunkbase package asset for a release, or None.
+
+    A release publishes the splunkbase package alongside partitioned deployment
+    packages such as ``Splunk_TA_box-0.8.7-_search_heads.spl``, so the asset whose
+    name ends with the release version is the one to compare. Older releases that
+    predate asset publishing have no package at all.
+    """
     assets = [
         asset
         for asset in release.get("assets") or []
         if str(asset.get("name", "")).endswith(PACKAGE_ASSET_SUFFIX)
     ]
-    if len(assets) != 1:
+    versioned = [
+        asset
+        for asset in assets
+        if str(asset["name"]).endswith(f"-{parsed['version']}{PACKAGE_ASSET_SUFFIX}")
+    ]
+    if len(versioned) == 1:
+        return versioned[0]
+    if not versioned and len(assets) == 1:
+        return assets[0]
+    return None
+
+
+def require_package_asset(release, parsed):
+    asset = package_asset(release, parsed)
+    if asset is None:
         raise PlanInputError(
-            f"Release {tag} must publish exactly one {PACKAGE_ASSET_SUFFIX} asset, found {len(assets)}"
+            f"Release {parsed['tag']} does not publish exactly one identifiable "
+            f"{PACKAGE_ASSET_SUFFIX} package to compare"
         )
-    return assets[0]
+    return asset
 
 
 def describe_release(repository, token, release, parsed):
-    asset = sole_package_asset(release, parsed["tag"])
+    asset = require_package_asset(release, parsed)
     return {
         "tag": release.get("tag_name"),
         "version": parsed["version"],
@@ -208,6 +229,11 @@ def baseline_candidates(releases, explicit, candidate):
         if candidate.get("tag") and release.get("tag_name") == candidate["tag"]:
             continue
         if candidate.get("order") and parsed["order"] >= candidate["order"]:
+            continue
+        # A tag cut without a package asset is not a usable baseline. Fall through
+        # to the next older release rather than failing a run the operator did not
+        # ask to pin to that release.
+        if package_asset(release, parsed) is None:
             continue
         options.append((release, parsed))
     options.sort(key=lambda option: option[1]["order"], reverse=True)

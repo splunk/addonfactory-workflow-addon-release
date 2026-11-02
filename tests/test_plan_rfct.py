@@ -190,17 +190,40 @@ class EligibilityTests(unittest.TestCase):
 
 
 class AssetTests(unittest.TestCase):
-    def test_requires_exactly_one_package_asset(self):
-        self.assertEqual(plan.sole_package_asset(release("v1.0.0"), "v1.0.0")["name"], "ta.spl")
-        for assets in ((), ("a.spl", "b.spl")):
-            with self.assertRaises(plan.PlanInputError):
-                plan.sole_package_asset(release("v1.0.0", assets=assets), "v1.0.0")
+    @staticmethod
+    def _asset(tag, assets):
+        parsed = plan.parse_release_tag(tag, "tag")
+        return plan.package_asset(release(tag, assets=assets), parsed)
+
+    def test_picks_the_splunkbase_package_beside_deployment_partitions(self):
+        # The real release layout: the splunkbase package plus search-head partitions.
+        found = self._asset(
+            "v0.8.7",
+            (
+                "cim-compliance-report.md",
+                "installation-actions.json",
+                "Splunk_TA_box-0.8.7-_search_heads.spl",
+                "Splunk_TA_box-0.8.7.spl",
+            ),
+        )
+        self.assertEqual(found["name"], "Splunk_TA_box-0.8.7.spl")
+
+    def test_falls_back_to_a_single_package_with_unversioned_naming(self):
+        self.assertEqual(self._asset("v1.0.0", ("ta.spl",))["name"], "ta.spl")
+
+    def test_reports_no_package_when_none_is_identifiable(self):
+        self.assertIsNone(self._asset("v1.0.0", ()))
+        self.assertIsNone(self._asset("v1.0.0", ("a.spl", "b.spl")))
+        self.assertIsNone(self._asset("v1.0.0", ("cim-compliance-report.md",)))
 
     def test_ignores_non_package_assets(self):
-        found = plan.sole_package_asset(
-            release("v1.0.0", assets=("ta.spl", "THIRDPARTY", "report.html")), "v1.0.0"
-        )
+        found = self._asset("v1.0.0", ("ta.spl", "THIRDPARTY", "report.html"))
         self.assertEqual(found["name"], "ta.spl")
+
+    def test_requiring_a_package_fails_when_none_is_identifiable(self):
+        parsed = plan.parse_release_tag("v1.0.0", "tag")
+        with self.assertRaises(plan.PlanInputError):
+            plan.require_package_asset(release("v1.0.0", assets=()), parsed)
 
 
 class BaselineSelectionTests(unittest.TestCase):
@@ -402,10 +425,36 @@ class BuildPlanTests(unittest.TestCase):
         with self.assertRaises(plan.PlanInputError):
             self._run(env, api)
 
-    def test_missing_baseline_asset_is_an_input_failure(self):
+    def test_an_explicitly_pinned_baseline_without_a_package_is_an_input_failure(self):
         api = FakeApi(releases=[release("v1.0.0", assets=())], commits={"v1.0.0": "f" * 40})
         with self.assertRaises(plan.PlanInputError):
+            self._run(environment(INPUT_BASELINE_RELEASE="1.0.0"), api)
+
+    def test_automatic_selection_skips_a_tag_cut_without_a_package(self):
+        # Mirrors the shared fixture, where a bare 1.0.0 tag outranks every
+        # release that actually publishes a package.
+        releases = [
+            release("1.0.0", assets=(), release_id=9),
+            release("v0.8.7", assets=("Splunk_TA_box-0.8.7.spl",), release_id=8),
+        ]
+        api = FakeApi(
+            releases=releases,
+            commits={"1.0.0": "9" * 40, "v0.8.7": "8" * 40},
+            files=[{"filename": "package/default/props.conf"}],
+        )
+        result = self._run(environment(), api)
+        self.assertEqual(result["baseline"]["tag"], "v0.8.7")
+        self.assertEqual(result["baseline"]["asset_name"], "Splunk_TA_box-0.8.7.spl")
+
+    def test_skips_when_no_release_publishes_a_package(self):
+        api = FakeApi(
+            releases=[release("v1.0.0", assets=())],
+            commits={"v1.0.0": "f" * 40},
+            files=[{"filename": "package/default/props.conf"}],
+        )
+        with self.assertRaises(plan.PlanSkip) as caught:
             self._run(environment(), api)
+        self.assertEqual(caught.exception.reason, "no-baseline")
 
     def test_fork_pull_request_skips_before_any_api_call(self):
         api = FakeApi()
