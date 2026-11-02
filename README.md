@@ -240,6 +240,10 @@ the calling repository's workflow (see [addonfactory-repository-template](https:
 Maintainers should follow [`AGENTS.md`](AGENTS.md) for local validation, reusable-workflow wiring, scenario-specific TA
 E2E testing, evidence requirements, cleanup, and the workflow/template release handoff.
 
+## Design proposals
+
+* [RFCT CIM changes workflow job (ADDON-90824)](specs/ADDON-90824-rfct-cim-changes-workflow.md) describes the proposed opt-in integration and its beta-to-stable image transition. This is a specification; the job is not available yet.
+
 ## General troubleshooting
 
 * For each stage there are logs which provides list of failures or link the test report for the stage or more details like error code regarding what caused the stage to fail.
