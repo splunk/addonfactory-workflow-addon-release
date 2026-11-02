@@ -3791,7 +3791,7 @@ jobs:
       # pull requests before any credential is used.
       - name: Plan RFCT comparison
         id: plan
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@feat/addon-90824-rfct-cim-changes
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@6f80fae5ebcf88d077b7694e0947d6d8ae9c57bf
         with:
           enabled: ${{ inputs.rfct-enabled }}
           repository: ${{ github.repository }}
@@ -4138,7 +4138,7 @@ jobs:
       - name: Run RFCT comparison
         id: rfct
         if: ${{ steps.prepare-environments.outputs.prepared == 'true' }}
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@feat/addon-90824-rfct-cim-changes
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@6f80fae5ebcf88d077b7694e0947d6d8ae9c57bf
         with:
           config-path: ${{ env.RFCT_CONFIG }}
           candidate-source: ${{ env.RFCT_SOURCE }}
