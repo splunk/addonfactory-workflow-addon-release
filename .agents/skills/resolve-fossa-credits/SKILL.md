@@ -339,16 +339,31 @@ validate modifies no inputs or output files. Without an artifact, the generator
 explicitly reports that shipping scope is not checked. Do not describe such a
 structural-only result as verified runtime scope.
 
-Check draft entries against the package in one direction. Package identity
-matches in metadata, mapped sources or packaged attribution satisfy presence;
-do not require exact version/code provenance or rewrite the draft version.
-Do not add reverse-inventory findings. Entries unidentifiable by the available
-checks stay included as non-blocking `unverified` receipt observations, not
-unresolved review tasks. Only actionable stale/contradictory reviewed scope
-configuration remains blocking. Exclusions must bind to the exact SPL SHA-256
-and cannot hide contradictory package identity evidence. See the JSON runbook
-for private scope/public-identity overrides. Build-time inventory production
-is explicitly deferred.
+With an artifact, Python report membership is determined by all packaged
+`.dist-info/METADATA` name/version pairs. FOSSA `source: pip` selects this policy;
+resolutions/additions can set private `ecosystem: pip`, and legacy additions
+with PyPI project URLs are recognized. Missing identities are omitted with a
+non-blocking `not_shipped` receipt decision (`policy: python-dist-info`).
+Preserve every distinct version found in metadata. This policy deliberately
+does not inventory vendored code without dist-info. It supersedes old Python
+scope/exclusion decisions during artifact reconciliation; generation without
+an artifact keeps its existing behavior.
+
+Metadata identities absent from report inputs become review entries, deduplicated
+across platform paths. Reuse only exact-version resolution facts; unknown legal
+fields remain TBD and block publication until reviewed. Do not copy another
+version's attribution. Record reviewed facts in release-local resolutions or
+additions; do not edit generated credits. The JSON receipt includes both
+omitted input rows and metadata-only additions. Consult the JSON runbook for
+normalization, classification and malformed-metadata behavior.
+
+For other ecosystems, check report entries against the package in one direction.
+Mapped sources or packaged attribution satisfy presence without requiring exact
+version/code provenance or rewriting the input version. Do not add reverse
+inventory findings for those ecosystems. Unidentifiable entries remain
+non-blocking `unverified`; only actionable stale/contradictory reviewed scope
+configuration blocks. Exclusions must bind to the SPL SHA-256 and cannot hide
+contradictory evidence. Build-time inventory production remains deferred.
 
 For public fields, replace a reviewed empty holder with the exact agreed string
 `No copyright holder stated in the distributed package.`, preserving all upstream review

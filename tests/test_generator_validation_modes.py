@@ -41,6 +41,21 @@ class GeneratorModesTests(unittest.TestCase):
         archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n",
                                "Example_TA/lib/example-1.0.dist-info/METADATA": "Name: example\nVersion: 1.0\n"})
 
+    def set_ecosystem(self, ecosystem):
+        raw_path = self.root / self.draft["provenance"]["raw_report_file"]
+        raw = json.loads(raw_path.read_text())
+        raw["directDependencies"][0]["source"] = ecosystem
+        payload = json.dumps(raw).encode()
+        digest = hashlib.sha256(payload).hexdigest()
+        raw_path.write_bytes(payload)
+        request_path = self.root / self.draft["provenance"]["request_metadata_file"]
+        request = json.loads(request_path.read_text())
+        request["raw_sha256"] = digest
+        request_path.write_text(json.dumps(request))
+        self.draft["provenance"]["raw_sha256"] = digest
+        self.draft["components"][0]["fossa_evidence"]["source"] = ecosystem
+        self.path.write_text(json.dumps(self.draft))
+
     def args(self):
         return ["--draft", str(self.path), "--config", str(self.rules)]
 
@@ -54,6 +69,7 @@ class GeneratorModesTests(unittest.TestCase):
         self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in self.root.iterdir()})
 
     def test_unidentifiable_entry_is_retained_without_a_scope_blocker(self):
+        self.set_ecosystem("npm")
         from scripts.generate_credits import main
         archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n",
                                "Example_TA/main.js": "bundled opaque content"})
@@ -65,12 +81,11 @@ class GeneratorModesTests(unittest.TestCase):
         credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
         self.assertEqual(credits["components"][0]["name"], "example")
 
-    def test_version_provenance_and_reverse_inventory_do_not_block_presence(self):
+    def test_npm_version_provenance_and_extra_attribution_do_not_block_presence(self):
+        self.set_ecosystem("npm")
         from scripts.generate_credits import main
         archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n",
-                               "Example_TA/lib/example-2.0.dist-info/METADATA": "Name: example\nVersion: 2.0\n",
-                               "Example_TA/lib/extra-3.0.dist-info/METADATA": "Name: extra\nVersion: 3.0\n",
-                               "Example_TA/licenses.txt": "Name: other\nVersion: 4.0\n"})
+                               "Example_TA/licenses.txt": "Name: example\nVersion: 2.0\n\nName: other\nVersion: 4.0\n"})
         with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(main(["validate", *self.args(), "--artifact", str(self.artifact), "--json"]), 0)
         receipt = json.loads(stdout.getvalue())
@@ -78,6 +93,162 @@ class GeneratorModesTests(unittest.TestCase):
         self.assertEqual(receipt["scope"]["decisions"][0]["version"], "1.0")
         self.assertFalse(any("SCOPE_MISSING_COMPONENT" in d or "SCOPE_ATTRIBUTION_CANDIDATE" in d
                              for d in receipt["diagnostics"]))
+
+    def test_missing_python_version_is_omitted_without_legal_or_scope_blocker(self):
+        from scripts.fossa_json_final import build_credits
+        from scripts.fossa_artifact_scope import inspect_artifact
+        archive(self.artifact, {"Example_TA/main.py": "pass"})
+        self.draft["components"][0]["license"] = "TBD"
+        self.config["exclusions"] = [dict(name="example", version="1.0", reason="Legacy release review")]
+        credits, diagnostics, status = build_credits(self.draft, self.config, artifact=inspect_artifact(self.artifact))
+        self.assertEqual((credits["components"], status), ([], 0), diagnostics)
+        self.assertTrue(any(d.startswith("Excluded example 1.0:") for d in diagnostics))
+
+    def test_explicit_python_additions_follow_metadata_membership(self):
+        from scripts.fossa_json_final import build_credits
+        from scripts.fossa_artifact_scope import inspect_artifact
+        from test_credits_validation import component
+        self.config["additions"] = [dict(component(name="extra", version=v), ecosystem="pip",
+                                               reason="Reviewed upstream", source="exact source")
+                                    for v in ("1.0", "2.0", "3.0")]
+        archive(self.artifact, {"Example_TA/lib/example-1.0.dist-info/METADATA": "Name: example\nVersion: 1.0\n",
+                               "Example_TA/lib/extra-1.0.dist-info/METADATA": "Name: extra\nVersion: 1.0\n",
+                               "Example_TA/platform/extra-2.0.dist-info/METADATA": "Name: extra\nVersion: 2.0\n"})
+        credits, diagnostics, status = build_credits(self.draft, self.config, artifact=inspect_artifact(self.artifact))
+        self.assertEqual(status, 0, diagnostics)
+        self.assertEqual([(c["name"], c["version"]) for c in credits["components"]],
+                         [("example", "1.0"), ("extra", "1.0"), ("extra", "2.0")])
+        self.assertTrue(all("ecosystem" not in c for c in credits["components"]))
+
+    def test_retained_python_row_ignores_old_exclusion_and_receipt_agrees(self):
+        from scripts.generate_credits import main
+        self.config["exclusions"] = [dict(name="example", version="1.0", reason="Legacy release review")]
+        self.rules.write_text(json.dumps(self.config))
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["generate", *self.args(), "--artifact", str(self.artifact),
+                           "--output-dir", str(self.root / "output"), "--json"])
+        receipt = json.loads(stdout.getvalue())
+        credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
+        self.assertEqual(status, 0, receipt["diagnostics"])
+        self.assertEqual(credits["components"][0]["name"], "example")
+        self.assertEqual(receipt["scope"]["decisions"][0]["disposition"], "present")
+        self.assertEqual(receipt["scope"]["decisions"][0]["policy"], "python-dist-info")
+
+    def test_metadata_only_python_versions_get_review_entries_and_receipts(self):
+        from scripts.generate_credits import main
+        archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n",
+                               "Example_TA/lib/example-2.0.dist-info/METADATA": "Name: example\nVersion: 2.0\n",
+                               "Example_TA/platform/example-2.0.dist-info/METADATA": "Name: example\nVersion: 2.0\n"})
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["generate", *self.args(), "--artifact", str(self.artifact),
+                           "--output-dir", str(self.root / "output"), "--json"])
+        credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
+        receipt = json.loads(stdout.getvalue())
+        self.assertEqual(status, 1)
+        self.assertEqual([(c["name"], c["version"]) for c in credits["components"]], [("example", "2.0")])
+        self.assertEqual(credits["components"][0]["license"], "TBD")
+        self.assertEqual([(c["version"], c["disposition"]) for c in receipt["scope"]["decisions"]],
+                         [("1.0", "not_shipped"), ("2.0", "present")])
+        self.assertEqual(len(receipt["scope"]["decisions"][1]["evidence"]), 2)
+
+    def test_metadata_only_version_reuses_only_its_exact_review(self):
+        from scripts.fossa_json_final import build_credits
+        from scripts.fossa_artifact_scope import inspect_artifact
+        self.config["resolutions"] = [dict(name="example", version="2.0", reason="Exact upstream reviewed",
+                                            source="source", license="MIT", license_text="exact 2.0 MIT terms",
+                                            copyright_holder="Copyright 2026 Exact 2.0", project_url="https://example.org/2")]
+        archive(self.artifact, {"Example_TA/lib/example-2.0.dist-info/METADATA": "Name: example\nVersion: 2.0\n"})
+        credits, diagnostics, status = build_credits(self.draft, self.config, artifact=inspect_artifact(self.artifact))
+        self.assertEqual(status, 0, diagnostics)
+        self.assertEqual(credits["components"][0]["version"], "2.0")
+        self.assertEqual(credits["components"][0]["license_text"], "exact 2.0 MIT terms")
+
+    def test_matching_python_distribution_is_not_added_again_under_normalized_name(self):
+        from scripts.generate_credits import main
+        archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n",
+                               "Example_TA/lib/example-1.0.dist-info/METADATA": "Name: EXAMPLE\nVersion: 1.0\n"})
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["generate", *self.args(), "--artifact", str(self.artifact),
+                           "--output-dir", str(self.root / "output"), "--json"])
+        credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
+        self.assertEqual(status, 0)
+        self.assertEqual(len(credits["components"]), 1)
+        self.assertEqual(len(json.loads(stdout.getvalue())["scope"]["decisions"]), 1)
+
+    def test_ecosystem_only_rule_can_classify_git_sourced_python(self):
+        from scripts.generate_credits import main
+        self.set_ecosystem("git")
+        self.config["resolutions"] = [dict(name="example", version="1.0", ecosystem="pip",
+                                            reason="Python distribution", source="exact artifact metadata")]
+        self.rules.write_text(json.dumps(self.config))
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["validate", *self.args(), "--artifact", str(self.artifact), "--json"])
+        self.assertEqual(status, 0)
+        self.assertEqual(json.loads(stdout.getvalue())["scope"]["decisions"][0]["policy"], "python-dist-info")
+
+    def test_metadata_only_alias_is_shared_by_report_and_receipt(self):
+        from scripts.generate_credits import main
+        archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n",
+                               "Example_TA/lib/extra-1.0.dist-info/METADATA": "Name: extra\nVersion: 1.0\n"})
+        self.config["resolutions"] = [dict(name="extra", version="1.0", public_name="public-extra",
+                                            reason="Exact review", source="source", license="MIT",
+                                            copyright_holder="Copyright 2026 Example", license_text="MIT terms",
+                                            project_url="https://example.org")]
+        self.rules.write_text(json.dumps(self.config))
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["generate", *self.args(), "--artifact", str(self.artifact),
+                           "--output-dir", str(self.root / "output"), "--json"])
+        credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
+        self.assertEqual(status, 0)
+        self.assertEqual(credits["components"][0]["name"], "public-extra")
+        self.assertEqual(json.loads(stdout.getvalue())["scope"]["decisions"][-1]["disposition"], "present")
+
+    def test_metadata_only_python_row_cannot_reuse_explicit_npm_resolution(self):
+        from scripts.fossa_json_final import build_credits
+        from scripts.fossa_artifact_scope import inspect_artifact
+        self.draft["components"] = []
+        self.config["resolutions"] = [dict(name="example", version="1.0", ecosystem="npm",
+                                            reason="npm review", source="npm source", license="MIT",
+                                            license_text="NPM ONLY TERMS", copyright_holder="Copyright npm",
+                                            project_url="https://example.org")]
+        credits, diagnostics, status = build_credits(self.draft, self.config, artifact=inspect_artifact(self.artifact))
+        self.assertEqual(status, 1, diagnostics)
+        self.assertEqual(credits["components"][0]["license_text"], "TBD")
+
+    def test_python_npm_identity_collision_remains_inspectable_with_separate_facts(self):
+        from scripts.generate_credits import main
+        self.set_ecosystem("npm")
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["generate", *self.args(), "--artifact", str(self.artifact),
+                           "--output-dir", str(self.root / "output"), "--json"])
+        self.assertEqual(status, 1)
+        credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
+        self.assertEqual(len(credits["components"]), 2)
+        self.assertEqual(credits["components"][0]["license_text"], "Copyright 2026 Example\nMIT terms")
+        self.assertEqual(credits["components"][1]["license_text"], "TBD")
+        receipt = json.loads(stdout.getvalue())
+        self.assertEqual(receipt["scope"]["decisions"][0]["disposition"], "unverified")
+        self.assertEqual(receipt["scope"]["decisions"][1]["policy"], "python-dist-info")
+        self.assertTrue(any("PYTHON_IDENTITY_COLLISION" in d for d in receipt["diagnostics"]))
+
+    def test_python_specific_alias_resolves_cross_ecosystem_collision(self):
+        from scripts.generate_credits import main
+        self.set_ecosystem("npm")
+        self.config["resolutions"] = [dict(name="example", version="1.0", ecosystem="pip",
+                                            public_name="python-example", reason="Python review", source="python source",
+                                            license="MIT", license_text="PYTHON ONLY TERMS", copyright_holder="Copyright Python",
+                                            project_url="https://example.org/python")]
+        self.rules.write_text(json.dumps(self.config))
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, contextlib.redirect_stderr(io.StringIO()):
+            status = main(["generate", *self.args(), "--artifact", str(self.artifact),
+                           "--output-dir", str(self.root / "output"), "--json"])
+        credits = json.loads((self.root / "output/Example_TA-1.0-credits.json").read_text())
+        self.assertEqual(status, 0)
+        self.assertEqual([(c["name"], c["license_text"]) for c in credits["components"]],
+                         [("example", "Copyright 2026 Example\nMIT terms"), ("python-example", "PYTHON ONLY TERMS")])
+        receipt = json.loads(stdout.getvalue())
+        self.assertEqual(receipt["scope"]["decisions"][0]["disposition"], "unverified")
+        self.assertEqual(receipt["scope"]["decisions"][1]["disposition"], "present")
 
     def test_explicit_generate_and_legacy_are_identical(self):
         from scripts.generate_credits import main
@@ -122,6 +293,7 @@ class GeneratorModesTests(unittest.TestCase):
             self.assertEqual(main(["validate", *self.args(), "--artifact", str(self.artifact)]), 2)
 
     def test_alias_cannot_bypass_mapped_presence_contradiction(self):
+        self.set_ecosystem("npm")
         from scripts.fossa_json_final import build_credits
         from scripts.fossa_artifact_scope import inspect_artifact
         sm = dict(version=3, sources=["../node_modules/example/index.js"], sourcesContent=["export default 1"], names=[], mappings="AAAA")
@@ -148,6 +320,8 @@ class GeneratorModesTests(unittest.TestCase):
         self.assertEqual(result["components"][0]["copyright_holder"], "")
 
     def test_stale_exclusion_cannot_silently_remove_a_component(self):
+        self.set_ecosystem("npm")
+        archive(self.artifact, {"Example_TA/main.js": "opaque bundle"})
         from scripts.fossa_json_final import build_credits
         from scripts.fossa_artifact_scope import inspect_artifact
         self.config["exclusions"] = [dict(name="example", version="1.0", reason="Old exclusion")]
@@ -157,6 +331,7 @@ class GeneratorModesTests(unittest.TestCase):
         self.assertTrue(any("SCOPE_EXCLUSION" in d for d in diagnostics))
 
     def test_reviewed_not_shipped_is_applied_only_for_matching_artifact(self):
+        self.set_ecosystem("npm")
         from scripts.fossa_json_final import build_credits
         from scripts.fossa_artifact_scope import inspect_artifact
         archive(self.artifact, {"Example_TA/default/app.conf": "[id]\nversion=1.0\n"})

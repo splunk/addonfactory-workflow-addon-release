@@ -26,11 +26,11 @@ import tarfile
 from typing import List, Optional
 
 try:
-    from .fossa_json_final import _read_json, build_credits, load_config, verify_provenance, _artifact_decision
-    from .fossa_artifact_scope import inspect_artifact, reconcile_scope
+    from .fossa_json_final import _read_json, build_credits, load_config, verify_provenance, _artifact_decision, artifact_python_additions, resolution_for_component
+    from .fossa_artifact_scope import inspect_artifact, reconcile_scope, component_ecosystem
 except ImportError:  # Direct script execution.
-    from fossa_json_final import _read_json, build_credits, load_config, verify_provenance, _artifact_decision
-    from fossa_artifact_scope import inspect_artifact, reconcile_scope
+    from fossa_json_final import _read_json, build_credits, load_config, verify_provenance, _artifact_decision, artifact_python_additions, resolution_for_component
+    from fossa_artifact_scope import inspect_artifact, reconcile_scope, component_ecosystem
 
 
 def _output_path(draft, output_dir):
@@ -69,11 +69,12 @@ def _scope_receipt(draft, config, artifact):
     rules = {(r["name"], r["version"]): r for r in config["resolutions"]}
     excluded = {(r["name"], r["version"]): r for r in config["exclusions"]}
     components, decisions = [], []
-    for value in draft["components"] + config.get("additions", []):
+    for value in draft["components"] + config.get("additions", []) + artifact_python_additions(draft, config, artifact):
         identity = (value["name"], value["version"])
-        rule = rules.get(identity, value if "reason" in value else {})
+        rule = value if "reason" in value else resolution_for_component(value, rules)
         component = dict(name=rule.get("public_name", value["name"]), version=value["version"],
-                         _source_names=[value["name"]])
+                         _source_names=[value["name"]] + value.get("_source_names", []),
+                         _ecosystem=rule.get("ecosystem") or component_ecosystem(value))
         components.append(component)
         decisions.append(_artifact_decision(component, rule, excluded.get(identity), artifact))
     receipt = reconcile_scope(components, artifact)

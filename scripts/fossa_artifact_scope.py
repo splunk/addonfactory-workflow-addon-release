@@ -1,7 +1,7 @@
 """Conservative presence reconciliation against an existing SPL, without extraction.
 
-Check draft package presence, without validating exact versions or code provenance.
-Unidentifiable entries are retained as non-blocking unverified observations.
+Python membership follows packaged dist-info identities. Other ecosystems use
+package presence without requiring exact version or code provenance.
 """
 import configparser
 import hashlib
@@ -11,6 +11,7 @@ import tarfile
 from collections import Counter
 from email.parser import BytesParser
 from pathlib import PurePosixPath
+from urllib.parse import urlparse
 
 BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
@@ -74,9 +75,10 @@ def _observe(path, raw):
     result = []
     if path.endswith(".dist-info/METADATA"):
         metadata = BytesParser().parsebytes(raw)
-        name, version = metadata.get("Name"), metadata.get("Version")
-        if name and version:
-            result.append(dict(name=name.strip(), version=version.strip(), kind="python-metadata", path=path))
+        name, version = metadata.get_all("Name", []), metadata.get_all("Version", [])
+        if len(name) != 1 or len(version) != 1 or not name[0].strip() or not version[0].strip():
+            raise ValueError(f"Invalid Python distribution metadata: {path}")
+        result.append(dict(name=name[0].strip(), version=version[0].strip(), kind="python-metadata", path=path))
     if PurePosixPath(path).name.lower() == "licenses.txt":
         text = raw.decode("utf-8", errors="replace")
         for name, version in re.findall(r"^Name: ([^\n]+)\nVersion: ([^\n]+)", text, re.M):
@@ -131,6 +133,7 @@ def inspect_artifact(path, expected_version=None, expected_app=None):
     js = sum(n.endswith((".js", ".mjs", ".cjs")) for n in files)
     return dict(sha256=digest.hexdigest(), observations=observations,
                 coverage=dict(regular_files=len(files), javascript_files=js,
+                              python_metadata_files=sum(o["kind"] == "python-metadata" for o in observations),
                               bound_source_maps=bound, warnings=warnings,
                               native_binaries="not assessed; exact identities require review"))
 
@@ -141,7 +144,57 @@ def _same_name(name, observation):
     return name == observation["name"]
 
 
+def component_ecosystem(component):
+    """Use explicit/reported ecosystem, with PyPI URLs for legacy additions."""
+    ecosystem = (component.get("_ecosystem") or component.get("ecosystem")
+                 or component.get("fossa_evidence", {}).get("source"))
+    if ecosystem:
+        return ecosystem
+    try:
+        host = urlparse(component.get("project_url") or "").hostname
+    except ValueError:
+        return None
+    if host in ("pypi.org", "pypi.python.org"):
+        return "pip"
+    return None
+
+
+def _python_decision(component, inventory):
+    names = [component["name"]] + component.get("_source_names", [])
+    observations = [o for o in inventory["observations"] if o["kind"] == "python-metadata"
+                    and any(_same_name(name, o) for name in names)]
+    version = component["version"].removeprefix("v")
+    exact = [o for o in observations if o["version"].removeprefix("v") == version]
+    return dict(name=component["name"], version=component["version"],
+                disposition="present" if exact else "not_shipped", policy="python-dist-info",
+                evidence=exact, observed_versions=sorted({o["version"] for o in observations}),
+                other_version_evidence=[o for o in observations if o not in exact],
+                reason=("Python name/version found in packaged .dist-info/METADATA" if exact else
+                        "Python name/version absent from packaged .dist-info/METADATA; omitted by policy"))
+
+
+def python_metadata_additions(components, inventory):
+    """Return unique packaged Python identities not represented by input rows."""
+    observations = [o for o in inventory["observations"] if o["kind"] == "python-metadata"]
+    represented = set()
+    for component in components:
+        if component_ecosystem(component) not in (None, "pip", "git"):
+            continue
+        represented.update(o["path"] for o in _python_decision(component, inventory)["evidence"])
+    added = {}
+    for observation in observations:
+        if observation["path"] in represented:
+            continue
+        identity = (re.sub(r"[-_.]+", "-", observation["name"]).lower(), observation["version"].removeprefix("v"))
+        if identity not in added:
+            added[identity] = dict(name=observation["name"], version=observation["version"], evidence=[])
+        added[identity]["evidence"].append(observation)
+    return list(added.values())
+
+
 def scope_decision(component, inventory, reviewed=None):
+    if component_ecosystem(component) == "pip":
+        return _python_decision(component, inventory)
     name, version = component["name"], component["version"]
     matches = [o for o in inventory["observations"] if _component_matches(component, o)]
     result = dict(name=name, version=version, disposition="unverified", evidence=matches)
@@ -166,5 +219,7 @@ def reconcile_scope(components, inventory, reviewed=None):
 
 
 def _component_matches(component, observation):
+    if observation["kind"] == "python-metadata" and component_ecosystem(component) not in (None, "pip", "git"):
+        return False
     names = [component["name"]] + component.get("_source_names", [])
     return any(_same_name(name, observation) for name in names)

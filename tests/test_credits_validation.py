@@ -127,13 +127,73 @@ class ArtifactTests(unittest.TestCase):
         self.assertEqual(result["decisions"][0]["disposition"], "present")
         self.assertEqual(result["decisions"][0]["evidence"][0]["kind"], "attribution")
 
-    def test_different_metadata_version_does_not_block_package_presence(self):
+    def test_untyped_legacy_row_uses_generic_package_presence(self):
         from scripts.fossa_artifact_scope import reconcile_scope
         inv = self.inspect({"Example/lib/pkg-2.0.dist-info/METADATA": "Name: pkg\nVersion: 2.0\n"})
         decision = reconcile_scope([component(name="pkg", version="1.0")], inv)["decisions"][0]
         self.assertEqual(decision["disposition"], "present")
         self.assertEqual(decision["version"], "1.0")
         self.assertEqual(decision["evidence"][0]["version"], "2.0")
+
+    def test_python_versions_follow_all_packaged_metadata(self):
+        from scripts.fossa_artifact_scope import reconcile_scope
+        inv = self.inspect({
+            "Example/lib/cffi-1.17.1.dist-info/METADATA": "Name: cffi\nVersion: 1.17.1\n",
+            "Example/linux/cffi-2.0.0.dist-info/METADATA": "Name: cffi\nVersion: 2.0.0\n",
+        })
+        rows = [component(name="cffi", version=v, _ecosystem="pip")
+                for v in ("1.17.1", "2.0.0", "1.16.0")]
+        decisions = reconcile_scope(rows, inv)["decisions"]
+        self.assertEqual([d["disposition"] for d in decisions], ["present", "present", "not_shipped"])
+        self.assertEqual([d["evidence"][0]["version"] for d in decisions[:2]], ["1.17.1", "2.0.0"])
+        self.assertEqual(decisions[2]["evidence"], [])
+        self.assertEqual(decisions[2]["observed_versions"], ["1.17.1", "2.0.0"])
+
+    def test_missing_python_metadata_omits_even_vendored_or_attributed_code(self):
+        from scripts.fossa_artifact_scope import reconcile_scope
+        inv = self.inspect({"Example/vendor/pkg/__init__.py": "__version__ = '1.0'",
+                            "Example/licenses.txt": "Name: pkg\nVersion: 1.0\n"})
+        decision = reconcile_scope([component(name="pkg", _ecosystem="pip")], inv)["decisions"][0]
+        self.assertEqual(decision["disposition"], "not_shipped")
+        self.assertEqual(decision["policy"], "python-dist-info")
+
+    def test_python_name_normalization_and_git_version_prefix(self):
+        from scripts.fossa_artifact_scope import reconcile_scope
+        inv = self.inspect({"Example/lib/pkg_name-1.0.dist-info/METADATA": "Name: Pkg_Name\nVersion: 1.0\n"})
+        decision = reconcile_scope([component(name="pkg-name", version="v1.0", _ecosystem="pip")], inv)["decisions"][0]
+        self.assertEqual(decision["disposition"], "present")
+
+    def test_python_metadata_cannot_confirm_same_named_npm_package(self):
+        from scripts.fossa_artifact_scope import reconcile_scope
+        inv = self.inspect({"Example/lib/pkg-1.0.dist-info/METADATA": "Name: pkg\nVersion: 1.0\n"})
+        decision = reconcile_scope([component(name="pkg", _ecosystem="npm")], inv)["decisions"][0]
+        self.assertEqual(decision["disposition"], "unverified")
+
+    def test_python_metadata_is_authoritative_over_reviewed_scope(self):
+        from scripts.fossa_artifact_scope import reconcile_scope
+        inv = self.inspect({"Example/lib/pkg-1.0.dist-info/METADATA": "Name: pkg\nVersion: 1.0\n"})
+        row = component(name="pkg", _ecosystem="pip")
+        review = dict(disposition="not_shipped", artifact_sha256="0" * 64,
+                      reason="old review", references=["ref"])
+        decision = reconcile_scope([row], inv, {("pkg", "1.0"): review})["decisions"][0]
+        self.assertEqual(decision["disposition"], "present")
+
+    def test_incomplete_python_metadata_is_invalid_input(self):
+        for text in ("Name: pkg\n", "Version: 1.0\n", "Name: pkg\nVersion: 1.0\nVersion: 2.0\n"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.inspect({"Example/lib/pkg-1.0.dist-info/METADATA": text})
+
+    def test_invalid_project_url_does_not_break_ecosystem_detection(self):
+        from scripts.fossa_artifact_scope import component_ecosystem
+        self.assertIsNone(component_ecosystem(component(project_url="https://[")))
+
+    def test_metadata_only_identity_is_deduplicated_with_git_version_prefix(self):
+        from scripts.fossa_artifact_scope import python_metadata_additions
+        inv = self.inspect({"Example/a/pkg.dist-info/METADATA": "Name: pkg\nVersion: v1.0\n",
+                            "Example/b/pkg.dist-info/METADATA": "Name: PKG\nVersion: 1.0\n"})
+        additions = python_metadata_additions([], inv)
+        self.assertEqual(len(additions), 1)
+        self.assertEqual(len(additions[0]["evidence"]), 2)
 
     def test_reviewed_absence_is_bound_to_exact_artifact(self):
         from scripts.fossa_artifact_scope import reconcile_scope

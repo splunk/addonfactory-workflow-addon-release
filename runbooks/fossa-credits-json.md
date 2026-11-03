@@ -198,7 +198,8 @@ Exclusions contain exactly name/version/reason and require evidence of absence
 from the distributed TA. Additions contain all seven public component fields
 (`name`, `version`, `license`, `copyright_holder`, `license_text`, `project_url`,
 `notices`) plus `reason` and `source`. Their provenance must identify the exact
-shipped artifact and installed path. An addition may use `TBD` for an
+shipped artifact and installed path. Resolutions and additions may set private `ecosystem: "pip"` for Python
+classification during artifact reconciliation. An addition may use `TBD` for an
 unreviewed primary field; this keeps the shipped component in the output and
 the completeness check red. Additions appear after FOSSA components, in rule
 order. An addition must not overlap another rule or a FOSSA component.
@@ -377,20 +378,47 @@ inspectable generation result; status 2 leaves previous output untouched.
 Without `--artifact`, only structural/legal-field checks run and stderr explicitly
 warns that artifact scope was not checked. Such a run does not establish scope.
 
-The scope check runs in one direction: draft report entries to the existing
-package. It checks package presence, not exact package version or emitted-code
-provenance. Matching installed metadata, mapped package sources or packaged
-attribution identifies a package for this purpose; its evidence kind stays in
-the receipt. Keep the draft version unchanged. This does not claim that a
-packaged attribution declaration proves emitted code. There is no reverse
-inventory check for components missing from the draft.
+Python distribution membership follows the complete set of packaged
+`.dist-info/METADATA` name/version identities. A FOSSA Python row or reviewed
+Python addition stays only when that exact identity is present; otherwise it is
+omitted, with a non-blocking `not_shipped` decision whose `policy` is
+`python-dist-info`. Decisions retain matching paths, other observed versions,
+and the artifact checksum. This is the selected report-membership policy, not
+a claim about vendored code without distribution metadata. Distinct versions
+found anywhere in the artifact remain separate entries. Python project names
+are compared case-insensitively with runs of `-`, `_` and `.` treated equally;
+a leading `v` on a version is ignored for matching. Published input spellings
+are preserved.
 
-A normal decision is `present`, reviewed `not_shipped`, or non-blocking
-`unverified`. If the available checks cannot identify a package, retain its
-entry and record `unverified` in the receipt; do not create an unresolved task
-or infer absence. Only actionable reviewed-configuration problems (for example,
-a stale exclusion or one contradicted by package evidence) produce blocking
-`unknown`. Never exclude Babel/compiler/type names by prefix. Reviewed decisions
+FOSSA's `source: pip` identifies Python rows. A resolution or addition can set
+private `ecosystem: pip` explicitly, including Git-sourced Python distributions.
+Legacy additions with a PyPI project URL are also recognized. Other explicit
+FOSSA ecosystems are not reclassified by a coincidentally equal package name.
+Missing or duplicate Name/Version headers in a dist-info METADATA file are
+invalid input (status 2); they cannot silently cause report omissions.
+
+Python distributions found in metadata but missing from input rows are added
+once per normalized name/version. Exact-version resolution facts can populate
+their legal fields; unknown fields stay `TBD`, making the result an incomplete
+review report (status 1). The generator never borrows another version's license
+or notices, or applies a resolution explicitly assigned to another ecosystem.
+If a Python distribution has the same public name/version as a non-Python
+entry, generation writes an incomplete review report (status 1). Resolve that
+collision with a Python-specific `ecosystem: pip` resolution and a distinct
+`public_name`; the other ecosystem's fields remain unchanged. Use an exact resolution or reviewed addition to complete the row.
+Raw/request/working-draft inputs are not rewritten. Both generation and
+validation receipts include these added rows. Metadata membership supersedes
+old Python scope decisions and exclusions when an artifact is supplied.
+
+For other ecosystems, the scope check still runs from report entries to the
+existing package. Mapped package sources or packaged attribution identify a
+package without requiring exact version or code provenance. Keep the input
+version unchanged; there is no reverse-inventory check for these ecosystems.
+Unidentifiable entries stay included as non-blocking `unverified` observations.
+Only actionable stale/contradictory reviewed scope configuration produces
+blocking `unknown`.
+
+Never exclude Babel/compiler/type names by prefix. Reviewed decisions
 may be stored in the release-local exact-version rule:
 
 ```json

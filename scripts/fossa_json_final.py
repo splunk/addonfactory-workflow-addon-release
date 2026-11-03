@@ -23,10 +23,10 @@ from typing import List, Tuple
 
 try:
     from .fossa_credits_validation import validate_public_credits, valid_project_url
-    from .fossa_artifact_scope import scope_decision
+    from .fossa_artifact_scope import scope_decision, component_ecosystem, python_metadata_additions
 except ImportError:
     from fossa_credits_validation import validate_public_credits, valid_project_url
-    from fossa_artifact_scope import scope_decision
+    from fossa_artifact_scope import scope_decision, component_ecosystem, python_metadata_additions
 
 try:
     from .fossa_json_draft import GROUPS, COMPOUND, PLACEHOLDER, build_component, build_draft, has_copyright_boilerplate, has_unfilled_copyright_slot
@@ -156,7 +156,7 @@ def _rules(values, kind):
     optional = set()
     if kind == "resolutions":
         required |= {"source"}
-        optional = REVIEW_FIELDS | {"notices", "evidence", "scope", "public_name", "project_url"}
+        optional = REVIEW_FIELDS | {"notices", "evidence", "scope", "public_name", "project_url", "ecosystem"}
     else:
         optional = {"artifact_sha256", "references"}
     for rule in _array(values):
@@ -176,7 +176,7 @@ def _rules(values, kind):
 
 
 def _resolution(rule):
-    if not (rule.keys() & (REVIEW_FIELDS | {"notices", "scope", "public_name", "project_url"})):
+    if not (rule.keys() & (REVIEW_FIELDS | {"notices", "scope", "public_name", "project_url", "ecosystem"})):
         raise ValueError("Resolution requires at least one override")
     for field in rule.keys() & REVIEW_FIELDS:
         _override(field, rule[field])
@@ -192,6 +192,8 @@ def _resolution(rule):
             raise ValueError("Public name must not be a transport locator")
     if "project_url" in rule and not valid_project_url(rule["project_url"]):
         raise ValueError("Expected a public HTTP(S) project URL")
+    if "ecosystem" in rule:
+        _text(rule["ecosystem"])
 
 
 def _scope(value):
@@ -208,7 +210,7 @@ def _additions(values):
     required = FINAL_FIELDS | {"reason", "source"}
     seen = set()
     for rule in _array(values):
-        _fields(rule, required, {"scope"})
+        _fields(rule, required, {"scope", "ecosystem"})
         identity = _identity(rule)
         if identity in seen:
             raise ValueError("Duplicate exact-version addition")
@@ -223,6 +225,8 @@ def _additions(values):
         _notices(rule["notices"])
         if "scope" in rule:
             _scope(rule["scope"])
+        if "ecosystem" in rule:
+            _text(rule["ecosystem"])
     return seen
 
 
@@ -438,7 +442,12 @@ def _append_additions(components, diagnostics, seen, additions):
     for addition in additions:
         identity = (addition["name"], addition["version"])
         if identity in seen:
-            raise ValueError(f"Addition already appears in FOSSA draft: {identity[0]} {identity[1]}")
+            if not addition.get("_from_python_metadata"):
+                raise ValueError(f"Addition already appears in FOSSA draft: {identity[0]} {identity[1]}")
+            diagnostics.append(f"Unresolved {identity[0]} {identity[1]}: [PYTHON_IDENTITY_COLLISION] "
+                               "Python distribution shares another ecosystem's public identity; "
+                               "set a distinct public_name in an ecosystem: pip resolution")
+            status = 1
         label = f"{identity[0]} {identity[1]}"
         component = _apply_rule(addition, {})
         components.append(component)
@@ -464,18 +473,65 @@ def _version_review_reasons(identity, config):
             + "; verify this version's upstream license, notices and TA scope, then add an exact-version rule"]
 
 
-def _artifact_decision(component, rule, exclusion, artifact, source_name=None):
+def _artifact_decision(component, rule, exclusion, artifact, source_name=None, ecosystem=None):
     reviewed = rule.get("scope")
     if exclusion and "artifact_sha256" in exclusion:
         reviewed = dict(disposition="not_shipped", artifact_sha256=exclusion["artifact_sha256"],
                         reason=exclusion["reason"], references=exclusion["references"])
     candidate = dict(component)
+    candidate["_ecosystem"] = rule.get("ecosystem") or ecosystem or component_ecosystem(component)
     if source_name:
         candidate["_source_names"] = [source_name]
     decision = scope_decision(candidate, artifact, reviewed)
-    if exclusion and "artifact_sha256" not in exclusion:
+    if exclusion and "artifact_sha256" not in exclusion and decision.get("policy") != "python-dist-info":
         decision.update(disposition="unknown", reason="[SCOPE_EXCLUSION] exclusion has no artifact checksum binding")
     return decision
+
+
+def resolution_for_component(component, rules):
+    """An explicit ecosystem selector cannot override a different known one."""
+    rule = rules.get((component["name"], component["version"]), {})
+    selected, actual = rule.get("ecosystem"), component_ecosystem(component)
+    if selected and actual not in (None, "git", selected):
+        return {}
+    return rule
+
+
+def artifact_python_additions(draft, config, artifact):
+    """Create reviewable rows for dist-info identities missing from the inputs."""
+    if artifact is None:
+        return []
+    rules = {(r["name"], r["version"]): r for r in config["resolutions"]}
+    represented = []
+    for value in draft["components"] + config.get("additions", []):
+        rule = value if "reason" in value else resolution_for_component(value, rules)
+        represented.append(dict(name=rule.get("public_name", value["name"]), version=value["version"],
+                                _source_names=[value["name"]],
+                                _ecosystem=rule.get("ecosystem") or component_ecosystem(value)))
+    sources = {(c["name"], c["version"]): component_ecosystem(c) for c in draft["components"]}
+    python_rules = {identity: rule for identity, rule in rules.items()
+                    if (rule.get("ecosystem") or sources.get(identity) or component_ecosystem(rule))
+                    in (None, "pip", "git")}
+    return [_metadata_addition(observation, python_rules, artifact["sha256"])
+            for observation in python_metadata_additions(represented, artifact)]
+
+
+def _metadata_addition(observation, rules, digest):
+    name, version = observation["name"], observation["version"]
+    matches = [rule for (rule_name, rule_version), rule in rules.items()
+               if re.sub(r"[-_.]+", "-", rule_name).lower() == re.sub(r"[-_.]+", "-", name).lower()
+               and rule_version.removeprefix("v") == version.removeprefix("v")]
+    if len(matches) > 1:
+        raise ValueError(f"Ambiguous Python metadata resolution: {name} {version}")
+    rule = matches[0] if matches else {}
+    addition = dict(name=name, version=version, license="TBD", copyright_holder="TBD",
+                    license_text="TBD", project_url=None, notices=[])
+    addition.update({field: rule[field] for field in FINAL_FIELDS - {"name", "version"} if field in rule})
+    addition.update(name=rule.get("public_name", name), ecosystem="pip", _source_names=[name],
+                    _from_python_metadata=True,
+                    reason="Python distribution found in packaged metadata but absent from input rows",
+                    source=f"SPL SHA256 {digest}; " + "; ".join(o["path"] for o in observation["evidence"]))
+    return addition
 
 
 def _publication_diagnostics(credits, labels):
@@ -515,10 +571,11 @@ def build_credits(draft: dict, config: dict, artifact=None) -> Tuple[dict, List[
         if identity in exclusions and artifact is None:
             diagnostics.append(f"Excluded {label}: {exclusions[identity]['reason']}")
             continue
-        rule = resolutions.get(identity, {})
+        rule = resolution_for_component(component, resolutions)
         result = _apply_rule(component, rule)
         if artifact is not None:
-            decision = _artifact_decision(result, rule, exclusions.get(identity), artifact, component["name"])
+            decision = _artifact_decision(result, rule, exclusions.get(identity), artifact,
+                                          component["name"], component_ecosystem(component))
             if decision["disposition"] == "not_shipped":
                 diagnostics.append(f"Excluded {label}: {decision['reason']}")
                 continue
@@ -531,7 +588,9 @@ def build_credits(draft: dict, config: dict, artifact=None) -> Tuple[dict, List[
             status = 1
         components.append(result)
         labels.append(label)
-    additions, addition_status = _included_additions(config.get("additions", []), artifact, diagnostics)
+    metadata_additions = artifact_python_additions(draft, config, artifact)
+    additions, addition_status = _included_additions(config.get("additions", []) + metadata_additions,
+                                                    artifact, diagnostics)
     status |= addition_status | _append_additions(components, diagnostics, seen, additions)
     labels.extend(f"{a['name']} {a['version']}" for a in additions)
     for kind, rules in (("resolution", resolutions), ("exclusion", exclusions)):
