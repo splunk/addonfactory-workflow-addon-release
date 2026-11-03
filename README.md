@@ -1220,6 +1220,8 @@ DOCKER_IMAGE=10.0.14-debian-10-r39
 
 Use the [local JSON credits runbook](runbooks/fossa-credits-json.md) to fetch
 an exact FOSSA revision, generate a draft with native license and notice
-evidence, and apply reviewed exact-version rules in a separate offline
-command. TA-owned settings and validator-checked examples are linked there.
+evidence, prefill it offline from release-local exact-version resolutions,
+then research the remaining gaps and generate final credits. The TA release
+directory owns its editable resolutions file. Settings and synthetic examples
+are linked there.
 These local commands do not add a workflow or publish credits.

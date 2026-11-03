@@ -1,0 +1,16 @@
+{
+  "license_list_version": "3.29.0",
+  "sources": {
+    "spdx-identifiers.json": {
+      "source": "https://github.com/spdx/license-list-data/blob/v3.29.0/json/licenses.json",
+      "derivation": "sorted licenseId values, including deprecated historical identifiers",
+      "sha256": "0f899db733439d827197606ab2297fe12473ccf7a6577af531297c1a63cdbdd8"
+    },
+    "Apache-2.0.txt": {
+      "source": "https://github.com/spdx/license-list-data/blob/v3.29.0/text/Apache-2.0.txt",
+      "authoritative_reference": "https://www.apache.org/licenses/LICENSE-2.0",
+      "derivation": "SPDX text mirror; validate normalized Sections 1 through 9 only",
+      "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+    }
+  }
+}

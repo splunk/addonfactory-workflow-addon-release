@@ -22,12 +22,15 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+import tarfile
 from typing import List, Optional
 
 try:
-    from .fossa_json_final import _read_json, build_credits, load_config, verify_provenance
+    from .fossa_json_final import _read_json, build_credits, load_config, verify_provenance, _artifact_decision
+    from .fossa_artifact_scope import inspect_artifact, reconcile_scope
 except ImportError:  # Direct script execution.
-    from fossa_json_final import _read_json, build_credits, load_config, verify_provenance
+    from fossa_json_final import _read_json, build_credits, load_config, verify_provenance, _artifact_decision
+    from fossa_artifact_scope import inspect_artifact, reconcile_scope
 
 
 def _output_path(draft, output_dir):
@@ -62,36 +65,77 @@ def _write_credits(output, credits):
             temporary.unlink(missing_ok=True)
 
 
-def _generate(args):
-    _, draft = _read_json(args.draft)
-    verify_provenance(draft, args.draft)
-    config = load_config(args.config)
-    output = _output_path(draft, args.output_dir)
-    inputs = [args.draft, args.config]
+def _scope_receipt(draft, config, artifact):
+    rules = {(r["name"], r["version"]): r for r in config["resolutions"]}
+    excluded = {(r["name"], r["version"]): r for r in config["exclusions"]}
+    components, decisions = [], []
+    for value in draft["components"] + config.get("additions", []):
+        identity = (value["name"], value["version"])
+        rule = rules.get(identity, value if "reason" in value else {})
+        component = dict(name=rule.get("public_name", value["name"]), version=value["version"],
+                         _source_names=[value["name"]])
+        components.append(component)
+        decisions.append(_artifact_decision(component, rule, excluded.get(identity), artifact))
+    receipt = reconcile_scope(components, artifact)
+    receipt["decisions"] = decisions
+    return receipt
+
+
+def _check_output(args, draft, config_path):
+    output = _output_path(draft, args.output_dir or Path.cwd())
+    inputs = [args.draft, config_path]
     inputs.extend(args.draft.parent / draft["provenance"][field]
                   for field in ("raw_report_file", "request_metadata_file"))
+    if args.artifact:
+        inputs.append(args.artifact)
     if output.resolve() in {path.resolve() for path in inputs}:
         raise ValueError("Final output would overwrite an input")
-    credits, diagnostics, status = build_credits(draft, config)
-    _write_credits(output, credits)
+    return output
+
+
+def _generate(args):
+    if args.mode == "validate" and args.output_dir is not None:
+        raise ValueError("validate does not accept --output-dir")
+    _, draft = _read_json(args.draft)
+    draft = verify_provenance(draft, args.draft)
+    config_path = args.config or args.draft.parent / "fossa-license-resolutions.json"
+    config = load_config(config_path)
+    identity_path = _output_path(draft, Path.cwd())
+    artifact = None
+    if args.artifact:
+        app_name = identity_path.name[:-len(f"-{draft['version']}-credits.json")]
+        artifact = inspect_artifact(args.artifact, expected_version=draft["version"], expected_app=app_name)
+    credits, diagnostics, status = build_credits(draft, config, artifact=artifact)
+    if artifact is None:
+        diagnostics.append("Warning: artifact scope not checked; supply --artifact for shipping reconciliation")
+    if args.mode == "generate":
+        _write_credits(_check_output(args, draft, config_path), credits)
     for diagnostic in diagnostics:
         print(diagnostic, file=sys.stderr)
+    if args.json:
+        print(json.dumps(dict(status=status, diagnostics=diagnostics,
+                              scope=_scope_receipt(draft, config, artifact) if artifact else None),
+                         indent=2, ensure_ascii=False, allow_nan=False))
     return status
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Write credits on completeness status 0/1; leave prior output on invalid input."""
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("generate", "validate"), nargs="?", default="generate")
     parser.add_argument("--draft", required=True, type=Path)
-    parser.add_argument("--config", required=True, type=Path)
-    parser.add_argument("--output-dir", default=Path.cwd(), type=Path)
+    parser.add_argument("--config", type=Path,
+                        help="Defaults to fossa-license-resolutions.json beside the draft")
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--artifact", type=Path, help="Existing release SPL; no build or scan is run")
+    parser.add_argument("--json", action="store_true", help="Print diagnostics and artifact evidence to stdout")
     try:
         args = parser.parse_args(argv)
     except SystemExit as error:
         return error.code
     try:
         return _generate(args)
-    except (ValueError, OSError, TypeError, KeyError, OverflowError) as error:
+    except (ValueError, OSError, TypeError, KeyError, OverflowError, tarfile.TarError, EOFError) as error:
         print(f"Invalid input or processing failure: {error}", file=sys.stderr)
         return 2
 

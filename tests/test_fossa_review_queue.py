@@ -59,7 +59,7 @@ def test_cli_exits_one_and_prints_diagnostic_only_blockers(monkeypatch, capsys):
                                "license": "Apache-2.0", "copyright_holder": "",
                                "license_text": "complete", "notices": []}]}
     monkeypatch.setattr(MODULE, "_read_json", lambda _: (b"", {}))
-    monkeypatch.setattr(MODULE, "verify_provenance", lambda *_: None)
+    monkeypatch.setattr(MODULE, "verify_provenance", lambda *_: {})
     monkeypatch.setattr(MODULE, "load_config", lambda _: {})
     monkeypatch.setattr(
         MODULE, "build_credits",
@@ -71,7 +71,7 @@ def test_cli_exits_one_and_prints_diagnostic_only_blockers(monkeypatch, capsys):
 
 def test_cli_exits_zero_when_generator_is_complete(monkeypatch, capsys):
     monkeypatch.setattr(MODULE, "_read_json", lambda _: (b"", {}))
-    monkeypatch.setattr(MODULE, "verify_provenance", lambda *_: None)
+    monkeypatch.setattr(MODULE, "verify_provenance", lambda *_: {})
     monkeypatch.setattr(MODULE, "load_config", lambda _: {})
     monkeypatch.setattr(MODULE, "build_credits", lambda *_: ({"components": []}, [], 0))
     assert MODULE.main(["--draft", "draft.json", "--config", "rules.json"]) == 0

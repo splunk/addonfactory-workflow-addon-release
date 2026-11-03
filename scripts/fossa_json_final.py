@@ -16,11 +16,17 @@
 """Offline validation of FOSSA JSON drafts and reviewed exact-version rules."""
 
 import hashlib
-import json
 import re
 from copy import deepcopy
 from pathlib import Path
 from typing import List, Tuple
+
+try:
+    from .fossa_credits_validation import validate_public_credits, valid_project_url
+    from .fossa_artifact_scope import scope_decision
+except ImportError:
+    from fossa_credits_validation import validate_public_credits, valid_project_url
+    from fossa_artifact_scope import scope_decision
 
 try:
     from .fossa_json_draft import GROUPS, COMPOUND, PLACEHOLDER, build_component, build_draft, has_copyright_boilerplate, has_unfilled_copyright_slot
@@ -150,7 +156,9 @@ def _rules(values, kind):
     optional = set()
     if kind == "resolutions":
         required |= {"source"}
-        optional = REVIEW_FIELDS | {"notices", "evidence"}
+        optional = REVIEW_FIELDS | {"notices", "evidence", "scope", "public_name", "project_url"}
+    else:
+        optional = {"artifact_sha256", "references"}
     for rule in _array(values):
         _fields(rule, required, optional)
         identity = _identity(rule)
@@ -161,11 +169,14 @@ def _rules(values, kind):
             _text(rule[field])
         if kind == "resolutions":
             _resolution(rule)
+        elif "artifact_sha256" in rule:
+            _scope(dict(disposition="not_shipped", reason=rule["reason"],
+                        artifact_sha256=rule["artifact_sha256"], references=rule.get("references", [])))
     return seen
 
 
 def _resolution(rule):
-    if not (rule.keys() & (REVIEW_FIELDS | {"notices"})):
+    if not (rule.keys() & (REVIEW_FIELDS | {"notices", "scope", "public_name", "project_url"})):
         raise ValueError("Resolution requires at least one override")
     for field in rule.keys() & REVIEW_FIELDS:
         _override(field, rule[field])
@@ -173,13 +184,31 @@ def _resolution(rule):
         _notices(rule["notices"])
     if "evidence" in rule:
         _evidence(rule["evidence"])
+    if "scope" in rule:
+        _scope(rule["scope"])
+    if "public_name" in rule:
+        name = _text(rule["public_name"])
+        if re.search(r"^[\w+.-]+://|^git@[^:]+:", name):
+            raise ValueError("Public name must not be a transport locator")
+    if "project_url" in rule and not valid_project_url(rule["project_url"]):
+        raise ValueError("Expected a public HTTP(S) project URL")
+
+
+def _scope(value):
+    _fields(value, {"disposition", "artifact_sha256", "reason", "references"})
+    if value["disposition"] not in ("present", "not_shipped", "unknown"):
+        raise ValueError("Invalid scope disposition")
+    if not isinstance(value["artifact_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", value["artifact_sha256"]):
+        raise ValueError("Invalid scope artifact checksum")
+    _text(value["reason"])
+    _references(value["references"])
 
 
 def _additions(values):
     required = FINAL_FIELDS | {"reason", "source"}
     seen = set()
     for rule in _array(values):
-        _fields(rule, required)
+        _fields(rule, required, {"scope"})
         identity = _identity(rule)
         if identity in seen:
             raise ValueError("Duplicate exact-version addition")
@@ -192,6 +221,8 @@ def _additions(values):
             if rule[field] != "TBD":
                 _override(field, rule[field])
         _notices(rule["notices"])
+        if "scope" in rule:
+            _scope(rule["scope"])
     return seen
 
 
@@ -230,6 +261,8 @@ def _candidates(value, text=False):
 def _draft_component(component):
     _fields(component, DRAFT_FIELDS | {"fossa_evidence"})
     for field in {"name", "version"} | REVIEW_FIELDS:
+        if field == "copyright_holder" and component[field] == "":
+            continue
         _text(component[field])
     if component["project_url"] is not None and not isinstance(component["project_url"], str):
         raise ValueError("Invalid project URL")
@@ -286,8 +319,22 @@ def _sibling(parent, filename):
     return path
 
 
-def verify_provenance(draft: dict, draft_path: Path) -> None:
-    """Bind the entire draft to unchanged sibling raw bytes and request metadata.
+def prefill_draft(draft: dict, config: dict) -> dict:
+    """Apply exact reviewed fields while preserving the entire FOSSA inventory/evidence."""
+    validate_draft(draft)
+    _validate_config(config)
+    rules = {(rule["name"], rule["version"]): rule for rule in config["resolutions"]}
+    working = deepcopy(draft)
+    for component in working["components"]:
+        rule = rules.get((component["name"], component["version"]), {})
+        for field in REVIEW_FIELDS | {"notices"}:
+            if field in rule:
+                component[field] = deepcopy(rule[field])
+    return working
+
+
+def verify_provenance(draft: dict, draft_path: Path) -> dict:
+    """Verify raw or prefilled input, returning the canonical FOSSA-only draft.
 
     This checks local consistency, not authenticity against a remote service or
     a signature: a replacement of the complete artifact set is not detectable.
@@ -308,8 +355,11 @@ def verify_provenance(draft: dict, draft_path: Path) -> None:
     expected = build_draft(report, metadata, metadata["ta_version"], provenance["revision"],
                            provenance["raw_sha256"], raw_path.name, metadata_path.name)
     validate_metadata(metadata, report, provenance)
-    if json.dumps(draft, sort_keys=True, allow_nan=False) != json.dumps(expected, sort_keys=True, allow_nan=False):
-        raise ValueError("Draft differs from rederived authoritative report")
+    if draft["name"] != expected["name"] or draft["version"] != expected["version"]:
+        raise ValueError("Draft release identity differs from request metadata")
+    # Working drafts can be prefilled. Their legal fields are not authoritative:
+    # use raw evidence plus the latest resolutions for every queue/final run.
+    return expected
 
 
 def _apply_rule(component, rule):
@@ -317,6 +367,10 @@ def _apply_rule(component, rule):
     for field in sorted(REVIEW_FIELDS | {"notices"}):
         if field in rule:
             result[field] = deepcopy(rule[field])
+    if "public_name" in rule:
+        result["name"] = rule["public_name"]
+    if "project_url" in rule:
+        result["project_url"] = rule["project_url"]
     result["notices"] = [
         {key: value for key, value in notice.items() if key in PUBLIC_NOTICE_FIELDS}
         for notice in result["notices"]
@@ -410,11 +464,40 @@ def _version_review_reasons(identity, config):
             + "; verify this version's upstream license, notices and TA scope, then add an exact-version rule"]
 
 
-def build_credits(draft: dict, config: dict) -> Tuple[dict, List[str], int]:
+def _artifact_decision(component, rule, exclusion, artifact, source_name=None):
+    reviewed = rule.get("scope")
+    if exclusion and "artifact_sha256" in exclusion:
+        reviewed = dict(disposition="not_shipped", artifact_sha256=exclusion["artifact_sha256"],
+                        reason=exclusion["reason"], references=exclusion["references"])
+    candidate = dict(component)
+    if source_name:
+        candidate["_source_names"] = [source_name]
+    decision = scope_decision(candidate, artifact, reviewed)
+    if exclusion and "artifact_sha256" not in exclusion:
+        decision.update(disposition="unknown", reason="[SCOPE_EXCLUSION] exclusion has no artifact checksum binding")
+    return decision
+
+
+def _publication_diagnostics(credits, labels):
+    findings = validate_public_credits(credits)
+    diagnostics = []
+    for finding in findings:
+        prefix = "Warning: " if finding.severity == "warning" else "Unresolved "
+        if finding.component_index is not None:
+            prefix += labels[finding.component_index] + ": "
+        if finding.notice_index is not None:
+            notice = credits["components"][finding.component_index]["notices"][finding.notice_index]
+            prefix += f"notice {notice.get('name', finding.notice_index)}: "
+        diagnostics.append(f"{prefix}[{finding.code}] {finding.message}")
+    return diagnostics, int(any(f.severity == "error" for f in findings))
+
+
+def build_credits(draft: dict, config: dict, artifact=None) -> Tuple[dict, List[str], int]:
     """Apply exact-version research, returning public credits and completeness.
 
-    Callers reading drafts from disk must verify_provenance before using this
-    pure transformation. Warnings and exclusions do not make a report incomplete.
+    Callers reading drafts from disk must use the canonical draft returned by
+    verify_provenance, so removed/changed resolutions cannot leave stale values.
+    Warnings and exclusions do not make a report incomplete.
     """
     validate_draft(draft)
     _validate_config(config)
@@ -424,24 +507,56 @@ def build_credits(draft: dict, config: dict) -> Tuple[dict, List[str], int]:
     diagnostics = []
     components = []
     status = 0
+    labels = []
     for component in draft["components"]:
         identity = (component["name"], component["version"])
         seen.add(identity)
         label = f"{identity[0]} {identity[1]}"
-        if identity in exclusions:
+        if identity in exclusions and artifact is None:
             diagnostics.append(f"Excluded {label}: {exclusions[identity]['reason']}")
             continue
         rule = resolutions.get(identity, {})
         result = _apply_rule(component, rule)
+        if artifact is not None:
+            decision = _artifact_decision(result, rule, exclusions.get(identity), artifact, component["name"])
+            if decision["disposition"] == "not_shipped":
+                diagnostics.append(f"Excluded {label}: {decision['reason']}")
+                continue
+            if decision["disposition"] == "unknown":
+                diagnostics.append(f"Unresolved {label}: [SCOPE_UNKNOWN] {decision['reason']}")
+                status = 1
         reasons = _component_reasons(component, result, rule) + _version_review_reasons(identity, config)
         diagnostics.extend(f"Unresolved {label}: {reason}" for reason in reasons)
         if reasons:
             status = 1
         components.append(result)
-    status |= _append_additions(components, diagnostics, seen, config.get("additions", []))
+        labels.append(label)
+    additions, addition_status = _included_additions(config.get("additions", []), artifact, diagnostics)
+    status |= addition_status | _append_additions(components, diagnostics, seen, additions)
+    labels.extend(f"{a['name']} {a['version']}" for a in additions)
     for kind, rules in (("resolution", resolutions), ("exclusion", exclusions)):
         for name, version in sorted(rules.keys() - seen):
             diagnostics.append(f"Warning: unmatched {kind} rule: {name} {version}")
     credits = {field: draft[field] for field in ("name", "version", "disclaimer")}
     credits["components"] = components
+    public_diagnostics, public_status = _publication_diagnostics(credits, labels)
+    diagnostics.extend(public_diagnostics)
+    status |= public_status
     return credits, diagnostics, status
+
+
+def _included_additions(additions, artifact, diagnostics):
+    if artifact is None:
+        return additions, 0
+    retained, status = [], 0
+    for addition in additions:
+        label = f"{addition['name']} {addition['version']}"
+        decision = _artifact_decision(addition, addition, None, artifact)
+        if decision["disposition"] == "not_shipped":
+            diagnostics.append(f"Excluded {label}: {decision['reason']}")
+            continue
+        if decision["disposition"] == "unknown":
+            diagnostics.append(f"Unresolved {label}: [SCOPE_UNKNOWN] {decision['reason']}")
+            status = 1
+        retained.append(addition)
+    return retained, status

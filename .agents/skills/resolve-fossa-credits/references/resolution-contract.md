@@ -106,9 +106,9 @@ for versions absent from this CSV warn without applying to other versions.
 python /path/to/addonfactory-workflow-addon-release/scripts/process_fossa_report.py \
   --csv /path/to/report.csv \
   --config /path/to/ta/fossa-license-resolutions.json \
-  --ta-name Splunk_TA_aws \
-  --ta-version 8.2.2 \
-  --ta-display-name 'Splunk Add-on for Amazon Web Services' \
+  --ta-name Example_TA \
+  --ta-version 1.2.3 \
+  --ta-display-name 'Example Add-on' \
   --output-dir /path/to/artifacts
 ```
 
@@ -121,11 +121,19 @@ verify the research recorded in configuration.
 
 The repository also owns `scripts/generate_draft_credits.py`,
 `scripts/generate_credits.py`, and [the JSON runbook](../../../../runbooks/fossa-credits-json.md).
-The TA owns four-field `.fossa-credits.json` settings and its reviewed rules.
-The raw FOSSA response, request metadata, and draft are generated inputs;
-write decisions only to the resolution configuration. Preserve all three
-sibling artifacts: final generation verifies their hashes/revision and
-reconstructs the draft before applying any rules.
+The TA owns four-field `.fossa-credits.json` settings. For the JSON flow, the
+user seeds `docs/thirdpartycredits/drafts/<release>/fossa-license-resolutions.json`
+with the latest available reviewed rules. This copy is the editable source of
+review decisions for that release, with no implicit repository-root fallback.
+Draft generation stays unchanged. Run `scripts/resolve_credits_gaps.py --draft
+<release-draft.json>` before agent research to prefill exact dependency
+name/version matches and print the remaining review queue. Rerun after edits.
+The raw FOSSA response and request metadata remain unchanged; the working
+draft is refreshed by the gap script. Final generation checks raw provenance,
+rebuilds the FOSSA baseline and applies the latest configuration. It accepts
+prefilled drafts without requiring equality to the original draft. Preserve
+all three sibling artifacts. The final and queue commands default to the
+same sibling configuration; explicit `--config` paths remain supported.
 
 JSON candidate objects use native `licenses` and `otherLicenses` arrays,
 never CSV's `declared`/`discovered`. Text candidates are objects with `name`
@@ -165,9 +173,15 @@ the notice remains in configuration for audit but is omitted from public
 credits. `applicability`, `reason`, and `source` are not public notice fields.
 
 Run `python /path/to/repo/scripts/generate_credits.py --draft <draft.json>
---config <TA>/fossa-license-resolutions.json --output-dir <artifacts>`.
+--output-dir <release-dir>` (configuration defaults beside the draft).
 Exit `0` means included components are structurally complete; `1` writes
 credits and diagnostics for `TBD` main/notice fields, explicit
 `notice_text: "TBD"`, unresolved/uncovered candidates, or unreviewed notice
 files; `2` means invalid source/configuration or processing failure.
 Structural completion does not certify the recorded legal research.
+
+For the public JSON validation path, a legacy empty holder override remains
+readable but produces a publication finding. After a completed absence review,
+use `No copyright holder stated in the distributed package.` unless an explicit
+manual report attribution already applies. Preserve the recorded manual
+attribution decision and distinguish it from upstream declarations.

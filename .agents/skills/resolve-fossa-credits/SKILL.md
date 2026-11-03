@@ -8,10 +8,20 @@ description: Research unresolved FOSSA credits against exact upstream versions a
 Review unresolved components one at a time. Record evidence in the consuming
 add-on's resolution configuration and regenerate credits with the processor.
 
+## Ownership of reviewed data
+
+The reusable tooling repository contains generic processors, schemas, synthetic
+tests and illustrative examples. Keep real TA settings, reviewed resolution
+configurations, approval/change records, generated reports, scan/release
+revisions and run-specific validation evidence in the consuming TA repository.
+Pass those files as inputs; never turn a TA decision into a reusable default.
+Shared dependency-license cache provenance describes the cache dataset, not a
+TA release or legal approval.
+
 ## Establish the inputs
 
 1. Locate the draft JSON, sibling raw FOSSA JSON and request metadata (or
-   original CSV for the legacy route), `fossa-license-resolutions.json`,
+   original CSV for the legacy route), the release-local `fossa-license-resolutions.json`,
    generator scripts, and TA source checkout. Read
    [the resolution contract](references/resolution-contract.md) before edits.
 2. Confirm the TA release name/version, FOSSA scanned revision, and release
@@ -20,13 +30,29 @@ add-on's resolution configuration and regenerate credits with the processor.
    refs or use an isolated checkout for builds.
    Record the report's inventory policy before editing rules. A review may
    deliberately use FOSSA's exact name/version set as its public inventory;
-   under that policy keep `additions` and `exclusions` empty and reconcile the
-   final identities 1:1 with the raw FOSSA JSON. Treat release-artifact findings
-   as license/notice evidence, not as permission to silently change that set.
-   When processing another release of the same TA, reuse its existing
-   `fossa-license-resolutions.json`; never replace it with the example or a
-   newly generated empty file. Snapshot the configuration beside each run's
-   artifacts. Exact name/version rules can carry upstream facts forward, but
+   under that policy do not apply additions, exclusions or not-shipped scope
+   decisions, and reconcile final identities 1:1 with the raw report. A review
+   may instead select package-presence checks and explicit artifact-bound
+   exclusions. Never silently switch the selected policy.
+   The user supplies a branch with `docs/thirdpartycredits/drafts/<release>/`
+   initially containing only the latest available `fossa-license-resolutions.json`.
+   Use that copy as the input and editable configuration throughout this run;
+   do not fall back to a repository-root file or overwrite an earlier release.
+   Generate the normal raw/request/draft trio into that directory unchanged.
+   Before researching gaps, run the deterministic prefill step:
+
+   ```sh
+   python /path/to/addonfactory-workflow-addon-release/scripts/resolve_credits_gaps.py \
+     --draft /path/to/TA/docs/thirdpartycredits/drafts/release/TA-release-credits-draft.json
+   ```
+
+   The script defaults to the sibling resolutions file, updates exact matching
+   dependencies in the working draft, and prints the remaining review queue.
+   Exit `1` means the update succeeded and research remains; exit `2` means an
+   input/processing error. Do not redo already resolved fields as fresh TBDs.
+   Never replace the supplied configuration with an example or an empty file.
+   Keep previous dependency versions and unrelated reviewed entries.
+   Exact name/version rules can carry upstream facts forward, but
    recheck their distribution findings, supporting notices and exclusions
    against the newly selected TA release before accepting them.
    Look up every current component by library name across the configuration's
@@ -43,15 +69,15 @@ add-on's resolution configuration and regenerate credits with the processor.
    an explicit reviewed `notices` rule. Also queue any FOSSA attribution with
    an unfilled copyright slot, even if FOSSA supplied a separate holder or a
    prior rule filled the copyright field. A complete main license does not
-   bypass notice review. Treat an explicitly empty copyright after complete
-   upstream review as resolved, not as a fresh `TBD`. Derive the queue from
+   bypass notice review. An explicitly empty copyright can preserve completed upstream research,
+   but the public-format validator requires a declared holder or the reviewed
+   absence statement instead of a blank public field. Derive the queue from
    the verified draft and current configuration; a saved final credits JSON
    may be stale. Enumerate every `TBD` field with:
 
    ```sh
    python .agents/skills/resolve-fossa-credits/scripts/list_review_queue.py \
-     --draft /path/to/TA-version-credits-draft.json \
-     --config /path/to/TA/fossa-license-resolutions.json
+     --draft /path/to/TA/docs/thirdpartycredits/drafts/release/TA-release-credits-draft.json
    ```
 
    This command groups both `TBD` fields and diagnostic-only blockers such as
@@ -227,19 +253,20 @@ add-on's resolution configuration and regenerate credits with the processor.
   version-specific license text; record **both** in an exact-version rule
   when verified. A separately
   populated `copyright_holder` does not make placeholder-bearing
-  `license_text` complete. The Apache-2.0 appendix's instructional
-  `Copyright [yyyy] [name of copyright owner]` is part of the canonical
-  license and is not a package attribution to fill in.
+  `license_text` complete. The Apache-2.0 appendix's instructional example is
+  not component attribution. Terms completeness covers Sections 1–9; omit
+  application instructions from public credits without dropping actual
+  applicable attribution.
 - If that review finds no holder declaration for the main component and no
-  explicit manual report attribution applies, set `copyright_holder` to
-  **`""`** in the exact-version resolution rule. Record what was checked and
-  its exact version in `reason`/`source`; the empty value is a reviewed outcome,
-  not a missing override. Preserve a documented manual attribution when
-  carrying the rule to another TA release at the same dependency version;
-  recheck its scope and notices against that release. Apply the same upstream
-  review to each supporting notice's own covered code. If upstream was
-  inaccessible or the review is incomplete, leave `TBD`; an empty FOSSA cell
-  alone proves nothing about upstream declarations.
+  explicit manual report attribution applies, use
+  `No copyright holder stated in the distributed package.` in the exact-version
+  resolution rule. Record what was checked and its exact version in
+  `reason`/`source`. Legacy empty overrides remain readable but fail the public
+  nonempty-holder check. Preserve documented manual attribution at the same
+  dependency version unless its decision is explicitly revised; recheck its
+  scope and notices against each TA release. Apply the same upstream review to
+  each supporting notice's covered code. If upstream is inaccessible or review
+  is incomplete, leave `TBD`; an empty FOSSA cell does not establish absence.
 - For JSON input, preserve native `licenses` and `otherLicenses` categories.
   Add structured `evidence` with a disposition, reason, and immutable
   references for every candidate in each native group, plus
@@ -257,13 +284,18 @@ add-on's resolution configuration and regenerate credits with the processor.
 
 ## Regenerate and verify
 
-For JSON input, run `scripts/generate_credits.py --draft <draft.json>
---config <TA>/fossa-license-resolutions.json --output-dir <artifacts>`.
-Read [the JSON runbook](../../../runbooks/fossa-credits-json.md) for both
-local commands and provenance requirements. Keep the draft, raw report, and
-request metadata unchanged together; write reviewed decisions only to the
-configuration. Final generation verifies and reconstructs the draft from
-those authoritative inputs and requires no network access.
+For JSON input, rerun `scripts/resolve_credits_gaps.py --draft <draft.json>`
+after updating the release-local configuration, then run
+`scripts/generate_credits.py --draft <draft.json> --output-dir <release-dir>`.
+Both commands default to `fossa-license-resolutions.json` beside the draft;
+`--config` remains available for an explicit alternate path.
+Read [the JSON runbook](../../../runbooks/fossa-credits-json.md) for the
+local commands and provenance requirements. Keep the raw report and request
+metadata unchanged beside the working draft; write reviewed decisions only to
+the release-local configuration. The gap script refreshes the working draft.
+Final generation verifies raw provenance and reconstructs the baseline before
+applying the latest configuration. It accepts a prefilled draft without an
+exact-equality check and requires no network access.
 
 For legacy CSV input, run `scripts/process_fossa_report.py` with the original
 CSV, reviewed configuration, TA release identity, display name, and output directory.
@@ -297,3 +329,29 @@ paths, decisions with evidence, and missing evidence for blocked entries.
 Continue to other entries when one cannot be resolved. Claim completion only
 when regeneration exits `0`; record an empty copyright as an explicit review
 outcome, never as a discovered copyright statement. Retain diagnostics.
+
+
+## Public validation and existing-artifact scope
+
+Run the same generator with `validate --draft <draft> --artifact <release.spl>`
+before generating credits. `--json` prints a caller-saveable evidence receipt;
+validate modifies no inputs or output files. Without an artifact, the generator
+explicitly reports that shipping scope is not checked. Do not describe such a
+structural-only result as verified runtime scope.
+
+Check draft entries against the package in one direction. Package identity
+matches in metadata, mapped sources or packaged attribution satisfy presence;
+do not require exact version/code provenance or rewrite the draft version.
+Do not add reverse-inventory findings. Entries unidentifiable by the available
+checks stay included as non-blocking `unverified` receipt observations, not
+unresolved review tasks. Only actionable stale/contradictory reviewed scope
+configuration remains blocking. Exclusions must bind to the exact SPL SHA-256
+and cannot hide contradictory package identity evidence. See the JSON runbook
+for private scope/public-identity overrides. Build-time inventory production
+is explicitly deferred.
+
+For public fields, replace a reviewed empty holder with the exact agreed string
+`No copyright holder stated in the distributed package.`, preserving all upstream review
+evidence in source/reason. This includes supporting notices. Legacy empty
+overrides remain readable but produce publication findings. Do not replace
+unknown or inaccessible upstream research with that statement.

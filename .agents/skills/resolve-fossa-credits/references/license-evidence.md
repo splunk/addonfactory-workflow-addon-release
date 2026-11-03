@@ -78,26 +78,23 @@ placing it in credits. A Sphinx footer setting alone does not establish
 ownership of the shipped runtime code; record the scope decision in the
 resolution rule rather than silently discarding the statement.
 
-For example, `@splunk/react-ui@4.4.1` has an unfilled copyright placeholder
-in its main Apache LICENSE, while `Text.js` in the exact npm artifact and
-`src/Text/syncHeightWithShadow.ts` in the exact tagged source contain
-`Copyright (c) 2014 Call-Em-All` with an MIT grant. If that code ships in the
-TA, retain the complete MIT text and Call-Em-All attribution in a supporting
-notice. The main report field may retain a documented manual `Splunk Inc.`
-attribution even though the exact LICENSE does not declare that holder. Keep
-that policy choice distinct from the upstream finding; the filled Cisco
-copyright appendix in a newer `@splunk/react-ui` version is not a replacement
-for this exact-version rule. Inspect the exact TA bundle/sourcemap before
-asserting the supporting code ships.
+A package's main Apache LICENSE can have no named holder while an embedded
+helper has its own MIT grant and explicit statement. If the helper ships,
+preserve its complete grant and attribution in a supporting notice. A main
+report field may retain an explicitly documented manual attribution such as
+`Splunk Inc.`. Keep that policy choice distinct from an upstream declaration;
+a different version's copyright is not a replacement for this exact-version
+rule. Check the consuming TA's bundle/source map for the helper's applicability.
 
-If complete evidence reveals no declared owner for the main component and no
-explicit manual attribution was chosen, set the reviewed `copyright_holder`
-override to `""` and list the artifact/paths checked in the rule's reason and
-source. A manual attribution must name its decision and scope in the rule; an
-author field alone is not upstream ownership evidence. Inaccessibility, an
-absent CSV cell, or a detector failure is not a completed upstream review. Do
-not use an empty value to replace a holder that upstream actually names.
-Required supporting attributions remain required.
+If complete evidence reveals no declared owner and no manual attribution was
+chosen, use `No copyright holder stated in the distributed package.` and list
+the exact artifact and paths checked in the rule's reason/source. A manual
+attribution must identify its decision provenance and scope; an author field
+alone is not upstream ownership evidence. Inaccessibility, a missing FOSSA cell
+or a detector failure is not completed review. Legacy empty overrides remain
+readable but are not valid public nonempty-holder output. Do not replace a real
+upstream holder declaration with an absence statement. Preserve supporting
+attributions independently.
 
 ## Primary reference material
 

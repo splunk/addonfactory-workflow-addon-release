@@ -15,13 +15,13 @@ then add reviewed resolutions and exclusions as needed.
 python scripts/process_fossa_report.py \
   --csv report.csv \
   --config fossa-license-resolutions.json \
-  --ta-name Splunk_TA_aws \
-  --ta-version 8.2.2 \
-  --ta-display-name 'Splunk Add-on for Amazon Web Services' \
+  --ta-name Example_TA \
+  --ta-version 1.2.3 \
+  --ta-display-name 'Example Add-on' \
   --output-dir artifacts
 ```
 
-The output is `artifacts/Splunk_TA_aws-8.2.2-credits.json`. Both identity
+The output is `artifacts/Example_TA-1.2.3-credits.json`. Both identity
 arguments are required: `--ta-version` identifies the add-on release, while
 each component retains its own version. Their spelling is preserved; path
 separators and control characters are rejected. The output directory defaults
@@ -98,7 +98,7 @@ lines or needs interpretation, provide the reviewed complete statement in
 configuration.
 
 After reviewing the exact upstream artifact, a reviewer may supply
-`Copyright holder not declared by upstream` if no holder is declared there.
+`No copyright holder stated in the distributed package.` if no holder is declared there.
 Record the version and files checked in the rule's reason/source. Missing
 FOSSA copyright data alone does not establish absence upstream; the offline
 parser leaves such entries `TBD` until reviewed. Inaccessible or incomplete
@@ -111,8 +111,8 @@ and components array, in this order:
 
 ```json
 {
-  "name": "Splunk Add-on for Amazon Web Services",
-  "version": "8.2.2",
+  "name": "Example Add-on",
+  "version": "1.2.3",
   "disclaimer": "Third-party open source copyright and notices are provided for informational purposes only. Splunk makes no warranties, express or implied, regarding the accuracy or completeness of this information and disclaims liability for any errors or omissions.",
   "components": []
 }

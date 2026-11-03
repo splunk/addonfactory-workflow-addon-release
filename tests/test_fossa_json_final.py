@@ -21,6 +21,7 @@ def trio(tmp_path):
     report = {"project": {"name": "example", "revision": REVISION},
               "directDependencies": [{"title": "example", "version": "1.0",
                   "package": "example", "source": "pip", "downloadUrl": None,
+                  "projectUrl": "https://example.org",
                   "dependencyPaths": ["example"], "licenses": [{"name": "MIT",
                       "attribution": "Copyright 2026 Example\nMIT terms"}],
                   "otherLicenses": [], "noticeFiles": []}], "deepDependencies": []}
@@ -30,7 +31,7 @@ def trio(tmp_path):
     metadata_name = "Example_TA-1.0-fossa-attribution.request.json"
     draft = build_draft(report, SETTINGS, "1.0", REVISION, digest, raw_name, metadata_name)
     metadata = dict(SETTINGS, ta_version="1.0", selected_revision=REVISION,
-        response_revision=REVISION, raw_sha256=digest, fetched_at="2026-10-27T00:00:00+00:00",
+        response_revision=REVISION, raw_sha256=digest, fetched_at="2000-01-01T00:00:00+00:00",
         request_options=REQUEST_OPTIONS, direct_dependencies=1, deep_dependencies=0,
         api_url=attribution_url(SETTINGS["fossa_project_locator"], REVISION))
     (tmp_path / raw_name).write_bytes(raw)
@@ -40,28 +41,28 @@ def trio(tmp_path):
     return draft, path, metadata, report
 
 
-def test_tampered_raw_metadata_or_draft_rejected(trio):
+def test_raw_metadata_verified_and_working_draft_fields_rederived(trio):
     draft, path, metadata, report = trio
     validate_draft(draft)
     verify_provenance(draft, path)
-    for field in ("name", "version", "disclaimer"):
+    for field in ("name", "version"):
         changed = deepcopy(draft)
         changed[field] = "changed"
         with pytest.raises(ValueError):
             verify_provenance(changed, path)
+    changed = deepcopy(draft)
+    changed["disclaimer"] = "changed"
+    assert verify_provenance(changed, path) == draft
     for field in ("license", "copyright_holder", "license_text", "project_url"):
         changed = deepcopy(draft)
         changed["components"][0][field] = "changed"
-        with pytest.raises(ValueError):
-            verify_provenance(changed, path)
+        assert verify_provenance(changed, path) == draft
     changed = deepcopy(draft)
     changed["components"][0]["fossa_evidence"]["licenses"][0]["attribution"] = "changed"
-    with pytest.raises(ValueError):
-        verify_provenance(changed, path)
+    assert verify_provenance(changed, path) == draft
     changed = deepcopy(draft)
     changed["components"][0]["licenses_to_verify"]["licenses"].append("BSD")
-    with pytest.raises(ValueError):
-        verify_provenance(changed, path)
+    assert verify_provenance(changed, path) == draft
     for field in ("raw_sha256", "selected_revision", "response_revision", "ta_version",
                   "display_name", "fossa_project_locator", "ta_name", "direct_dependencies"):
         changed = deepcopy(metadata)
@@ -103,7 +104,7 @@ def config_file(tmp_path, config):
 def legacy_rule():
     return {"name": "example", "version": "1.0", "reason": "Exact artifact checked",
             "source": "https://example.org/1.0/LICENSE", "license": "MIT",
-            "copyright_holder": "Copyright holder not declared by upstream",
+            "copyright_holder": "No copyright holder stated in the distributed package.",
             "license_text": "Full MIT text", "notices": [{"name": "helper",
                 "license": "BSD-3-Clause", "copyright_holder": "TBD", "license_text": "TBD",
                 "notice_text": "TBD", "source": "exact path", "reason": "Ships"}]}
@@ -116,7 +117,7 @@ def config(rule=None):
 def addition(**overrides):
     value = {"name": "shipped-only", "version": "2.0", "license": "MIT",
              "copyright_holder": "Copyright 2026 Example",
-             "license_text": "Complete MIT license text", "project_url": None,
+             "license_text": "Complete MIT license text", "project_url": "https://example.org/shipped",
              "notices": [], "reason": "Found in the published add-on archive",
              "source": "archive SHA-256 and exact installed path"}
     value.update(overrides)
@@ -192,7 +193,7 @@ def evidence():
             "distribution_findings": [{"finding": "Ships helper", "references": ["TA path"]}]}
 
 
-def test_legacy_aws_style_rule_accepted(tmp_path):
+def test_legacy_resolution_rule_accepted(tmp_path):
     value = config()
     assert load_config(config_file(tmp_path, value)) == value
     for field in ("license", "copyright_holder", "license_text"):
@@ -334,7 +335,7 @@ def test_structured_candidate_group_requires_exact_native_value(tmp_path):
         load_config(config_file(tmp_path, config(rule)))
 
 
-def test_native_extra_field_boolean_tampering_rejected(trio):
+def test_native_extra_field_is_rederived_from_raw_without_boolean_coercion(trio):
     draft, path, metadata, report = trio
     report["directDependencies"][0]["licenses"][0]["native_flag"] = True
     raw = json.dumps(report).encode()
@@ -347,8 +348,8 @@ def test_native_extra_field_boolean_tampering_rejected(trio):
                         draft["provenance"]["request_metadata_file"])
     verify_provenance(draft, path)
     draft["components"][0]["fossa_evidence"]["licenses"][0]["native_flag"] = 1
-    with pytest.raises(ValueError):
-        verify_provenance(draft, path)
+    canonical = verify_provenance(draft, path)
+    assert canonical["components"][0]["fossa_evidence"]["licenses"][0]["native_flag"] is True
 
 
 def reviewed_rule(**overrides):
@@ -387,7 +388,7 @@ def test_partial_overrides_and_notices_preserved(trio):
     assert draft == original
 
 
-def test_reviewed_empty_copyright_is_distinct_from_tbd(trio, tmp_path):
+def test_reviewed_empty_is_readable_but_publication_requires_a_statement(trio, tmp_path):
     from scripts.fossa_json_final import build_credits
 
     draft = deepcopy(trio[0])
@@ -400,7 +401,8 @@ def test_reviewed_empty_copyright_is_distinct_from_tbd(trio, tmp_path):
     assert load_config(config_file(tmp_path, config(rule))) == config(rule)
     credits, diagnostics, status = build_credits(draft, config(rule))
     component = credits["components"][0]
-    assert status == 0 and diagnostics == []
+    assert status == 1
+    assert sum("[COPYRIGHT_EMPTY]" in item for item in diagnostics) == 2
     assert component["copyright_holder"] == ""
     assert component["notices"][0]["copyright_holder"] == ""
     assert "reason" not in component["notices"][0]
@@ -605,7 +607,7 @@ def test_invalid_provenance_exits_two_without_replacement(trio, tmp_path, capsys
         metadata["selected_revision"] = "b" * 40
         (tmp_path / draft["provenance"]["request_metadata_file"]).write_text(json.dumps(metadata))
     elif mutation == "draft":
-        draft["components"][0]["license"] = "Changed"
+        draft["components"][0]["license"] = None
         path.write_text(json.dumps(draft))
     elif mutation == "config":
         rules.write_text('{"schema_version": 1, "resolutions": null, "exclusions": []}')
@@ -670,7 +672,7 @@ def test_documented_json_settings_example():
     example = Path(__file__).resolve().parents[1] / "runbooks/examples/fossa-json-settings.json"
     settings = load_settings(example)
     assert settings["schema_version"] == 1
-    assert settings["ta_name"] == "Splunk_TA_aws"
+    assert settings["ta_name"] == "Example_TA"
 
 
 def test_documented_json_resolution_example():
