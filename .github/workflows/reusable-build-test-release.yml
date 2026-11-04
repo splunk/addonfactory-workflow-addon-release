@@ -1215,6 +1215,15 @@ jobs:
             fi
 
             echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
+
+            UCC_BUILD_HELP="$("$UCC_GEN" build --help 2>&1)"
+            if [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]]; then
+              echo "UCC_SUPPORTS_PIP_VERSION=true" >> "$GITHUB_ENV"
+              echo "Installed UCC supports --pip-version; applying the temporary pip pin"
+            else
+              echo "UCC_SUPPORTS_PIP_VERSION=false" >> "$GITHUB_ENV"
+              echo "Installed UCC does not support --pip-version; preserving its existing build behavior"
+            fi
           else
             echo "No UCC requirements file found, skipping UCC setup"
             echo "Create a dev_deps/requirements_ucc.txt file and place UCC requirement there, to avoid dependency conflicts"
