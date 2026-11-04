@@ -149,8 +149,8 @@ env:
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
   FOSSA_CLI_VERSION: "v3.18.4"
-  # Temporary pin until UCC is patched for pip 26.3.
-  UCC_PIP_VERSION: "26.2.2"
+  # Temporary pin until UCC is patched for pip 26.3; keep Python 3.9 support.
+  UCC_PIP_VERSION: "26.0.1"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
   GS_VERSION: ${{ inputs.gs-version }}
 jobs:
