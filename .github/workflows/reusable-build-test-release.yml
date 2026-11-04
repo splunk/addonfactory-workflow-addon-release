@@ -142,8 +142,6 @@ env:
   PYTHON_VERSION: ${{ inputs.python-version }}
   POETRY_VERSION: "2.2.1"
   POETRY_EXPORT_PLUGIN_VERSION: "1.9.0"
-  # Temporary pip 26.3 workaround; pin only when installed UCC supports --pip-version.
-  UCC_PIP_VERSION: "26.0.1"
   GS_IMAGE_VERSION: ${{ inputs.gs-image-version }}
   GS_VERSION: ${{ inputs.gs-version }}
 jobs:
@@ -978,9 +976,18 @@ jobs:
             echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
 
             UCC_BUILD_HELP="$("$UCC_GEN" build --help 2>&1)"
-            if [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]]; then
+            if [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]] && python${{ env.PYTHON_VERSION }} -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'; then
+              if python${{ env.PYTHON_VERSION }} -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+                UCC_PIP_VERSION="26.2.2"
+              else
+                UCC_PIP_VERSION="26.0.1"
+              fi
+              echo "UCC_PIP_VERSION=$UCC_PIP_VERSION" >> "$GITHUB_ENV"
               echo "UCC_SUPPORTS_PIP_VERSION=true" >> "$GITHUB_ENV"
-              echo "Installed UCC supports --pip-version; applying the temporary pip pin"
+              echo "Installed UCC supports --pip-version; pinning pip to $UCC_PIP_VERSION for this Python version"
+            elif [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]]; then
+              echo "UCC_SUPPORTS_PIP_VERSION=false" >> "$GITHUB_ENV"
+              echo "Skipping the pip pin because pip 26.x requires Python 3.9 or newer"
             else
               echo "UCC_SUPPORTS_PIP_VERSION=false" >> "$GITHUB_ENV"
               echo "Installed UCC does not support --pip-version; preserving its existing build behavior"
@@ -1209,9 +1216,18 @@ jobs:
             echo "UCC_GEN=$UCC_GEN" >> "$GITHUB_ENV"
 
             UCC_BUILD_HELP="$("$UCC_GEN" build --help 2>&1)"
-            if [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]]; then
+            if [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]] && python${{ env.BUILD_PYTHON_VERSION }} -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)'; then
+              if python${{ env.BUILD_PYTHON_VERSION }} -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+                UCC_PIP_VERSION="26.2.2"
+              else
+                UCC_PIP_VERSION="26.0.1"
+              fi
+              echo "UCC_PIP_VERSION=$UCC_PIP_VERSION" >> "$GITHUB_ENV"
               echo "UCC_SUPPORTS_PIP_VERSION=true" >> "$GITHUB_ENV"
-              echo "Installed UCC supports --pip-version; applying the temporary pip pin"
+              echo "Installed UCC supports --pip-version; pinning pip to $UCC_PIP_VERSION for this Python version"
+            elif [[ "$UCC_BUILD_HELP" == *"--pip-version"* ]]; then
+              echo "UCC_SUPPORTS_PIP_VERSION=false" >> "$GITHUB_ENV"
+              echo "Skipping the pip pin because pip 26.x requires Python 3.9 or newer"
             else
               echo "UCC_SUPPORTS_PIP_VERSION=false" >> "$GITHUB_ENV"
               echo "Installed UCC does not support --pip-version; preserving its existing build behavior"
