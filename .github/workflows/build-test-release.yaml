@@ -52,6 +52,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          # Full history so the pinned-action staleness test can compare the
+          # pinned commit against the last commit touching the action directories.
+          fetch-depth: 0
       - uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.13"

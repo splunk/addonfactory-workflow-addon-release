@@ -1,0 +1,52 @@
+name: Run RFCT comparison
+description: Compare prepared Splunk environments with RFCT and render CIM changes docs
+inputs:
+  config-path:
+    description: >-
+      Absolute path to the read-only RFCT configuration for the prepared, populated baseline and candidate endpoints. Holds temporary endpoint credentials and is never uploaded.
+    required: true
+  candidate-source:
+    description: >-
+      Absolute path to the read-only candidate source and knowledge fixtures used for formatter attribution, exported without .git.
+    required: true
+  app-code-name:
+    description: App identity already verified by the workflow against both installed packages
+    required: true
+  rfct-image:
+    description: Already pulled ta-automation/rfct image reference pinned by digest
+    required: true
+  output-directory:
+    description: Absolute, dedicated directory for execution evidence and generated docs
+    required: true
+outputs:
+  status:
+    description: One of changes, no-changes, or failed
+    value: ${{ steps.invoke.outputs.status }}
+  candidate-version:
+    description: Candidate version as recorded by RFCT output
+    value: ${{ steps.invoke.outputs.candidate-version }}
+  image-digest:
+    description: Digest of the image that produced the comparison
+    value: ${{ steps.invoke.outputs.image-digest }}
+  execution-result-path:
+    description: Path to execution.json
+    value: ${{ steps.invoke.outputs.execution-result-path }}
+  artifact-directory:
+    description: Directory holding the comparison, docs, and sanitized logs
+    value: ${{ steps.invoke.outputs.artifact-directory }}
+runs:
+  using: composite
+  steps:
+    # No AWS, GitHub, or registry credentials are passed in. The workflow has
+    # already authenticated and pulled the image; this step only reads local
+    # paths and reaches the prepared Splunk endpoints.
+    - name: Invoke RFCT comparison and formatter
+      id: invoke
+      shell: sh
+      env:
+        INPUT_CONFIG_PATH: ${{ inputs.config-path }}
+        INPUT_CANDIDATE_SOURCE: ${{ inputs.candidate-source }}
+        INPUT_APP_CODE_NAME: ${{ inputs.app-code-name }}
+        INPUT_RFCT_IMAGE: ${{ inputs.rfct-image }}
+        INPUT_OUTPUT_DIRECTORY: ${{ inputs.output-directory }}
+      run: python3 "$GITHUB_ACTION_PATH/run_rfct.py"

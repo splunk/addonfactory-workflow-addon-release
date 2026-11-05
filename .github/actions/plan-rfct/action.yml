@@ -1,0 +1,136 @@
+name: Plan RFCT comparison
+description: Decide RFCT eligibility from the event and freeze the releases to compare
+inputs:
+  enabled:
+    description: Opt-in flag for RFCT planning and execution
+    required: true
+  repository:
+    description: Calling add-on repository in owner/name form
+    required: true
+  token:
+    description: Read token used only for the add-on's own release metadata and diffs
+    required: true
+  event-name:
+    description: Triggering event name
+    required: true
+  base-branch:
+    description: Pull-request base branch, or the pushed branch name
+    required: false
+    default: ""
+  is-fork:
+    description: Whether the pull request head is a fork
+    required: false
+    default: "false"
+  pull-request-base-sha:
+    description: Pull-request base SHA used as the diff range start
+    required: false
+    default: ""
+  pull-request-head-sha:
+    description: Pull-request head SHA, recorded separately from the built revision
+    required: false
+    default: ""
+  build-sha:
+    description: Revision actually built by this run, a merge commit for pull requests
+    required: false
+    default: ""
+  push-before:
+    description: Push event before SHA
+    required: false
+    default: ""
+  push-after:
+    description: Push event after SHA
+    required: false
+    default: ""
+  baseline-release:
+    description: Explicit baseline release tag or version
+    required: false
+    default: ""
+  candidate-release:
+    description: Manual-dispatch candidate release tag or version
+    required: false
+    default: ""
+  custom-version:
+    description: Custom publish version, which must be empty for an RFCT report run
+    required: false
+    default: ""
+  output-path:
+    description: Absolute path for the frozen plan document
+    required: true
+outputs:
+  decision:
+    description: Either proceed or skip
+    value: ${{ steps.plan.outputs.decision }}
+  status:
+    description: Recorded status for a skip, empty when proceeding
+    value: ${{ steps.plan.outputs.status }}
+  reason:
+    description: Machine-readable planning reason
+    value: ${{ steps.plan.outputs.reason }}
+  changed-paths:
+    description: JSON array of matched changed paths
+    value: ${{ steps.plan.outputs.changed-paths }}
+  baseline-tag:
+    description: Resolved baseline release tag
+    value: ${{ steps.plan.outputs.baseline-tag }}
+  baseline-version:
+    description: Resolved baseline version
+    value: ${{ steps.plan.outputs.baseline-version }}
+  baseline-commit:
+    description: Commit the baseline tag resolves to
+    value: ${{ steps.plan.outputs.baseline-commit }}
+  baseline-release-id:
+    description: Baseline release identifier
+    value: ${{ steps.plan.outputs.baseline-release-id }}
+  baseline-asset-id:
+    description: Baseline package asset identifier
+    value: ${{ steps.plan.outputs.baseline-asset-id }}
+  baseline-asset-name:
+    description: Baseline package asset name
+    value: ${{ steps.plan.outputs.baseline-asset-name }}
+  candidate-source:
+    description: Either build or release
+    value: ${{ steps.plan.outputs.candidate-source }}
+  candidate-tag:
+    description: Resolved candidate release tag, empty for a build candidate
+    value: ${{ steps.plan.outputs.candidate-tag }}
+  candidate-version:
+    description: Resolved candidate release version, empty for a build candidate
+    value: ${{ steps.plan.outputs.candidate-version }}
+  candidate-commit:
+    description: Commit the candidate release tag resolves to
+    value: ${{ steps.plan.outputs.candidate-commit }}
+  candidate-release-id:
+    description: Candidate release identifier
+    value: ${{ steps.plan.outputs.candidate-release-id }}
+  candidate-asset-id:
+    description: Candidate package asset identifier
+    value: ${{ steps.plan.outputs.candidate-asset-id }}
+  candidate-asset-name:
+    description: Candidate package asset name
+    value: ${{ steps.plan.outputs.candidate-asset-name }}
+  plan-path:
+    description: Path to the frozen plan document
+    value: ${{ steps.plan.outputs.plan-path }}
+runs:
+  using: composite
+  steps:
+    - name: Plan RFCT comparison
+      id: plan
+      shell: sh
+      env:
+        INPUT_ENABLED: ${{ inputs.enabled }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_EVENT_NAME: ${{ inputs.event-name }}
+        INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
+        INPUT_IS_FORK: ${{ inputs.is-fork }}
+        INPUT_PR_BASE_SHA: ${{ inputs.pull-request-base-sha }}
+        INPUT_PR_HEAD_SHA: ${{ inputs.pull-request-head-sha }}
+        INPUT_BUILD_SHA: ${{ inputs.build-sha }}
+        INPUT_PUSH_BEFORE: ${{ inputs.push-before }}
+        INPUT_PUSH_AFTER: ${{ inputs.push-after }}
+        INPUT_BASELINE_RELEASE: ${{ inputs.baseline-release }}
+        INPUT_CANDIDATE_RELEASE: ${{ inputs.candidate-release }}
+        INPUT_CUSTOM_VERSION: ${{ inputs.custom-version }}
+        INPUT_OUTPUT_PATH: ${{ inputs.output-path }}
+      run: python3 "$GITHUB_ACTION_PATH/plan.py"
