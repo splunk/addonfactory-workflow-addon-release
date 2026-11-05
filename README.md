@@ -207,8 +207,8 @@ organization's approved private security-reporting channel.
 * `rfct-enabled` - opt this add-on into RFCT CIM changes planning and comparison, default `false`.
   When `false` neither `plan-rfct` nor `run-rfct` appears in the run.
 * `rfct-image` - full `ta-automation/rfct` ECR image reference. A tag is resolved to a digest before
-  execution and overrides are restricted to that ECR repository. Defaults to the verified
-  `1.0.0-beta.7` digest, whose formatter is rejected by the compatibility preflight.
+  execution and overrides are restricted to that ECR repository. Defaults to the `1.1.0` digest, the
+  first stable image whose formatter accepts `--ta-repo-path`.
 * `rfct-baseline-release` - explicit baseline release tag or version; when empty the latest eligible
   stable release is selected
 * `rfct-candidate-release` - manual-dispatch override selecting a published release as the candidate;
@@ -1219,8 +1219,9 @@ argo-logs
   `plan-rfct` required.
 
 - The image compatibility preflight runs before provisioning and rejects an image whose formatter lacks
-  `--ta-repo-path`. `1.0.0-beta.7` predates the Table 1/Table 2 implementation, so it can validate
-  image acquisition and comparison plumbing but can never produce a conforming documentation result.
+  `--ta-repo-path`. The default `1.1.0` digest accepts it. Images predating the Table 1/Table 2
+  implementation, such as `1.0.0-beta.7`, can validate image acquisition and comparison plumbing but
+  can never produce a conforming documentation result, so the preflight rejects them.
 
 **Artifacts:**
 - `rfct-cim-changes-<run-id>-<attempt>` with a fixed internal layout:

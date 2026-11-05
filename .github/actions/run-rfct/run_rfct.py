@@ -153,8 +153,7 @@ def preflight_argv(image):
 
 
 # The compare and format flag names below follow the documented RFCT CLI
-# contract. Re-confirm them against the first stable image before switching the
-# rfct-image default away from the beta digest; beta.7 is rejected by preflight.
+# contract, confirmed against the 1.1.0 image that the rfct-image default pins.
 def compare_argv(settings, container_name):
     return [
         "docker",

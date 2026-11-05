@@ -90,9 +90,9 @@ on:
       rfct-image:
         required: false
         description: >-
-          Full ta-automation/rfct ECR image reference. Tags are resolved to a digest before execution. The default is the verified 1.0.0-beta.7 digest, whose formatter is rejected by the action preflight; update it when the first stable image is published.
+          Full ta-automation/rfct ECR image reference. Tags are resolved to a digest before execution. The default is the 1.1.0 digest, the first stable image whose formatter accepts --ta-repo-path.
         type: string
-        default: "956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/rfct@sha256:4d8cbe68865c6ac7d2b035aaab0a46d1bf09828acaea9f134bb883ad1fc5e9c2"
+        default: "956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/rfct@sha256:fde0822f3163777f82cd1c69b3e61a42cea5297d8df483398e05effaac25c54f"
       rfct-baseline-release:
         required: false
         description: "Explicit baseline release tag or version; otherwise the latest eligible stable release is used"
