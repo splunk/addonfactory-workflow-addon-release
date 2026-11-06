@@ -523,3 +523,23 @@ def test_finalization_failure_does_not_replace_original_exit_code(config, monkey
     monkeypatch.setattr(controller, "run_controller", failed_run)
     monkeypatch.setattr(controller, "finish", failed_finish)
     assert controller.main() == 9
+
+
+def test_process_group_sigterm_preserves_cancellation_reason(config, monkeypatch):
+    monkeypatch.setattr(controller, "validate_inputs", lambda: config)
+    stopped = []
+    monkeypatch.setattr(controller, "stop", lambda _config, workflow: stopped.append(workflow))
+    def interrupted_run(_config, state):
+        state["workflow"] = WORKFLOW
+        # Simulate GitHub delivering SIGTERM to Python and its Argo subprocess.
+        # Python's handler marks cancellation; subprocess.run returns -SIGTERM.
+        handler = controller.signal.getsignal(controller.signal.SIGTERM)
+        handler(controller.signal.SIGTERM, None)
+        raise controller.ControllerError("command-failed", "argo get failed: terminated", -15)
+    monkeypatch.setattr(controller, "run_controller", interrupted_run)
+    assert controller.main() == 130
+    evidence = json.loads((config["output"] / "controller.json").read_text())
+    assert evidence["reason"] == "cancelled"
+    assert evidence["status"] == "failed"
+    assert evidence["interrupted_operation"] == "argo get failed: terminated"
+    assert stopped == [WORKFLOW]

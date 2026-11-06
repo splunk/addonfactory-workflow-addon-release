@@ -417,6 +417,11 @@ def main():
         config = validate_inputs()
         run_controller(config, state)
     except (ControllerError, OSError, ValueError, tarfile.TarError) as error:
+        if state["cancelled"][0]:
+            # GitHub can signal the entire process group. Its Argo child may
+            # then exit before the polling loop observes our cancellation flag.
+            state["interrupted_operation"] = sanitize(error)
+            error = ControllerError("cancelled", "RFCT comparison cancelled", 130)
         state.update({"status": "failed", "reason": getattr(error, "reason", "controller-failed"), "message": sanitize(error)})
         exit_code = getattr(error, "exit_code", 1)
         print("RFCT controller failed: " + state["message"], file=sys.stderr)
