@@ -97,7 +97,7 @@ on:
         required: false
         description: "Reviewed immutable WFE manifests commit containing the RFCT runtime"
         type: string
-        default: "1dba4e1cf83b1c89c48a8ee9a76d7415ba815de8"
+        default: "58e585c31f2a28b15553395515ab5363e580df4e"
       rfct-argo-template:
         required: false
         description: "Installed WFE WorkflowTemplate used for paired RFCT comparisons"
