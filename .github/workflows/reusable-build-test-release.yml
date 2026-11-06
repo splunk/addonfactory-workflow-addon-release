@@ -4087,7 +4087,7 @@ jobs:
 
       - name: Run paired RFCT workflow on WFE
         id: rfct
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@f4054c74dad1ce95fc2d0ffa1e680acc26a5e507
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@92a41934104b4013635925c8e0fbba786ef41c5a
         env:
           ARGO_TOKEN: ${{ steps.argo-token.outputs.token }}
         with:
