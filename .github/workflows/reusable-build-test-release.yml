@@ -82,6 +82,37 @@ on:
         description: "TA Validator tool version"
         type: string
         default: "0.3"
+      rfct-enabled:
+        required: false
+        description: "Opt this add-on into RFCT CIM changes planning and comparison"
+        type: boolean
+        default: false
+      rfct-image:
+        required: false
+        description: >-
+          Approved ta-automation/rfct ECR image pinned by digest. Kubernetes pulls the image using the WFE cluster identity; the default is RFCT 1.1.0.
+        type: string
+        default: "956110764581.dkr.ecr.us-west-2.amazonaws.com/ta-automation/rfct@sha256:fde0822f3163777f82cd1c69b3e61a42cea5297d8df483398e05effaac25c54f"
+      rfct-manifests-ref:
+        required: false
+        description: "Reviewed immutable WFE manifests commit containing the RFCT runtime"
+        type: string
+        default: "1dba4e1cf83b1c89c48a8ee9a76d7415ba815de8"
+      rfct-argo-template:
+        required: false
+        description: "Installed WFE WorkflowTemplate used for paired RFCT comparisons"
+        type: string
+        default: "rfct-comparison"
+      rfct-baseline-release:
+        required: false
+        description: "Explicit baseline release tag or version; otherwise the latest eligible stable release is used"
+        type: string
+        default: ""
+      rfct-candidate-release:
+        required: false
+        description: "Manual-dispatch override selecting a published release as the candidate; automatic runs use the current build"
+        type: string
+        default: ""
     secrets:
       GH_APP_CLIENT_ID:
         description: GitHub App Client ID for authentication
@@ -926,6 +957,8 @@ jobs:
     if: ${{ !cancelled() && (needs.run-unit-tests.result == 'success' || needs.run-unit-tests.result == 'skipped') && (needs.run-unit-tests-py313.result == 'success' || needs.run-unit-tests-py313.result == 'skipped') && (needs.validate-custom-version.result == 'success' || needs.validate-custom-version.result == 'skipped') && (needs.check-docs-changes.outputs.docs-only == 'false') }}
     outputs:
       buildname: ${{ steps.buildupload.outputs.name }}
+      package-version: ${{ steps.BuildVersion.outputs.VERSION }}
+      source-sha: ${{ github.sha }}
     permissions:
       contents: write
       packages: read
@@ -3727,6 +3760,430 @@ jobs:
         with:
           name: |
             summary-spl2_integration_tests*
+
+  plan-rfct:
+    name: plan-rfct
+    # Opted-in add-ons only. Disabled callers see no RFCT jobs at all.
+    if: ${{ !cancelled() && inputs.rfct-enabled }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      decision: ${{ steps.plan.outputs.decision }}
+      status: ${{ steps.plan.outputs.status }}
+      reason: ${{ steps.plan.outputs.reason }}
+      changed-paths: ${{ steps.plan.outputs.changed-paths }}
+      baseline-tag: ${{ steps.plan.outputs.baseline-tag }}
+      baseline-version: ${{ steps.plan.outputs.baseline-version }}
+      baseline-commit: ${{ steps.plan.outputs.baseline-commit }}
+      baseline-release-id: ${{ steps.plan.outputs.baseline-release-id }}
+      baseline-asset-id: ${{ steps.plan.outputs.baseline-asset-id }}
+      baseline-asset-name: ${{ steps.plan.outputs.baseline-asset-name }}
+      candidate-source: ${{ steps.plan.outputs.candidate-source }}
+      candidate-tag: ${{ steps.plan.outputs.candidate-tag }}
+      candidate-version: ${{ steps.plan.outputs.candidate-version }}
+      candidate-commit: ${{ steps.plan.outputs.candidate-commit }}
+      candidate-release-id: ${{ steps.plan.outputs.candidate-release-id }}
+      candidate-asset-id: ${{ steps.plan.outputs.candidate-asset-id }}
+      candidate-asset-name: ${{ steps.plan.outputs.candidate-asset-name }}
+    steps:
+      # The planner is loaded from this reviewed workflow repository rather than a
+      # relative path, which would resolve inside the add-on checkout and run
+      # add-on-controlled code. It never checks out the add-on and it skips fork
+      # pull requests before any credential is used.
+      - name: Plan RFCT comparison
+        id: plan
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@0ebe5c45abb22927c2351a52683fc9be5179aedd
+        with:
+          enabled: ${{ inputs.rfct-enabled }}
+          repository: ${{ github.repository }}
+          token: ${{ github.token }}
+          event-name: ${{ github.event_name }}
+          base-branch: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+          is-fork: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork || 'false' }}
+          pull-request-base-sha: ${{ github.event.pull_request.base.sha }}
+          pull-request-head-sha: ${{ github.event.pull_request.head.sha }}
+          build-sha: ${{ github.sha }}
+          push-before: ${{ github.event.before }}
+          push-after: ${{ github.event.after }}
+          baseline-release: ${{ inputs.rfct-baseline-release }}
+          candidate-release: ${{ inputs.rfct-candidate-release }}
+          custom-version: ${{ inputs.custom-version }}
+          output-path: ${{ runner.temp }}/rfct-plan.json
+      - name: Upload RFCT plan
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: rfct-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rfct-plan.json
+          retention-days: 7
+      - name: Summarize RFCT plan
+        if: ${{ !cancelled() }}
+        env:
+          DECISION: ${{ steps.plan.outputs.decision }}
+          REASON: ${{ steps.plan.outputs.reason }}
+          BASELINE_TAG: ${{ steps.plan.outputs.baseline-tag }}
+          CANDIDATE_SOURCE: ${{ steps.plan.outputs.candidate-source }}
+        run: |
+          {
+            echo "## RFCT CIM changes plan"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Decision | $DECISION |"
+            echo "| Reason | $REASON |"
+            echo "| Baseline | $BASELINE_TAG |"
+            echo "| Candidate source | $CANDIDATE_SOURCE |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  run-rfct:
+    name: run-rfct
+    needs:
+      - plan-rfct
+      - build
+      - meta
+    # A build candidate requires this run's successful build and never falls back
+    # to an artifact from another run. A manual release candidate tolerates a
+    # skipped build because it compares two published packages.
+    if: >-
+      ${{ !cancelled()
+          && needs.plan-rfct.result == 'success'
+          && needs.plan-rfct.outputs.decision == 'proceed'
+          && needs.meta.result == 'success'
+          && (needs.plan-rfct.outputs.candidate-source == 'release'
+              || needs.build.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/splunk/workflow-engine-base:4.1.0
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+      packages: read
+    env:
+      RFCT_ARTIFACT_NAME: rfct-cim-changes-${{ github.run_id }}-${{ github.run_attempt }}
+      RFCT_LEASE_ID: rfct-${{ github.run_id }}-${{ github.run_attempt }}
+    outputs:
+      status: ${{ steps.result.outputs.status }}
+      candidate-version: ${{ steps.result.outputs.candidate-version }}
+      image-digest: ${{ steps.stage-inputs.outputs.image-digest }}
+      artifact-name: ${{ env.RFCT_ARTIFACT_NAME }}
+    steps:
+      - name: Check WFE controller tools
+        run: |
+          set -eu
+          for tool in python3 argo aws jq tar curl bash; do command -v "$tool"; done
+          python3 --version
+          aws --version
+      - name: Resolve RFCT working paths
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/rfct"
+          mkdir -p "$root/output" "$root/baseline" "$root/candidate"
+          {
+            echo "RFCT_ROOT=$root"
+            echo "RFCT_OUTPUT=$root/output"
+            echo "RFCT_SOURCE=$root/source"
+            echo "RFCT_BASELINE_DIR=$root/baseline"
+            echo "RFCT_CANDIDATE_DIR=$root/candidate"
+          } >> "$GITHUB_ENV"
+
+      # Initialized before environment preparation so a failure earlier than the
+      # action invocation still produces uploadable evidence.
+      - name: Initialize RFCT result manifest
+        env:
+          BUILD_SHA: ${{ github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASELINE_TAG: ${{ needs.plan-rfct.outputs.baseline-tag }}
+          BASELINE_VERSION: ${{ needs.plan-rfct.outputs.baseline-version }}
+          BASELINE_COMMIT: ${{ needs.plan-rfct.outputs.baseline-commit }}
+          CANDIDATE_SOURCE: ${{ needs.plan-rfct.outputs.candidate-source }}
+          CANDIDATE_TAG: ${{ needs.plan-rfct.outputs.candidate-tag }}
+          CANDIDATE_VERSION: ${{ needs.plan-rfct.outputs.candidate-source == 'release' && needs.plan-rfct.outputs.candidate-version || needs.build.outputs.package-version }}
+          CANDIDATE_COMMIT: ${{ needs.plan-rfct.outputs.candidate-source == 'release' && needs.plan-rfct.outputs.candidate-commit || needs.build.outputs.source-sha }}
+          # Changed paths originate from the add-on's own diff, so they are passed
+          # through the environment and never interpolated into the shell body.
+          CHANGED_PATHS: ${{ needs.plan-rfct.outputs.changed-paths }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg status "running" \
+            --arg reason "" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg event_name "$GITHUB_EVENT_NAME" \
+            --arg build_sha "$BUILD_SHA" \
+            --arg pull_request_head_sha "$PR_HEAD_SHA" \
+            --arg workflow_ref "$GITHUB_WORKFLOW_REF" \
+            --arg baseline_tag "$BASELINE_TAG" \
+            --arg baseline_version "$BASELINE_VERSION" \
+            --arg baseline_commit "$BASELINE_COMMIT" \
+            --arg candidate_source "$CANDIDATE_SOURCE" \
+            --arg candidate_tag "$CANDIDATE_TAG" \
+            --arg candidate_version "$CANDIDATE_VERSION" \
+            --arg candidate_commit "$CANDIDATE_COMMIT" \
+            --arg artifact_name "$RFCT_ARTIFACT_NAME" \
+            --argjson changed_paths "$CHANGED_PATHS" \
+            '{
+              schema_version: 1,
+              status: $status,
+              reason: $reason,
+              run: {id: $run_id, attempt: $run_attempt, event_name: $event_name, workflow_ref: $workflow_ref, artifact_name: $artifact_name},
+              revisions: {build_sha: $build_sha, pull_request_head_sha: $pull_request_head_sha},
+              baseline: {tag: $baseline_tag, version: $baseline_version, commit: $baseline_commit, package_sha256: ""},
+              candidate: {source: $candidate_source, tag: $candidate_tag, version: $candidate_version, commit: $candidate_commit, package_sha256: ""},
+              app_code_name: "",
+              rfct_image_digest: "",
+              splunk_version: "",
+              sc4s_version: "",
+              changed_paths: $changed_paths,
+              phases: {},
+              produced: []
+            }' > "$RFCT_OUTPUT/result.json"
+
+      # Package and source acquisition are trusted steps that run before any
+      # add-on code is executed.
+      - name: Download candidate package from this run
+        if: ${{ needs.plan-rfct.outputs.candidate-source == 'build' }}
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: package-splunkbase
+          path: ${{ env.RFCT_CANDIDATE_DIR }}
+
+      - name: Download candidate package from the requested release
+        if: ${{ needs.plan-rfct.outputs.candidate-source == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ needs.plan-rfct.outputs.candidate-asset-id }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            --output "$RFCT_CANDIDATE_DIR/candidate.spl"
+
+      - name: Download baseline package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_ID: ${{ needs.plan-rfct.outputs.baseline-asset-id }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/octet-stream" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/assets/$ASSET_ID" \
+            --output "$RFCT_BASELINE_DIR/baseline.spl"
+
+      - name: Checkout candidate source for formatter attribution
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan-rfct.outputs.candidate-source == 'release' && needs.plan-rfct.outputs.candidate-commit || github.sha }}
+          path: rfct-candidate-source
+          persist-credentials: false
+
+      - name: Export candidate source without history
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/rfct-candidate-source/.git"
+          rm -rf "$RFCT_SOURCE"
+          mv "$GITHUB_WORKSPACE/rfct-candidate-source" "$RFCT_SOURCE"
+
+      - name: Select the Splunk version used on both sides
+        id: splunk-version
+        env:
+          LATEST_SPLUNK: ${{ needs.meta.outputs.matrix_latestSplunk }}
+          SUPPORTED_SC4S: ${{ needs.meta.outputs.matrix_supportedSC4S }}
+        run: |
+          set -euo pipefail
+          # One explicit supported version on both sides rather than a matrix, so
+          # the comparison isolates add-on changes from Splunk changes.
+          version=$(printf '%s' "$LATEST_SPLUNK" | jq -r '.[0].version')
+          sc4s=$(printf '%s' "$SUPPORTED_SC4S" | jq -r '.[0].version // ""')
+          registry=$(printf '%s' "$SUPPORTED_SC4S" | jq -r '.[0].docker_registry // ""')
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "::error::Could not select a Splunk version from the meta job"
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "sc4s-version=$sc4s"
+            echo "sc4s-registry=$registry"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Select the WFE environment
+        id: wfe
+        env:
+          WFE_ENVIRONMENT: ${{ inputs.k8s-environment }}
+        run: |
+          set -eu
+          case "$WFE_ENVIRONMENT" in
+            staging)
+              bucket=ta-staging-artifacts
+              server=argo.staging.wfe.splgdi.com
+              token_secret=ta-staging-github-workflow-automation-token
+              ;;
+            production)
+              bucket=ta-production-artifacts
+              server=argo.wfe.splgdi.com
+              token_secret=ta-github-workflow-automation-token
+              ;;
+            *) echo "::error::Unknown WFE environment"; exit 1 ;;
+          esac
+          {
+            echo "bucket=$bucket"
+            echo "token-secret=$token_secret"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "ARGO_SERVER=$server:443"
+            echo "ARGO_HTTP1=true"
+            echo "ARGO_SECURE=true"
+            echo "ARGO_BASE_HREF="
+          } >> "$GITHUB_ENV"
+
+      - name: Freeze and validate RFCT inputs
+        id: stage-inputs
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-rfct-inputs@ACTION_REVISION_PENDING
+        with:
+          provenance-path: ${{ env.RFCT_OUTPUT }}/result.json
+          baseline-package: ${{ env.RFCT_BASELINE_DIR }}
+          candidate-package: ${{ env.RFCT_CANDIDATE_DIR }}
+          candidate-source: ${{ env.RFCT_SOURCE }}
+          staging-directory: ${{ env.RFCT_ROOT }}/inputs
+          repository: ${{ github.repository }}
+          bucket: ${{ steps.wfe.outputs.bucket }}
+          rfct-image: ${{ inputs.rfct-image }}
+          manifests-ref: ${{ inputs.rfct-manifests-ref }}
+          splunk-version: ${{ steps.splunk-version.outputs.version }}
+          sc4s-version: ${{ steps.splunk-version.outputs.sc4s-version }}
+          sc4s-registry: ${{ steps.splunk-version.outputs.sc4s-registry }}
+
+      - name: Configure AWS credentials for WFE input and artifact transport
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Upload immutable packages and candidate source
+        env:
+          INPUTS_DIRECTORY: ${{ steps.stage-inputs.outputs.inputs-directory }}
+          INPUTS_PREFIX: ${{ steps.stage-inputs.outputs.inputs-prefix }}
+        run: |
+          set -eu
+          aws s3 sync "$INPUTS_DIRECTORY/" "$INPUTS_PREFIX/" --only-show-errors
+
+      - name: Read the WFE Argo token
+        id: argo-token
+        env:
+          TOKEN_SECRET: ${{ steps.wfe.outputs.token-secret }}
+        run: |
+          set +x
+          set -eu
+          token=$(aws secretsmanager get-secret-value --secret-id "$TOKEN_SECRET" --query SecretString --output text)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+          ARGO_TOKEN="$token" argo version --short
+
+      - name: Run paired RFCT workflow on WFE
+        id: rfct
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@ACTION_REVISION_PENDING
+        env:
+          ARGO_TOKEN: ${{ steps.argo-token.outputs.token }}
+        with:
+          request-path: ${{ steps.stage-inputs.outputs.request-path }}
+          request-url: ${{ steps.stage-inputs.outputs.request-url }}
+          argo-template: ${{ inputs.rfct-argo-template }}
+          manifests-ref: ${{ inputs.rfct-manifests-ref }}
+          namespace: workflows
+          output-directory: ${{ env.RFCT_OUTPUT }}/cluster
+          timeout-seconds: "4200"
+
+      - name: Stop a cancelled RFCT workflow
+        if: ${{ cancelled() && steps.rfct.outputs.workflow-name != '' }}
+        env:
+          ARGO_TOKEN: ${{ steps.argo-token.outputs.token }}
+          WORKFLOW_NAME: ${{ steps.rfct.outputs.workflow-name }}
+        run: |
+          argo stop "$WORKFLOW_NAME" --namespace workflows --message "GitHub RFCT job cancelled" \
+            || echo "::warning::Could not request graceful cancellation; server-side deadline and namespace TTL remain active"
+
+      - name: Assemble RFCT provenance and cluster result
+        id: result
+        if: ${{ always() }}
+        env:
+          ACTION_STATUS: ${{ steps.rfct.outputs.status }}
+          CANDIDATE_VERSION: ${{ steps.stage-inputs.outputs.candidate-version }}
+          WORKFLOW_NAME: ${{ steps.rfct.outputs.workflow-name }}
+          WORKFLOW_UID: ${{ steps.rfct.outputs.workflow-uid }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -eu
+          python3 - <<'PYRESULT'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RFCT_ROOT"])
+          output = Path(os.environ["RFCT_OUTPUT"])
+          result_path = output / "result.json"
+          if not result_path.exists():
+              raise SystemExit("RFCT provenance initialization did not complete")
+          result = json.loads(result_path.read_text())
+          request_path = root / "request.json"
+          if request_path.exists():
+              request = json.loads(request_path.read_text())
+              for key in ("baseline", "candidate", "app_code_name", "splunk_version", "sc4s_version", "manifests_ref"):
+                  result[key] = request[key]
+              result["rfct_image_digest"] = request["rfct_image"].split("@", 1)[1]
+          status = os.environ.get("ACTION_STATUS")
+          result["status"] = status if status in ("changes", "no-changes") else "failed"
+          result["reason"] = "" if result["status"] != "failed" else "cancelled" if os.environ.get("JOB_STATUS") == "cancelled" else "argo-execution-incomplete"
+          result["argo"] = {"name": os.environ.get("WORKFLOW_NAME", ""), "uid": os.environ.get("WORKFLOW_UID", "")}
+          cluster_result = output / "cluster" / "result.json"
+          if cluster_result.exists():
+              result["cluster_result"] = json.loads(cluster_result.read_text())
+          result["produced"] = sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file())
+          result_path.write_text(json.dumps(result, indent=2) + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
+              stream.write(f"status={result['status']}\n")
+              stream.write(f"candidate-version={os.environ.get('CANDIDATE_VERSION', '')}\n")
+          PYRESULT
+
+      - name: Upload RFCT evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ env.RFCT_ARTIFACT_NAME }}
+          path: |
+            ${{ env.RFCT_OUTPUT }}/result.json
+            ${{ env.RFCT_OUTPUT }}/cluster/result.json
+            ${{ env.RFCT_OUTPUT }}/cluster/execution.json
+            ${{ env.RFCT_OUTPUT }}/cluster/controller.json
+            ${{ env.RFCT_OUTPUT }}/cluster/comparison
+            ${{ env.RFCT_OUTPUT }}/cluster/docs
+            ${{ env.RFCT_OUTPUT }}/cluster/logs
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Summarize the WFE comparison
+        if: ${{ always() }}
+        env:
+          STATUS: ${{ steps.result.outputs.status }}
+          BASELINE_TAG: ${{ needs.plan-rfct.outputs.baseline-tag }}
+          CANDIDATE_VERSION: ${{ steps.result.outputs.candidate-version }}
+          WORKFLOW_NAME: ${{ steps.rfct.outputs.workflow-name }}
+        run: |
+          {
+            echo "## RFCT CIM changes on WFE"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Status | $STATUS |"
+            echo "| Baseline | $BASELINE_TAG |"
+            echo "| Candidate | $CANDIDATE_VERSION |"
+            echo "| Argo workflow | $WORKFLOW_NAME |"
+            echo "| Artifact | $RFCT_ARTIFACT_NAME |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   pre-publish:
     if: ${{ !cancelled() }}

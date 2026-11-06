@@ -204,6 +204,18 @@ organization's approved private security-reporting channel.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
+* `rfct-enabled` - opt this add-on into RFCT CIM changes planning and comparison, default `false`.
+  When `false` neither `plan-rfct` nor `run-rfct` appears in the run.
+* `rfct-image` - full `ta-automation/rfct` ECR image pinned by SHA256 digest. Defaults to the
+  published `1.1.0` digest. WFE pulls it using the cluster image-pull identity.
+* `rfct-manifests-ref` - reviewed 40-character commit SHA of `ta-automation-k8s-manifests`
+  containing the RFCT profile and runtime; independent of the ordinary test manifests ref.
+* `rfct-argo-template` - installed WFE comparison WorkflowTemplate, default `rfct-comparison`.
+  A temporary staging template can be selected during feature validation.
+* `rfct-baseline-release` - explicit baseline release tag or version; when empty the latest eligible
+  stable release is selected
+* `rfct-candidate-release` - manual-dispatch override selecting a published release as the candidate;
+  automatic runs always use the current build
 
 ## Workflow Secrets
 
@@ -234,6 +246,12 @@ the calling repository's workflow (see [addonfactory-repository-template](https:
 * `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` - Atlassian user credentials used by the `comment-on-jira` job to
   post commit-reference comments on Jira tickets; the user needs comment permission on
   `https://splunk.atlassian.net`.
+
+RFCT uses the existing `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION`
+for WFE input/artifact transport and Argo-token acquisition in the selected `k8s-environment`.
+It does not require separate GitHub ECR credentials. The WFE cluster must be authorized to pull
+`ta-automation/rfct`; endpoint credentials stay in cluster-mounted secrets and are never staged
+in the comparison request or uploaded with results.
 
 ## Contributing and validation
 
@@ -1106,6 +1124,157 @@ argo-logs
 ```
 
 
+
+## [Job] plan-rfct
+
+**Description:**
+
+- Decides whether a Regression Field Comparison Tool (RFCT) CIM changes comparison should run, and
+  freezes the revisions it will compare so a release published mid-run cannot change the choice.
+
+- The whole job is gated on `inputs.rfct-enabled`, so callers that have not opted in see no RFCT jobs.
+
+- Routing: same-repository pull requests targeting `develop`, `main`, or `release/**` and pushes to
+  those branches run when a supported mapping or knowledge-data path changes. Manual dispatch runs
+  without a changed-path requirement. Fork pull requests and `pull_request_target` are skipped before
+  any credential is used. Every other event is skipped with a recorded reason.
+
+- Recognized paths are `package/**/*.conf`, `package/default/data/models/**`,
+  `package/default/data/spl2/**`, `package/lookups/**`, `globalConfig.json`, and `tests/knowledge/**`.
+  Added, modified, deleted, and both sides of renamed paths all count. This is a deliberately
+  conservative trigger set: a supported configuration change requests a comparison even when the
+  report later finds no CIM change.
+
+- Diff ranges are event-aware. A pull request compares the event base SHA against the revision that is
+  actually built (the merge commit) and records the head SHA separately. A push compares
+  `before`/`after`, falling back to the frozen baseline commit when the branch was just created. API
+  file lists are paginated so a long diff is never truncated.
+
+- Baseline selection takes an explicit `rfct-baseline-release` when given, otherwise the highest
+  eligible stable semantic-version release, excluding drafts, prereleases, and the candidate revision
+  itself. Each side must publish exactly one `.spl` asset.
+
+**Action used:**
+- `splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct` — loaded from this reviewed
+  workflow repository rather than a relative path, which would resolve inside the add-on checkout and
+  execute add-on-controlled code.
+
+**Pass/fail behaviour:**
+
+- A recorded skip (`disabled`, `fork-pull-request`, `unsupported-event`, `unsupported-branch`,
+  `no-mapping-changes`, `no-baseline`) succeeds and `run-rfct` does not start.
+
+- An invalid input fails the job: an unparsable release reference, an explicit baseline that is missing
+  or is a draft, a release without exactly one `.spl` asset, a baseline that is not older than the
+  candidate, identical baseline and candidate, a candidate override outside manual dispatch, or a
+  release override combined with `custom-version`.
+
+**Artifacts:**
+- `rfct-plan-<run-id>-<attempt>` containing the frozen `rfct-plan.json` decision document.
+
+## [Job] run-rfct
+
+**Description:**
+
+- Acquires the frozen baseline/candidate packages and candidate source, verifies package app identity
+  and versions, records checksums, and uploads immutable inputs under an S3 run/attempt prefix.
+- Uses `k8s-environment` to select the existing WFE Argo endpoint, token secret, and artifact bucket.
+  `staging` selects the staging cluster and `ta-staging-artifacts`.
+- Submits the dedicated RFCT Argo WorkflowTemplate. The workflow provisions two isolated Splunk
+  Deployments, installs one TA version on each, prepares a single raw corpus, replays independently,
+  and runs comparison and formatting inside the RFCT image. Both sides use the same Splunk version.
+- Waits for the terminal Argo state, verifies the workflow UID and result provenance, downloads the
+  comparison/docs/diagnostics, and uploads GitHub artifacts. Argo owns paired namespace cleanup.
+- Needs `plan-rfct`, `build`, and `meta`. A current-build candidate requires this run's successful
+  build; a manual released candidate tolerates a skipped build. It does not depend on the existing
+  single-candidate test `setup` job.
+- Runs only for trusted eligible events. Candidate source is exported without `.git`; packages and
+  source are treated as data. The execution pod receives no GitHub credentials or AWS credential
+  inputs. The trusted provisioner and artifact executor retain their separately scoped permissions.
+
+**Prerequisites:**
+
+- Install the reviewed `rfct-comparison` template and supporting resources through the WFE GitOps
+  repository; use a separately named staging template for development.
+- Select a reviewed `rfct-manifests-ref` commit containing the RFCT profile and worker.
+- Grant the cluster image-pull identity read access to the RFCT ECR repository and ensure the worker
+  can reach both internal Splunk services. Workflow pod IRSA alone does not establish image-pull access.
+- Knowledge samples must use a supported replay transport. Unsupported sample modes fail explicitly;
+  they are not silently omitted or treated as no change. Current support and corpus limits are
+  documented with the manifests runtime.
+
+**Actions used:**
+
+- Internal `plan-rfct`, `prepare-rfct-inputs`, and `run-rfct` actions loaded from reviewed workflow
+  repository commits, independently of the TA checkout.
+- Existing checkout, artifact, and AWS credential actions. No runner-local RFCT Docker execution.
+
+**Pass/fail behavior:**
+
+| Outcome | Job result |
+|---|---|
+| Valid CIM differences | Success, `status: changes`, comparison JSON and versioned docs |
+| Valid comparison with no CIM differences | Success, `status: no-changes`, JSON and explicit no-change documentation |
+| Ineligible, disabled, or no automatic baseline | Planning records a skip; no cluster workload |
+| Invalid package/request/image or mismatched provenance | Failure with diagnostics |
+| Provisioning, replay, empty expected data, comparison, or formatter failure | Failure retaining phase evidence; never a no-change success |
+| Controller timeout or cancellation | Graceful Argo stop requests server-side paired cleanup; namespace TTL remains a fallback |
+
+The job is advisory and is not part of `pre-publish` during initial rollout. A successful job requires
+both a successful Argo workflow and a validated complete comparison result. A successful submission,
+missing artifact, or empty report cannot satisfy the comparison contract.
+
+**Artifacts:**
+
+`rfct-cim-changes-<run-id>-<attempt>` contains:
+
+```text
+result.json                      # GitHub event, release and build provenance
+cluster/result.json              # Cluster outcome, workflow UID and runtime provenance
+cluster/execution.json           # Phase outcomes
+cluster/comparison/report.json
+cluster/docs/CIMChanges/<candidate-version>/index.md
+cluster/docs/...                 # Full formatter tree
+cluster/logs/...                 # Sanitized diagnostics
+```
+
+S3 output keys include the Argo workflow UID in addition to the GitHub run and attempt. The controller
+rejects stale/mismatched results and unsafe artifact archives. Live endpoint configuration, passwords,
+HEC tokens, and source checkout credentials are excluded. Reports and samples remain within the calling
+TA's artifact access boundary; publishing them to a documentation site is a separate consumer.
+
+### Calling the WFE controller directly
+
+A direct caller stages verified packages/source and creates a schema-version1 request with their
+S3 references/checksums, exact source commit, image digest, versions, run identity, `job_name`,
+`manifests_ref`, and output prefix. The request contains no endpoint credentials. Supply AWS/Argo
+transport credentials only to the trusted controller job.
+
+```yaml
+- id: rfct
+  uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@<reviewed-sha>
+  env:
+    ARGO_SERVER: argo.staging.wfe.splgdi.com:443
+    ARGO_HTTP1: "true"
+    ARGO_SECURE: "true"
+    ARGO_TOKEN: ${{ steps.argo-token.outputs.token }}
+  with:
+    request-path: ${{ runner.temp }}/rfct/request.json
+    request-url: s3://ta-staging-artifacts/rfct/<repository>/<run>/<attempt>/inputs/request.json
+    manifests-ref: <reviewed-manifests-sha>
+    argo-template: rfct-comparison
+    namespace: workflows
+    output-directory: ${{ runner.temp }}/rfct/output/cluster
+    timeout-seconds: "4200"
+- if: ${{ always() }}
+  uses: actions/upload-artifact@v7.0.1
+  with:
+    name: rfct-cim-changes-${{ github.run_id }}-${{ github.run_attempt }}
+    path: ${{ runner.temp }}/rfct/output
+```
+
+The action stages the validated request, submits and polls Argo, collects UID-scoped evidence, and
+writes `controller.json` even when execution fails. Always upload the known output directory.
 
 ## [Job] pre-publish
 
