@@ -31,6 +31,8 @@ MAX_REQUEST_BYTES = 1024 * 1024
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_ARCHIVE_MEMBERS = 10000
 POLL_SECONDS = 5
+MAX_POLL_FAILURES = 6
+ARGO_REQUEST_SECONDS = 30
 
 
 class ControllerError(RuntimeError):
@@ -159,17 +161,34 @@ def validate_inputs():
 
 def command(argv, timeout=120):
     """Capture and redact subprocess output; do not print request/config contents."""
+    prefixes = (("aws", "s3", "cp"), ("argo", "submit"), ("argo", "get"), ("argo", "stop"))
+    prefix = next((value for value in prefixes if tuple(argv[:len(value)]) == value), None)
+    require(prefix is not None, "Controller executable/subcommand is not allowlisted")
+    operation = " ".join(prefix)
+    options = {"capture_output": True, "text": True, "check": False, "timeout": timeout, "shell": False}
     try:
-        completed = subprocess.run(argv, capture_output=True, text=True, check=False, timeout=timeout)
+        if prefix == ("aws", "s3", "cp"):
+            completed = subprocess.run(["aws", "s3", "cp", *argv[3:]], **options)
+        elif prefix == ("argo", "submit"):
+            completed = subprocess.run(["argo", "submit", *argv[2:]], **options)
+        elif prefix == ("argo", "get"):
+            completed = subprocess.run(["argo", "get", *argv[2:]], **options)
+        else:
+            completed = subprocess.run(["argo", "stop", *argv[2:]], **options)
     except subprocess.TimeoutExpired as error:
-        raise ControllerError("command-timeout", "Controller command exceeded its deadline") from error
+        raise ControllerError("command-timeout", operation + " exceeded its command deadline", 124) from error
     if completed.returncode:
-        raise ControllerError("command-failed", sanitize(completed.stderr or completed.stdout or "Controller command failed"), completed.returncode)
+        raise ControllerError("command-failed", operation + " failed: " + sanitize(completed.stderr or completed.stdout or "no diagnostics"), completed.returncode)
     return completed.stdout
 
 
 def argo(config, *args):
-    return command(["argo", *args, "--namespace", config["namespace"]])
+    request_seconds, process_seconds = ARGO_REQUEST_SECONDS, ARGO_REQUEST_SECONDS + 5
+    if args[0] == "get" and config.get("poll_deadline"):
+        remaining = max(1, config["poll_deadline"] - time.monotonic())
+        request_seconds = min(request_seconds, max(1, int(remaining)))
+        process_seconds = min(process_seconds, remaining)
+    return command(["argo", *args, "--namespace", config["namespace"], "--request-timeout", str(request_seconds) + "s"], timeout=process_seconds)
 
 
 def submit(config):
@@ -208,19 +227,66 @@ def stop(config, workflow):
     argo(config, "stop", workflow["name"], "--message", "RFCT controller cancelled or timed out")
 
 
+def transient_poll_error(error):
+    """Only transport/service failures are retryable; auth and contract errors fail."""
+    message = str(error).lower()
+    if re.search(r"\b(401|403|404)\b|unauthori[sz]ed|unauthenticated|forbidden|permission denied|not found|x509|certificate", message):
+        return False
+    if error.reason == "command-timeout":
+        return True
+    return error.reason == "command-failed" and bool(re.search(
+        r"\b(408|429|500|502|503|504)\b|unavailable|deadline.?exceeded|timed? ?out|timeout|"
+        r"connection (reset|refused|closed)|unexpected eof|\beof\b|broken pipe|temporary failure|"
+        r"bad gateway|gateway timeout|internal server error|code\s*=\s*internal", message
+    ))
+
+
+def poll_state(config, workflow):
+    try:
+        return json.loads(argo(config, "get", workflow["name"], "--output", "json"))
+    except json.JSONDecodeError as error:
+        raise ControllerError("invalid-response", "argo get returned invalid JSON") from error
+
+
 def wait(config, workflow, cancelled):
-    deadline = time.monotonic() + config["timeout"]
+    config["poll_deadline"] = time.monotonic() + config["timeout"]
+    try:
+        return poll_until_terminal(config, workflow, cancelled)
+    finally:
+        config.pop("poll_deadline", None)
+
+
+def poll_until_terminal(config, workflow, cancelled):
+    failures = 0
     while True:
         if cancelled[0]:
             raise ControllerError("cancelled", "RFCT comparison cancelled", 130)
-        if time.monotonic() >= deadline:
+        if time.monotonic() >= config["poll_deadline"]:
             raise ControllerError("workflow-timeout", "RFCT workflow exceeded its deadline", 124)
-        state = json.loads(argo(config, "get", workflow["name"], "--output", "json"))
+        try:
+            state = poll_state(config, workflow)
+        except ControllerError as error:
+            if not transient_poll_error(error):
+                raise
+            failures += 1
+            if failures >= MAX_POLL_FAILURES:
+                raise ControllerError("argo-poll-unavailable", f"argo get failed after {failures} consecutive transient errors: {sanitize(error)}", error.exit_code) from error
+            print(f"argo get transient failure {failures}/{MAX_POLL_FAILURES}; retrying", file=sys.stderr)
+            pause_poll(config)
+            continue
+        failures = 0
         require(state.get("metadata", {}).get("uid") == workflow["uid"], "Argo workflow UID changed")
         phase = state.get("status", {}).get("phase")
         if phase in TERMINAL_PHASES:
             return phase
-        time.sleep(POLL_SECONDS)
+        pause_poll(config)
+
+
+def pause_poll(config):
+    remaining = config["poll_deadline"] - time.monotonic()
+    if remaining <= 0:
+        raise ControllerError("workflow-timeout", "RFCT workflow exceeded its deadline", 124)
+    time.sleep(min(POLL_SECONDS, remaining))
 
 
 def checked_members(archive):

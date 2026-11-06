@@ -1,3 +1,17 @@
+# Copyright 2026 Splunk Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Controller tests use fake Argo/AWS commands; no cluster resources are created."""
 
 import importlib.util
@@ -152,7 +166,7 @@ def test_command_redacts_secrets_and_keeps_return_code(monkeypatch):
     assert "secret-token-value" not in str(error.value)
     assert "hello" not in str(error.value)
     monkeypatch.setattr(controller.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="ok"))
-    assert controller.command(["argo"]) == "ok"
+    assert controller.command(["argo", "get"]) == "ok"
 
 
 def test_command_timeout(monkeypatch):
@@ -160,7 +174,25 @@ def test_command_timeout(monkeypatch):
         raise subprocess.TimeoutExpired("argo", 10)
     monkeypatch.setattr(controller.subprocess, "run", timeout)
     with pytest.raises(controller.ControllerError, match="deadline"):
-        controller.command(["argo"])
+        controller.command(["argo", "get"])
+
+
+@pytest.mark.parametrize("argv", [["sh", "-c", "bad"], ["aws", "ec2", "terminate-instances"], ["argo", "delete"], []])
+def test_command_rejects_nonallowlisted_executables_and_subcommands(argv):
+    with pytest.raises(controller.ControllerError, match="allowlisted"):
+        controller.command(argv)
+
+
+@pytest.mark.parametrize("argv", [["aws", "s3", "cp", "s3://test-bucket/key", "/tmp/output"], ["argo", "submit"], ["argo", "get"], ["argo", "stop"]])
+def test_command_uses_literal_allowlisted_prefix_and_no_shell(argv, monkeypatch):
+    calls = []
+    def run(values, **options):
+        calls.append((values, options))
+        return SimpleNamespace(returncode=0, stdout="ok")
+    monkeypatch.setattr(controller.subprocess, "run", run)
+    assert controller.command(argv) == "ok"
+    assert calls[0][0] == argv
+    assert calls[0][1]["shell"] is False
 
 
 def test_submit_uses_frozen_explicit_parameters(config, monkeypatch):
@@ -211,6 +243,73 @@ def test_wait_timeout_and_cancellation(config, monkeypatch):
     with pytest.raises(controller.ControllerError) as error:
         controller.wait(config, WORKFLOW, [False])
     assert error.value.exit_code == 124
+
+
+def test_poll_recovers_from_timeout_and_service_error(config, monkeypatch):
+    results = iter([controller.ControllerError("command-timeout", "argo get timed out"),
+                    controller.ControllerError("command-failed", "HTTP 503 Service Unavailable"),
+                    {"metadata": {"uid": WORKFLOW["uid"]}, "status": {"phase": "Succeeded"}}])
+    def response(*args):
+        value = next(results)
+        if isinstance(value, Exception):
+            raise value
+        return json.dumps(value)
+    monkeypatch.setattr(controller, "argo", response)
+    monkeypatch.setattr(controller.time, "sleep", lambda value: None)
+    assert controller.wait(config, WORKFLOW, [False]) == "Succeeded"
+    assert "poll_deadline" not in config
+
+
+def test_poll_stops_after_bounded_consecutive_failures(config, monkeypatch):
+    calls = []
+    def unavailable(*args):
+        calls.append(args)
+        raise controller.ControllerError("command-failed", "HTTP 502 Bad Gateway")
+    monkeypatch.setattr(controller, "argo", unavailable)
+    monkeypatch.setattr(controller.time, "sleep", lambda value: None)
+    with pytest.raises(controller.ControllerError) as error:
+        controller.wait(config, WORKFLOW, [False])
+    assert error.value.reason == "argo-poll-unavailable"
+    assert len(calls) == controller.MAX_POLL_FAILURES
+
+
+@pytest.mark.parametrize("message", ["HTTP 401 unauthorized", "HTTP 403 forbidden", "permission denied", "workflow not found", "x509 certificate expired"])
+def test_permanent_poll_errors_are_not_retried(config, monkeypatch, message):
+    calls = []
+    def denied(*args):
+        calls.append(args)
+        raise controller.ControllerError("command-failed", message)
+    monkeypatch.setattr(controller, "argo", denied)
+    with pytest.raises(controller.ControllerError, match=message):
+        controller.wait(config, WORKFLOW, [False])
+    assert len(calls) == 1
+
+
+def test_poll_retries_preserve_original_workflow_deadline(config, monkeypatch):
+    elapsed = [0]
+    def unavailable(*args):
+        elapsed[0] += 31
+        raise controller.ControllerError("command-timeout", "argo get exceeded command deadline")
+    config["timeout"] = 60
+    monkeypatch.setattr(controller, "argo", unavailable)
+    monkeypatch.setattr(controller.time, "monotonic", lambda: elapsed[0])
+    monkeypatch.setattr(controller.time, "sleep", lambda value: elapsed.__setitem__(0, elapsed[0] + value))
+    with pytest.raises(controller.ControllerError) as error:
+        controller.wait(config, WORKFLOW, [False])
+    assert error.value.reason == "workflow-timeout"
+    assert error.value.exit_code == 124
+
+
+def test_argo_requests_have_explicit_bounded_timeouts(config, monkeypatch):
+    calls = []
+    def invoke(argv, timeout):
+        calls.append((argv, timeout))
+        return "{}"
+    monkeypatch.setattr(controller, "command", invoke)
+    config["poll_deadline"] = controller.time.monotonic() + 10
+    controller.argo(config, "get", WORKFLOW["name"], "--output", "json")
+    assert "--request-timeout" in calls[0][0]
+    assert 1 <= calls[0][1] <= 10
 
 
 @pytest.mark.parametrize("name", ["/absolute", "../escape", "docs/../../escape"])
