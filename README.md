@@ -204,18 +204,12 @@ organization's approved private security-reporting channel.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
-* `rfct-enabled` - opt this add-on into RFCT CIM changes planning and comparison, default `false`.
-  When `false` neither `plan-rfct` nor `run-rfct` appears in the run.
 * `rfct-image` - full `ta-automation/rfct` ECR image pinned by SHA256 digest. Defaults to the
   published `1.1.0` digest. WFE pulls it using the cluster image-pull identity.
-* `rfct-manifests-ref` - reviewed 40-character commit SHA of `ta-automation-k8s-manifests`
-  containing the RFCT profile and runtime; independent of the ordinary test manifests ref.
-* `rfct-argo-template` - installed WFE comparison WorkflowTemplate, default `rfct-comparison`.
-  A temporary staging template can be selected during feature validation.
-* `rfct-baseline-release` - explicit baseline release tag or version; when empty the latest eligible
-  stable release is selected
-* `rfct-candidate-release` - manual-dispatch override selecting a published release as the candidate;
-  automatic runs always use the current build
+
+RFCT runs automatically for trusted PRs targeting `main` and pushes to `main` when the planner finds
+relevant changes. It compares the current build with the highest usable stable release and reuses
+`k8s-environment` and `k8s-manifests-branch` for provisioning and runtime helpers.
 
 ## Workflow Secrets
 
