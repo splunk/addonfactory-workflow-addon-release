@@ -54,6 +54,28 @@ def sanitize(message):
     return SECRET_RE.sub(lambda match: match[1] + match[2] + "***", text)[:4000]
 
 
+def progress(config, event, **fields):
+    """Emit bounded diagnostics without exposing credentials or workflow commands."""
+    record = {"component": "rfct-controller", "event": event}
+    record.update({key: value if isinstance(value, (bool, int, float)) or value is None else sanitize(value)
+                   for key, value in fields.items()})
+    line = json.dumps(record, sort_keys=True, ensure_ascii=True).replace("::", "\\u003a\\u003a")
+    print(line, file=sys.stderr, flush=True)
+    if config and not config.get("progress_file_unavailable"):
+        try:
+            with (config["output"] / "controller-events.jsonl").open("a", encoding="utf-8") as stream:
+                stream.write(line + "\n")
+        except OSError:
+            # A diagnostic write must not replace the original execution error.
+            config["progress_file_unavailable"] = True
+            print('{"component":"rfct-controller","event":"progress-file-unavailable"}', file=sys.stderr)
+
+
+def warning(message):
+    text = sanitize(message).replace("::", ": :").replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print("::warning::" + text, file=sys.stderr, flush=True)
+
+
 def _input(name, default=""):
     return os.environ.get("INPUT_" + name, default).strip()
 
@@ -216,15 +238,20 @@ def submit(config):
     # Retain the intended identity before the network request. A server may
     # accept the workflow even when its response is lost or malformed.
     config["submitted_name"] = workflow_name
+    progress(config, "workflow-submit-start", workflow_name=workflow_name,
+             template=config["template"], namespace=config["namespace"])
     workflow = json.loads(argo(config, *arguments))
     metadata = workflow.get("metadata", {})
     require(metadata.get("name") == workflow_name and bool(NAME_RE.fullmatch(str(metadata.get("uid", "")))), "Argo submission returned an unexpected workflow identity")
+    progress(config, "workflow-submitted", workflow_name=workflow_name, workflow_uid=metadata["uid"])
     return {"name": workflow_name, "uid": metadata["uid"]}
 
 
 def stop(config, workflow):
     """Graceful stop preserves paired environment cleanup through onExit."""
+    progress(config, "workflow-stop-start", workflow_name=workflow["name"])
     argo(config, "stop", workflow["name"], "--message", "RFCT controller cancelled or timed out")
+    progress(config, "workflow-stop-requested", workflow_name=workflow["name"])
 
 
 def transient_poll_error(error):
@@ -248,6 +275,20 @@ def poll_state(config, workflow):
         raise ControllerError("invalid-response", "argo get returned invalid JSON") from error
 
 
+def log_node_changes(config, state, previous):
+    nodes = state.get("status", {}).get("nodes") or {}
+    if not isinstance(nodes, dict):
+        return
+    for node_id, node in list(nodes.items())[:100]:
+        if not isinstance(node, dict):
+            continue
+        signature = (node.get("phase"), node.get("message", ""))
+        if previous.get(node_id) != signature:
+            progress(config, "workflow-node", node_id=node_id, node_name=node.get("displayName", ""),
+                     phase=signature[0], message=signature[1])
+            previous[node_id] = signature
+
+
 def wait(config, workflow, cancelled):
     config["poll_deadline"] = time.monotonic() + config["timeout"]
     try:
@@ -258,10 +299,16 @@ def wait(config, workflow, cancelled):
 
 def poll_until_terminal(config, workflow, cancelled):
     failures = 0
+    last_phase, last_heartbeat = None, 0
+    node_states = {}
     while True:
         if cancelled[0]:
+            progress(config, "workflow-cancelled", workflow_name=workflow["name"])
             raise ControllerError("cancelled", "RFCT comparison cancelled", 130)
-        if time.monotonic() >= config["poll_deadline"]:
+        now = time.monotonic()
+        if now >= config["poll_deadline"]:
+            progress(config, "workflow-deadline-exceeded", workflow_name=workflow["name"],
+                     timeout_seconds=config["timeout"])
             raise ControllerError("workflow-timeout", "RFCT workflow exceeded its deadline", 124)
         try:
             state = poll_state(config, workflow)
@@ -269,14 +316,26 @@ def poll_until_terminal(config, workflow, cancelled):
             if not transient_poll_error(error):
                 raise
             failures += 1
+            progress(config, "workflow-poll-retry", workflow_name=workflow["name"],
+                     consecutive_failures=failures, maximum_failures=MAX_POLL_FAILURES,
+                     reason=error.reason, message=str(error))
             if failures >= MAX_POLL_FAILURES:
                 raise ControllerError("argo-poll-unavailable", f"argo get failed after {failures} consecutive transient errors: {sanitize(error)}", error.exit_code) from error
-            print(f"argo get transient failure {failures}/{MAX_POLL_FAILURES}; retrying", file=sys.stderr)
             pause_poll(config)
             continue
+        if failures:
+            progress(config, "workflow-poll-recovered", workflow_name=workflow["name"],
+                     recovered_failures=failures)
         failures = 0
         require(state.get("metadata", {}).get("uid") == workflow["uid"], "Argo workflow UID changed")
+        log_node_changes(config, state, node_states)
         phase = state.get("status", {}).get("phase")
+        elapsed = max(0, int(config["timeout"] - (config["poll_deadline"] - now)))
+        if phase != last_phase or elapsed - last_heartbeat >= 60:
+            progress(config, "workflow-phase" if phase != last_phase else "workflow-waiting",
+                     workflow_name=workflow["name"], phase=phase or "Pending",
+                     elapsed_seconds=elapsed, remaining_seconds=max(0, int(config["poll_deadline"] - now)))
+            last_phase, last_heartbeat = phase, elapsed
         if phase in TERMINAL_PHASES:
             return phase
         pause_poll(config)
@@ -333,9 +392,14 @@ def collect(config, workflow):
     prefix = s3_url(config["request"]["output_prefix"]) + "/" + workflow["uid"]
     output = config["output"]
     result_path, archive_path = output / "result.json", output / ".artifacts.tgz"
+    progress(config, "artifact-collection-start", workflow_name=workflow["name"],
+             workflow_uid=workflow["uid"], source_prefix=prefix)
     command(["aws", "s3", "cp", prefix + "/result.json", str(result_path), "--only-show-errors"])
     result = validate_result(json.loads(result_path.read_text(encoding="utf-8")), config, workflow)
+    progress(config, "cluster-result-validated", status=result["status"],
+             candidate_version=result["candidate_version"], image=result["rfct_image"])
     command(["aws", "s3", "cp", prefix + "/artifacts.tgz", str(archive_path), "--only-show-errors"])
+    archive_bytes = archive_path.stat().st_size
     try:
         extract_artifacts(archive_path, output)
     finally:
@@ -346,6 +410,9 @@ def collect(config, workflow):
     if result["status"] != "failed":
         require((output / "comparison" / "report.json").is_file(), "Cluster evidence is missing comparison/report.json")
         require((output / "docs" / "CIMChanges" / result["candidate_version"] / "index.md").is_file(), "Cluster evidence is missing versioned documentation")
+    progress(config, "artifact-collection-complete", status=result["status"],
+             archive_bytes=archive_bytes, files=sum(path.is_file() for path in output.rglob("*")),
+             output_directory=str(output))
     return result
 
 
@@ -366,22 +433,27 @@ def outputs(config, workflow, status):
 
 
 def run_controller(config, state):
+    progress(config, "request-upload-start", destination=config["request_url"])
     command(["aws", "s3", "cp", str(config["request_path"]), config["request_url"], "--only-show-errors"])
     state["request_sha256"] = hashlib.sha256(config["request_path"].read_bytes()).hexdigest()
+    progress(config, "request-upload-complete", request_sha256=state["request_sha256"])
     state["workflow"] = submit(config)
     state["status"] = "running"
     # Publish the server identity before waiting. If the runner is forcibly
     # killed, a following always/cancelled step can still request Argo cleanup.
     checkpoint(config, state)
     state["phase"] = wait(config, state["workflow"], state["cancelled"])
+    progress(config, "workflow-terminal", workflow_name=state["workflow"]["name"], phase=state["phase"])
     try:
         result = collect(config, state["workflow"])
     except (ControllerError, OSError, ValueError, tarfile.TarError) as error:
         if state["phase"] != "Succeeded":
             state["collection_error"] = sanitize(error)
+            progress(config, "artifact-collection-incomplete", reason=type(error).__name__, message=str(error))
             raise ControllerError("workflow-failed", "RFCT workflow failed before complete evidence was available") from error
         raise
     state["status"] = result["status"]
+    progress(config, "comparison-result", status=state["status"], phase=state["phase"])
     if state["phase"] != "Succeeded" or result["status"] == "failed":
         raise ControllerError("comparison-failed", "RFCT workflow did not complete successfully")
 
@@ -400,8 +472,12 @@ def finish(config, state):
             stop(config, state["workflow"])
         except (ControllerError, OSError) as error:
             state["cleanup_error"] = sanitize(error)
+            progress(config, "workflow-stop-failed", message=str(error))
+            warning("Could not request RFCT cleanup; server deadline and namespace TTL remain active: " + str(error))
     if config:
         checkpoint(config, state)
+        progress(config, "controller-finished", status=state["status"], phase=state["phase"],
+                 reason=state.get("reason", ""), cleanup_error=state.get("cleanup_error", ""))
     else:
         outputs(config, state["workflow"], state["status"])
 
@@ -415,6 +491,11 @@ def main():
     exit_code = 0
     try:
         config = validate_inputs()
+        request = config["request"]
+        progress(config, "request-validated", repository=request["run"]["repository"],
+                 run_id=request["run"]["id"], attempt=request["run"]["attempt"],
+                 baseline_version=request["baseline"]["version"], candidate_version=request["candidate"]["version"],
+                 manifests_ref=config["manifests_ref"], image=request["rfct_image"], timeout_seconds=config["timeout"])
         run_controller(config, state)
     except (ControllerError, OSError, ValueError, tarfile.TarError) as error:
         if state["cancelled"][0]:
@@ -424,12 +505,12 @@ def main():
             error = ControllerError("cancelled", "RFCT comparison cancelled", 130)
         state.update({"status": "failed", "reason": getattr(error, "reason", "controller-failed"), "message": sanitize(error)})
         exit_code = getattr(error, "exit_code", 1)
-        print("RFCT controller failed: " + state["message"], file=sys.stderr)
+        progress(config, "controller-failed", reason=state["reason"], message=state["message"], exit_code=exit_code)
     finally:
         try:
             finish(config, state)
         except OSError as error:
-            print("RFCT controller finalization failed: " + sanitize(error), file=sys.stderr)
+            progress(config, "controller-finalization-failed", message=str(error))
             exit_code = exit_code or 1
         finally:
             for signum, handler in handlers.items():

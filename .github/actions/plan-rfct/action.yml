@@ -72,6 +72,9 @@ outputs:
   baseline-asset-name:
     description: Baseline package asset name
     value: ${{ steps.plan.outputs.baseline-asset-name }}
+  baseline-selection:
+    description: JSON audit of selected and skipped baseline releases, including fallback reasons
+    value: ${{ steps.plan.outputs.baseline-selection }}
   candidate-source:
     description: Build for this run's candidate
     value: ${{ steps.plan.outputs.candidate-source }}
@@ -81,6 +84,9 @@ outputs:
   plan-path:
     description: Path to the frozen plan document
     value: ${{ steps.plan.outputs.plan-path }}
+  summary-path:
+    description: Path to the safe Markdown explanation next to the frozen JSON plan
+    value: ${{ steps.plan.outputs.summary-path }}
 runs:
   using: composite
   steps:

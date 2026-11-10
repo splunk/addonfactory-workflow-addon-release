@@ -6,9 +6,14 @@ immutable baseline release for this run's build, and records the frozen decision
 so a release published mid-run cannot change it.
 """
 
+import html
 import json
 import os
 import re
+import sys
+import unicodedata
+import uuid
+from collections import Counter
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -36,9 +41,42 @@ class PlanInputError(ValueError):
 class PlanSkip(Exception):
     """RFCT is not eligible for this event; record the reason and skip."""
 
-    def __init__(self, reason):
+    def __init__(self, reason, baseline_selection=None):
         super().__init__(reason)
         self.reason = reason
+        self.baseline_selection = baseline_selection
+
+
+def safe_data(value):
+    """Redact known transport credentials from logs and public plan evidence."""
+    if isinstance(value, dict):
+        return {key: safe_data(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [safe_data(item) for item in value]
+    if isinstance(value, str):
+        for name in ("INPUT_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"):
+            secret = os.environ.get(name)
+            if secret:
+                value = value.replace(secret, "[REDACTED]")
+    return value
+
+
+def log_event(phase, event, **fields):
+    """Write one safe JSON log record, never an unintended runner command."""
+    record = safe_data({"component": "rfct-planner", "phase": phase, "event": event, **fields})
+    serialized = json.dumps(record, sort_keys=True).replace("::", r"\u003a\u003a")
+    print(serialized, file=sys.stderr)
+
+
+def selection_audit():
+    return {"policy": "highest-usable-stable-version", "selected": None, "skipped": [], "fallback": False}
+
+
+def record_skipped(selection, release, reason, parsed=None):
+    skipped = {"tag": release.get("tag_name") or "", "release_id": release.get("id"), "reason": reason}
+    if parsed:
+        skipped["version"] = parsed["version"]
+    selection["skipped"].append(skipped)
 
 
 def matches_supported_path(path):
@@ -194,41 +232,80 @@ def describe_release(repository, token, release, parsed):
     }
 
 
-def _eligible_releases(releases):
+def _eligible_releases(releases, selection):
     """Yield published stable releases paired with their parsed version."""
     for release in releases:
-        if release.get("draft") or release.get("prerelease"):
+        if release.get("draft"):
+            record_skipped(selection, release, "draft")
+            continue
+        if release.get("prerelease"):
+            record_skipped(selection, release, "prerelease")
             continue
         tag = release.get("tag_name")
         if not tag:
+            record_skipped(selection, release, "invalid-version")
             continue
         match = RELEASE_TAG_RE.match(str(tag).strip())
-        if not match or match.group(4):
+        if not match:
+            record_skipped(selection, release, "invalid-version")
+            continue
+        if match.group(4):
+            record_skipped(selection, release, "prerelease")
             continue
         yield release, parse_release_tag(str(tag), "release tag")
 
 
-def baseline_candidates(releases):
+def baseline_candidates(releases, selection=None):
     """Return usable stable releases ordered by highest numeric version first."""
     options = []
-    for release, parsed in _eligible_releases(releases):
+    if selection is None:
+        selection = selection_audit()
+    for release, parsed in _eligible_releases(releases, selection):
         # A tag cut without a package asset is not a usable baseline. Fall through
         # to the next older release with an identifiable package.
         if package_asset(release, parsed) is None:
+            reason = "ambiguous-package" if any(
+                str(asset.get("name", "")).endswith(PACKAGE_ASSET_SUFFIX) for asset in release.get("assets") or []
+            ) else "missing-package"
+            record_skipped(selection, release, reason, parsed)
             continue
         options.append((release, parsed))
     options.sort(key=lambda option: option[1]["order"], reverse=True)
     return options
 
 
-def select_baseline(repository, token, releases, build_sha):
+def select_baseline(repository, token, releases, build_sha, selection=None):
     """Describe the newest eligible baseline that is not the candidate revision."""
-    options = baseline_candidates(releases)
+    if selection is None:
+        selection = selection_audit()
+    options = baseline_candidates(releases, selection)
+    log_event("baseline", "candidates", release_count=len(releases), usable_count=len(options),
+              skipped_counts=dict(Counter(item["reason"] for item in selection["skipped"])))
     for release, parsed in options:
         described = describe_release(repository, token, release, parsed)
         if not build_sha or described["commit"] != build_sha:
+            selection["selected"] = described
+            warn_baseline_fallback(selection, parsed)
+            log_event("baseline", "selected", tag=described["tag"], version=described["version"],
+                      commit=described["commit"], fallback=selection["fallback"])
             return described, parsed
-    raise PlanSkip("no-baseline")
+        record_skipped(selection, release, "same-build-revision", parsed)
+        log_event("baseline", "same-build-excluded", tag=described["tag"], commit=described["commit"])
+    raise PlanSkip("no-baseline", selection)
+
+
+def warn_baseline_fallback(selection, parsed):
+    """Warn only when a higher stable package was unusable and an older one won."""
+    for skipped in selection["skipped"]:
+        if skipped["reason"] not in ("missing-package", "ambiguous-package"):
+            continue
+        if parse_release_tag(skipped["version"], "release version")["order"] <= parsed["order"]:
+            continue
+        selection["fallback"] = True
+        detail = "has no .spl package" if skipped["reason"] == "missing-package" else "has ambiguous .spl packages"
+        _workflow_message("warning", f"RFCT baseline fallback: stable release {skipped['tag']} {detail}; "
+                          f"selecting older release {selection['selected']['tag']}.")
+        log_event("baseline", "fallback", skipped=skipped, selected_tag=selection["selected"]["tag"])
 
 
 def _input(name, default=""):
@@ -240,8 +317,8 @@ def _flag(name):
 
 
 def _workflow_message(level, message):
-    escaped = str(message).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-    print(f"::{level}::{escaped}")
+    escaped = safe_data(str(message)).replace("::", ": :").replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::{level}::{escaped}", file=sys.stderr)
 
 
 def check_eligibility(event_name, is_fork, base_branch):
@@ -287,14 +364,19 @@ def comparison_range(event_name, baseline_commit):
 def build_plan(repository, token):
     """Produce the frozen RFCT decision for this event."""
     event_name = _input("EVENT_NAME")
+    log_event("eligibility", "checking", event_name=event_name, base_branch=_input("BASE_BRANCH"), is_fork=_flag("IS_FORK"))
     check_eligibility(event_name, _flag("IS_FORK"), _input("BASE_BRANCH"))
+    log_event("eligibility", "accepted")
 
     releases = list_releases(repository, token)
-    baseline, _ = select_baseline(repository, token, releases, _input("BUILD_SHA"))
+    log_event("releases", "loaded", count=len(releases))
+    selection = selection_audit()
+    baseline, _ = select_baseline(repository, token, releases, _input("BUILD_SHA"), selection)
     base, head = comparison_range(event_name, baseline["commit"])
     paths = [path for path in changed_paths(repository, token, base, head) if matches_supported_path(path)]
+    log_event("paths", "checked", base=base, head=head, matched_count=len(paths))
     if not paths:
-        raise PlanSkip("no-mapping-changes")
+        raise PlanSkip("no-mapping-changes", selection)
 
     return {
         "decision": PROCEED,
@@ -302,6 +384,7 @@ def build_plan(repository, token):
         "changed_paths": paths,
         "baseline": baseline,
         "candidate": {"source": "build", "commit": _input("BUILD_SHA")},
+        "baseline_selection": selection,
     }
 
 
@@ -318,13 +401,70 @@ def plan_document(plan):
         "changed_paths": plan.get("changed_paths", []),
         "baseline": plan.get("baseline", {}),
         "candidate": plan.get("candidate", {}),
+        "baseline_selection": plan.get("baseline_selection") or selection_audit(),
     }
     return document
 
 
+def markdown_text(value):
+    """Render untrusted values as plain text inside Markdown tables and lists."""
+    visible = "".join(
+        f"\\u{ord(char):04x}" if unicodedata.category(char).startswith("C") or char in "\u2028\u2029" else char
+        for char in str(safe_data(value))
+    )
+    escaped = re.sub(r"([\\`*_{}\[\]()#+.!|~\-])", r"\\\1", visible)
+    return html.escape(escaped, quote=True).replace("::", "&#58;&#58;")
+
+
+def render_summary(document):
+    """Explain the frozen decision without duplicating the full release audit."""
+    document = safe_data(document)
+    selection = document.get("baseline_selection") or selection_audit()
+    baseline = selection.get("selected") or document.get("baseline") or {}
+    candidate_commit = document.get("candidate", {}).get("commit") or document.get("build_sha")
+    baseline_text = baseline.get("tag") or "None selected"
+    if baseline.get("commit"):
+        baseline_text += " (commit " + str(baseline["commit"]) + ")"
+    candidate_text = "Current build" + (" (commit " + str(candidate_commit) + ")" if candidate_commit else "")
+    lines = [
+        "## RFCT CIM changes plan", "", "| Field | Value |", "| --- | --- |",
+        "| Decision | " + markdown_text(document["decision"]) + " |",
+        "| Reason | " + markdown_text(document["reason"]) + " |",
+        "| Baseline | " + markdown_text(baseline_text) + " |",
+        "| Candidate | " + markdown_text(candidate_text) + " |", "",
+    ]
+    if baseline:
+        lines.append("The baseline is the highest usable stable release whose commit differs from this build.")
+        selected_order = parse_release_tag(str(baseline["version"]), "selected baseline version")["order"]
+        fallback = [
+            item for item in selection["skipped"]
+            if item["reason"] in ("missing-package", "ambiguous-package")
+            and parse_release_tag(item["version"], "skipped release version")["order"] > selected_order
+        ]
+        if fallback:
+            lines.extend(["", "The following newer stable releases could not be used:", ""])
+            for item in fallback:
+                reason = "no .spl package" if item["reason"] == "missing-package" else "ambiguous .spl packages"
+                lines.append("- " + markdown_text(item["tag"]) + ": " + reason + ".")
+    elif document["reason"] == "no-baseline":
+        lines.append("No usable stable release package differed from this build, so no cluster comparison will run.")
+        counts = Counter(item["reason"] for item in selection["skipped"])
+        if counts:
+            lines.extend(["", "Release exclusions:", ""])
+            for reason, count in sorted(counts.items()):
+                lines.append("- " + markdown_text(reason) + ": " + str(count) + ".")
+        else:
+            lines.append("No published releases were available for baseline selection.")
+    lines.extend(["", "The RFCT plan JSON artifact contains the full selection audit.", ""])
+    return "\n".join(lines)
+
+
 def write_outputs(document, output_path):
+    document = safe_data(document)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    summary_path = Path(output_path).with_suffix(".summary.md")
+    summary_path.write_text(render_summary(document), encoding="utf-8")
 
     baseline = document["baseline"]
     candidate = document["candidate"]
@@ -341,13 +481,22 @@ def write_outputs(document, output_path):
         "baseline-asset-name": baseline.get("asset_name") or "",
         "candidate-source": candidate.get("source") or "",
         "candidate-commit": candidate.get("commit") or "",
+        "baseline-selection": json.dumps(document["baseline_selection"], sort_keys=True),
         "plan-path": str(output_path),
+        "summary-path": str(summary_path),
     }
     github_output = os.environ.get("GITHUB_OUTPUT")
     if github_output:
         with open(github_output, "a", encoding="utf-8") as handle:
             for key, value in outputs.items():
-                handle.write(f"{key}={value}\n")
+                text = str(value)
+                if "\n" in text or "\r" in text:
+                    delimiter = "rfct_" + uuid.uuid4().hex
+                    while delimiter in text:
+                        delimiter = "rfct_" + uuid.uuid4().hex
+                    handle.write(f"{key}<<{delimiter}\n{text}\n{delimiter}\n")
+                else:
+                    handle.write(f"{key}={text}\n")
     return outputs
 
 
@@ -358,16 +507,19 @@ def main():
     try:
         plan = build_plan(_input("REPOSITORY"), os.environ.get("INPUT_TOKEN") or "")
     except PlanSkip as skip:
-        plan = {"decision": SKIP, "reason": skip.reason, "changed_paths": [], "baseline": {}, "candidate": {}}
+        plan = {"decision": SKIP, "reason": skip.reason, "changed_paths": [], "baseline": {}, "candidate": {},
+                "baseline_selection": skip.baseline_selection}
         _workflow_message("notice", f"RFCT comparison skipped: {skip.reason}")
     document = plan_document(plan)
     write_outputs(document, output_path)
-    print(json.dumps(document, indent=2, sort_keys=True))
+    log_event("decision", "completed", decision=document["decision"], reason=document["reason"],
+              baseline_tag=document["baseline"].get("tag", ""), matched_path_count=len(document["changed_paths"]))
 
 
 if __name__ == "__main__":
     try:
         main()
     except (OSError, PlanInputError) as exc:
+        log_event("decision", "failed", error=str(exc))
         _workflow_message("error", exc)
-        raise SystemExit(str(exc)) from exc
+        raise SystemExit(1) from None

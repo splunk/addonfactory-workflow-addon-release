@@ -21,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import tarfile
 from pathlib import Path, PurePosixPath
 from urllib.error import HTTPError, URLError
@@ -35,6 +36,21 @@ VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?")
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 MANIFESTS_REPOSITORY_API = "https://api.github.com/repos/splunk/ta-automation-k8s-manifests/"
 MANIFESTS_API = MANIFESTS_REPOSITORY_API + "commits/"
+
+
+def log(event, *, token="", **details):
+    """Emit one bounded metadata record; never include payloads or credential fields."""
+    record = {"event": event, **details}
+    secrets = (token, os.environ.get("INPUT_GITHUB_TOKEN", ""))
+    for key, value in record.items():
+        if isinstance(value, str):
+            for secret in secrets:
+                if isinstance(secret, str) and secret:
+                    value = value.replace(secret, "***")
+            record[key] = value if len(value) <= 1024 else value[:1024] + "...[truncated]"
+    # GitHub recognizes embedded command markers even inside a prefixed line.
+    message = json.dumps(record, sort_keys=True).replace("::", r"\u003a\u003a")
+    print("[rfct-inputs] " + message, file=sys.stderr, flush=True)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -68,22 +84,28 @@ def github_data(url, token, accept, limit, purpose, missing_message=""):
     try:
         with build_opener(NoRedirect()).open(request, timeout=15) as response:  # nosec B310 - fixed GitHub API host
             if response.status != 200:
+                log("github-api-failed", token=token, operation=purpose, status=response.status)
                 raise ValueError(f"{purpose}: unexpected GitHub API status")
             data = response.read(limit + 1)
     except HTTPError as error:
+        log("github-api-failed", token=token, operation=purpose, status=error.code)
         if error.code == 404 and missing_message:
             raise ValueError(missing_message) from None
         raise ValueError(f"{purpose}: GitHub API HTTP {error.code}") from None
     except (URLError, OSError):
+        log("github-api-failed", token=token, operation=purpose, reason="transport-error")
         raise ValueError(f"{purpose}: GitHub API request failed") from None
     if len(data) > limit:
+        log("github-api-failed", token=token, operation=purpose, reason="response-size-limit", limit_bytes=limit)
         raise ValueError(f"{purpose}: GitHub API response exceeds the size limit")
+    log("github-api-response", token=token, operation=purpose, status=200, response_bytes=len(data))
     return data
 
 
 def check_manifests_runtime(commit, token):
     """Reject old shared refs before provisioning; fetch metadata from the resolved commit."""
     message = f"Resolved manifests commit {commit} has no RFCT runtime at rfct/run.py"
+    log("manifests-runtime-check", token=token, resolved_sha=commit, path="rfct/run.py")
     data = github_data(
         MANIFESTS_REPOSITORY_API + f"contents/rfct/run.py?ref={commit}", token,
         "application/vnd.github+json", 256 * 1024, "Cannot verify RFCT runtime", message,
@@ -95,14 +117,19 @@ def check_manifests_runtime(commit, token):
     if (not isinstance(metadata, dict) or metadata.get("type") != "file"
             or metadata.get("path") != "rfct/run.py" or not COMMIT_RE.fullmatch(str(metadata.get("sha", "")))):
         raise ValueError(message)
+    log("manifests-runtime-compatible", token=token, resolved_sha=commit, path="rfct/run.py")
 
 
 def resolve_manifests_ref(reference, token=""):
     """Resolve the fixed manifests repository once; the staging contract stays SHA-only."""
     if isinstance(reference, str) and re.fullmatch(r"[0-9a-fA-F]{40}", reference):
+        log("manifests-reference-frozen", token=token, requested_ref=reference,
+            resolved_sha=reference.lower(), resolution="provided-sha", runtime_check="not-queried")
         return reference.lower()
     if not valid_manifests_ref(reference):
         raise ValueError("Invalid manifests Git reference")
+    log("manifests-resolution-start", token=token, requested_ref=reference,
+        repository="splunk/ta-automation-k8s-manifests")
     # Get-a-commit resolves annotated tags to the commit, unlike the git/refs API.
     api_ref = reference.removeprefix("refs/")
     data = github_data(
@@ -116,6 +143,8 @@ def resolve_manifests_ref(reference, token=""):
     if not COMMIT_RE.fullmatch(resolved):
         raise ValueError("GitHub API did not return a manifests commit SHA")
     check_manifests_runtime(resolved, token)
+    log("manifests-reference-frozen", token=token, requested_ref=reference,
+        resolved_sha=resolved, resolution="github-api", runtime_check="compatible")
     return resolved
 
 
@@ -184,7 +213,10 @@ def inspect_package(filename):
         version = config.get("launcher", "version", fallback="").strip()
         if not version:
             raise ValueError("Package has no launcher version")
-    return {"app_code_name": app_name, "version": version, "sha256": sha256(filename)}
+    metadata = {"app_code_name": app_name, "version": version, "sha256": sha256(filename)}
+    log("package-inspected", package_name=filename.name, package_bytes=filename.stat().st_size,
+        files=len(files), expanded_bytes=total_size, **metadata)
+    return metadata
 
 
 def archive_source(source, target):
@@ -193,7 +225,8 @@ def archive_source(source, target):
         raise ValueError("Candidate source must be a directory")
     if source.resolve() in Path(target).resolve().parents:
         raise ValueError("Source archive must be written outside candidate source")
-    total_size = 0
+    total_size, file_count, excluded_git_entries = 0, 0, 0
+    log("source-archive-start", destination=str(target))
     # Fixed archive metadata makes the source checksum reproducible.
     with Path(target).open("wb") as output, gzip.GzipFile(
         filename="", fileobj=output, mode="wb", mtime=0
@@ -201,12 +234,14 @@ def archive_source(source, target):
         for entry in sorted(source.rglob("*")):
             relative = entry.relative_to(source)
             if ".git" in relative.parts:
+                excluded_git_entries += 1
                 continue
             if entry.is_symlink():
                 raise ValueError("Source symlinks are unsupported")
             if entry.is_dir():
                 continue
             regular_file(entry)
+            file_count += 1
             total_size += entry.stat().st_size
             if total_size > MAX_ARCHIVE_BYTES:
                 raise ValueError("Candidate source exceeds input limits")
@@ -215,6 +250,8 @@ def archive_source(source, target):
             info.uname = info.gname = ""
             with entry.open("rb") as stream:
                 archive.addfile(info, stream)
+    log("source-archive-created", destination=str(target), files=file_count, source_bytes=total_size,
+        archive_bytes=Path(target).stat().st_size, excluded_git_entries=excluded_git_entries)
 
 
 def validate_metadata(provenance, settings):
@@ -239,6 +276,7 @@ def validate_metadata(provenance, settings):
 
 
 def stage_inputs(provenance, baseline, candidate, source, directory, settings):
+    log("input-validation-start")
     image = settings["image"]
     if not IMAGE_RE.fullmatch(image):
         raise ValueError("RFCT image must be an approved repository digest")
@@ -249,12 +287,16 @@ def stage_inputs(provenance, baseline, candidate, source, directory, settings):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", settings["repository"]):
         raise ValueError("Invalid calling repository")
     run = validate_metadata(provenance, settings)
+    log("input-metadata-validated", repository=settings["repository"], run_id=run["id"],
+        attempt=run["attempt"], manifests_sha=settings["manifests_ref"], image=image)
     baseline, candidate = package_file(baseline), package_file(candidate)
     inspected = {"baseline": inspect_package(baseline), "candidate": inspect_package(candidate)}
     if inspected["baseline"]["app_code_name"] != inspected["candidate"]["app_code_name"]:
         raise ValueError("Baseline and candidate app identities differ")
     if any(not VERSION_RE.fullmatch(metadata["version"]) for metadata in inspected.values()):
         raise ValueError("Package version is not supported by the RFCT request contract")
+    log("package-identities-verified", app_code_name=inspected["candidate"]["app_code_name"],
+        baseline_version=inspected["baseline"]["version"], candidate_version=inspected["candidate"]["version"])
     directory = Path(directory)
     if Path(source).resolve() in directory.resolve().parents:
         raise ValueError("Staging directory must be outside candidate source")
@@ -286,12 +328,21 @@ def stage_inputs(provenance, baseline, candidate, source, directory, settings):
             "package_sha256": metadata["sha256"],
             "package_url": f"{prefix}/inputs/{target.name}",
         }
+        log("package-staged", side=side, destination=str(target), package_bytes=target.stat().st_size,
+            package_sha256=metadata["sha256"], package_url=request[side]["package_url"],
+            package_version=metadata["version"], source_commit=provenance[side]["commit"])
     archive = directory / "candidate-source.tar.gz"
     archive_source(source, archive)
     request["candidate"].update(
         source_url=f"{prefix}/inputs/{archive.name}", source_sha256=sha256(archive),
         source_sha=provenance["candidate"]["commit"],
     )
+    log("source-input-frozen", source_sha256=request["candidate"]["source_sha256"],
+        source_commit=request["candidate"]["source_sha"], source_url=request["candidate"]["source_url"])
+    log("inputs-frozen", job_name=request["job_name"], inputs_prefix=request["inputs_prefix"],
+        output_prefix=request["output_prefix"], input_files=3,
+        input_bytes=sum((directory / name).stat().st_size
+                        for name in ("baseline.spl", "candidate.spl", "candidate-source.tar.gz")))
     return request
 
 
@@ -311,6 +362,9 @@ def main():
     request["manifests_source_ref"] = requested_ref
     request_path = directory.parent / "request.json"
     request_path.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
+    log("request-written", destination=str(request_path), request_bytes=request_path.stat().st_size,
+        request_sha256=sha256(request_path), request_url=request["inputs_prefix"] + "/request.json",
+        requested_manifests_ref=requested_ref, manifests_sha=request["manifests_ref"])
     outputs = {
         "request-path": str(request_path), "request-url": request["inputs_prefix"] + "/request.json",
         "inputs-directory": str(directory), "inputs-prefix": request["inputs_prefix"],
@@ -321,7 +375,35 @@ def main():
     with open(env["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
         for key, value in outputs.items():
             stream.write(f"{key}={value}\n")
+    log("action-outputs-written", outputs=len(outputs), request_path=str(request_path),
+        inputs_directory=str(directory), job_name=request["job_name"])
+
+
+def failure_reason(error):
+    # Our validation messages are metadata-only. Dependency/parser messages may
+    # embed source contents, so retain text only for ValueErrors raised here.
+    origin = error.__traceback__
+    while origin and origin.tb_next:
+        origin = origin.tb_next
+    if type(error) is ValueError and origin and origin.tb_frame.f_globals is globals():
+        return str(error)
+    if isinstance(error, tarfile.TarError):
+        return "Cannot read the input package archive"
+    if isinstance(error, OSError):
+        if isinstance(error.errno, int):
+            return f"Input I/O operation failed (errno {error.errno})"
+        return "Input I/O operation failed"
+    return "Unexpected input preparation failure"
+
+
+def cli():
+    try:
+        main()
+    except Exception as error:
+        log("input-preparation-failed", error_type=type(error).__name__, reason=failure_reason(error))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli())

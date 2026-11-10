@@ -13,9 +13,12 @@
 # limitations under the License.
 
 import importlib.util
+import io
 import json
+import runpy
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -473,6 +476,7 @@ class OutputTests(unittest.TestCase):
                 plan.main()
 
             document = json.loads(plan_path.read_text(encoding="utf-8"))
+            summary = plan_path.with_suffix(".summary.md").read_text(encoding="utf-8")
             emitted = dict(
                 line.split("=", 1)
                 for line in output_path.read_text(encoding="utf-8").splitlines()
@@ -491,6 +495,10 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(emitted["candidate-source"], "build")
         self.assertEqual(emitted["candidate-commit"], "c" * 40)
         self.assertEqual(json.loads(emitted["changed-paths"]), ["package/lookups/cim.csv"])
+        self.assertEqual(json.loads(emitted["baseline-selection"]), document["baseline_selection"])
+        self.assertEqual(emitted["summary-path"], str(plan_path.with_suffix(".summary.md")))
+        self.assertIn("| Decision | proceed |", summary)
+        self.assertIn("Current build", summary)
 
     def test_records_a_skip_decision_without_failing(self):
         api = FakeApi()
@@ -502,10 +510,13 @@ class OutputTests(unittest.TestCase):
             ):
                 plan.main()
             document = json.loads(plan_path.read_text(encoding="utf-8"))
+            summary = plan_path.with_suffix(".summary.md").read_text(encoding="utf-8")
         self.assertEqual(document["decision"], "skip")
         self.assertEqual(document["status"], "skipped")
         self.assertEqual(document["reason"], "unsupported-branch")
         self.assertEqual(document["baseline"], {})
+        self.assertIn("| Decision | skip |", summary)
+        self.assertIn("unsupported\\-branch", summary)
 
     def test_requires_an_output_path(self):
         with mock.patch.dict("os.environ", environment(INPUT_OUTPUT_PATH=""), clear=True):
@@ -541,6 +552,254 @@ class ApiErrorTests(unittest.TestCase):
             with self.assertRaises(plan.PlanInputError):
                 plan._request_json("https://api.github.com/x", "token")
 
+
+class BaselineAuditTests(unittest.TestCase):
+    @staticmethod
+    def run_plan(api, **overrides):
+        logs = io.StringIO()
+        with mock.patch.dict("os.environ", environment(**overrides), clear=True), mock.patch.object(
+            plan, "_request_json", api
+        ), redirect_stderr(logs):
+            result = plan.build_plan("owner/repo", "token")
+        return result, logs.getvalue()
+
+    def test_warns_only_for_higher_unusable_stable_packages(self):
+        api = FakeApi(
+            releases=[
+                release("v8.0.0", draft=True),
+                release("v7.0.0", prerelease=True),
+                release("v6.0.0-beta.1"),
+                release("not-a-version"),
+                release("v4.0.0", assets=()),
+                release("v3.0.0", assets=("a.spl", "b.spl")),
+                release("v2.0.0"),
+                release("v1.0.0", assets=()),
+            ],
+            commits={"v2.0.0": "d" * 40},
+            files=[{"filename": "package/default/props.conf"}],
+        )
+        result, logs = self.run_plan(api)
+        audit = result["baseline_selection"]
+        self.assertEqual(audit["policy"], "highest-usable-stable-version")
+        self.assertEqual(audit["selected"], result["baseline"])
+        self.assertTrue(audit["fallback"])
+        reasons = {item["tag"]: item["reason"] for item in audit["skipped"]}
+        self.assertEqual(reasons, {
+            "v8.0.0": "draft", "v7.0.0": "prerelease", "v6.0.0-beta.1": "prerelease",
+            "not-a-version": "invalid-version", "v4.0.0": "missing-package",
+            "v3.0.0": "ambiguous-package", "v1.0.0": "missing-package",
+        })
+        warnings = [line for line in logs.splitlines() if line.startswith("::warning::")]
+        self.assertEqual(len(warnings), 2)
+        self.assertIn("v4.0.0 has no .spl package", warnings[0])
+        self.assertIn("v3.0.0 has ambiguous .spl packages", warnings[1])
+        self.assertTrue(all("selecting older release v2.0.0" in warning for warning in warnings))
+        events = [json.loads(line) for line in logs.splitlines() if line.startswith("{")]
+        self.assertEqual({event["phase"] for event in events}, {"eligibility", "releases", "baseline", "paths"})
+
+    def test_normal_filtering_and_older_unusable_releases_do_not_warn(self):
+        api = FakeApi(
+            releases=[release("v4.0.0", draft=True), release("v3.0.0-beta.1"),
+                      release(""), release("v2.0.0"), release("v1.0.0", assets=())],
+            commits={"v2.0.0": "d" * 40},
+            files=[{"filename": "package/default/props.conf"}],
+        )
+        result, logs = self.run_plan(api)
+        self.assertFalse(result["baseline_selection"]["fallback"])
+        self.assertNotIn("::warning::", logs)
+        self.assertIn('"skipped_counts"', logs)
+
+    def test_same_build_exclusion_is_audited_without_a_fallback_warning(self):
+        api = FakeApi(
+            releases=[release("v2.0.0"), release("v1.0.0")],
+            commits={"v2.0.0": {"sha": "a" * 40, "type": "tag"}, "v1.0.0": "d" * 40},
+            tags={"a" * 40: {"sha": "c" * 40, "type": "commit"}},
+            files=[{"filename": "package/default/props.conf"}],
+        )
+        result, logs = self.run_plan(api)
+        self.assertEqual(result["baseline"]["tag"], "v1.0.0")
+        self.assertEqual(result["baseline_selection"]["skipped"], [
+            {"tag": "v2.0.0", "release_id": 1, "version": "2.0.0", "reason": "same-build-revision"},
+        ])
+        self.assertFalse(result["baseline_selection"]["fallback"])
+        self.assertNotIn("::warning::", logs)
+
+    def test_no_baseline_plan_retains_all_skipped_release_reasons(self):
+        api = FakeApi(
+            releases=[release("v3.0.0", assets=()), release("v2.0.0", assets=("a.spl", "b.spl")),
+                      release("v1.0.0")],
+            commits={"v1.0.0": "c" * 40},
+        )
+        logs, console = io.StringIO(), io.StringIO()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "plan.json"
+            with mock.patch.dict("os.environ", environment(INPUT_OUTPUT_PATH=str(path)), clear=True), mock.patch.object(
+                plan, "_request_json", api
+            ), redirect_stderr(logs), redirect_stdout(console):
+                plan.main()
+            document = json.loads(path.read_text())
+        self.assertEqual(document["reason"], "no-baseline")
+        self.assertIsNone(document["baseline_selection"]["selected"])
+        self.assertEqual([item["reason"] for item in document["baseline_selection"]["skipped"]],
+                         ["missing-package", "ambiguous-package", "same-build-revision"])
+        self.assertNotIn("::warning::", logs.getvalue())
+        self.assertIn('"decision": "skip"', logs.getvalue())
+        self.assertEqual(console.getvalue(), "")
+
+    def test_no_mapping_change_retains_the_selected_baseline_audit(self):
+        api = FakeApi(releases=[release("v1.0.0")], commits={"v1.0.0": "d" * 40},
+                      files=[{"filename": "README.md"}])
+        with self.assertRaises(plan.PlanSkip) as caught:
+            self.run_plan(api)
+        self.assertEqual(caught.exception.reason, "no-mapping-changes")
+        self.assertEqual(caught.exception.baseline_selection["selected"]["tag"], "v1.0.0")
+
+
+class SummaryRendererTests(unittest.TestCase):
+    @staticmethod
+    def document():
+        baseline = {"tag": "v0.8.7", "version": "0.8.7", "commit": "d" * 40}
+        return {
+            "decision": "proceed", "reason": "mapping-change", "build_sha": "c" * 40,
+            "baseline": baseline, "candidate": {"source": "build", "commit": "c" * 40},
+            "baseline_selection": {"policy": "highest-usable-stable-version", "selected": baseline,
+                                   "fallback": False, "skipped": []},
+        }
+
+    def test_proceed_summary_explains_the_chosen_baseline_and_current_build(self):
+        summary = plan.render_summary(self.document())
+        self.assertIn("| Decision | proceed |", summary)
+        self.assertIn("| Reason | mapping\\-change |", summary)
+        self.assertIn("v0\\.8\\.7", summary)
+        self.assertIn("Current build", summary)
+        self.assertIn("c" * 40, summary)
+        self.assertIn("d" * 40, summary)
+        self.assertIn("highest usable stable release", summary)
+        self.assertNotIn("newer stable releases could not be used", summary)
+
+    def test_fallback_summary_only_lists_higher_unusable_stable_releases(self):
+        document = self.document()
+        document["baseline_selection"].update(fallback=True, skipped=[
+            {"tag": "1.0.0", "version": "1.0.0", "reason": "missing-package"},
+            {"tag": "v0.9.0", "version": "0.9.0", "reason": "ambiguous-package"},
+            {"tag": "v0.8.0", "version": "0.8.0", "reason": "missing-package"},
+            {"tag": "v2.0.0-beta.1", "reason": "prerelease"},
+            {"tag": "v3.0.0", "version": "3.0.0", "reason": "same-build-revision"},
+        ])
+        summary = plan.render_summary(document)
+        self.assertIn("1\\.0\\.0: no .spl package", summary)
+        self.assertIn("v0\\.9\\.0: ambiguous .spl packages", summary)
+        for excluded in ("v0\\.8\\.0", "beta", "v3\\.0\\.0"):
+            self.assertNotIn(excluded, summary)
+        self.assertEqual(len(document["baseline_selection"]["skipped"]), 5)
+
+    def test_no_baseline_summary_gives_a_reason_and_exclusion_counts(self):
+        document = self.document()
+        document.update(decision="skip", reason="no-baseline", baseline={}, candidate={})
+        document["baseline_selection"].update(selected=None, skipped=[
+            {"tag": "v2.0.0", "reason": "missing-package"},
+            {"tag": "v1.0.0", "reason": "missing-package"},
+            {"tag": "v0.9.0", "reason": "same-build-revision"},
+        ])
+        summary = plan.render_summary(document)
+        self.assertIn("| Decision | skip |", summary)
+        self.assertIn("no cluster comparison will run", summary)
+        self.assertIn("missing\\-package: 2", summary)
+        self.assertIn("same\\-build\\-revision: 1", summary)
+        self.assertIn("c" * 40, summary)
+        document["baseline_selection"]["skipped"] = []
+        self.assertIn("No published releases", plan.render_summary(document))
+
+    def test_non_mapping_skip_can_still_show_the_baseline_already_selected(self):
+        document = self.document()
+        document.update(decision="skip", reason="no-mapping-changes", baseline={}, candidate={})
+        summary = plan.render_summary(document)
+        self.assertIn("no\\-mapping\\-changes", summary)
+        self.assertIn("v0\\.8\\.7", summary)
+
+    def test_summary_escapes_html_markdown_controls_and_known_credentials(self):
+        document = self.document()
+        document["reason"] = "<script>secret-token</script>|[click](https://example.com)\r\n## forged\u202e::error::"
+        with mock.patch.dict("os.environ", {"INPUT_TOKEN": "secret-token"}, clear=True):
+            summary = plan.render_summary(document)
+        self.assertNotIn("<script>", summary)
+        self.assertNotIn("secret-token", summary)
+        self.assertNotIn("\r", summary)
+        self.assertNotIn("\u202e", summary)
+        self.assertNotIn("::error::", summary)
+        self.assertIn("&lt;script&gt;\\[REDACTED\\]&lt;/script&gt;", summary)
+        self.assertIn("\\|\\[click\\]\\(https://example\\.com\\)", summary)
+        self.assertIn("\\\\u000d\\\\u000a", summary)
+        self.assertIn("\\\\u202e", summary)
+        self.assertNotIn("\n## forged", summary)
+
+
+class SafeLoggingTests(unittest.TestCase):
+    def test_structured_logs_neutralize_inline_runner_commands_and_redact_tokens(self):
+        logs = io.StringIO()
+        with mock.patch.dict("os.environ", {"INPUT_TOKEN": "secret-token"}, clear=True), redirect_stderr(logs):
+            plan.log_event("baseline", "filtered", tag="prefix::error::injected\n::add-mask::secret-token")
+        serialized = logs.getvalue()
+        self.assertEqual(len(serialized.splitlines()), 1)
+        self.assertNotIn("::", serialized)
+        self.assertNotIn("secret-token", serialized)
+        self.assertEqual(json.loads(serialized)["tag"], "prefix::error::injected\n::add-mask::[REDACTED]")
+
+    def test_explicit_annotations_escape_nested_commands_and_control_characters(self):
+        logs = io.StringIO()
+        with mock.patch.dict("os.environ", {"INPUT_TOKEN": "secret-token"}, clear=True), redirect_stderr(logs):
+            plan._workflow_message("warning", "prefix::error::injected\r\n50% secret-token")
+        self.assertEqual(logs.getvalue(), "::warning::prefix: :error: :injected%0D%0A50%25 [REDACTED]\n")
+
+    def test_multiline_asset_names_cannot_inject_other_action_outputs(self):
+        value = "ta-secret-token.spl\ninjected=success\nstatus=no-changes"
+        document = plan.plan_document({
+            "decision": "proceed", "reason": "mapping-change", "changed_paths": [],
+            "baseline": {"tag": "v1.0.0", "version": "1.0.0", "asset_name": value},
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            path, github_output = Path(directory) / "plan.json", Path(directory) / "github-output"
+            with mock.patch.dict("os.environ", {"INPUT_TOKEN": "secret-token", "GITHUB_OUTPUT": str(github_output)}, clear=True):
+                emitted = plan.write_outputs(document, path)
+            serialized = github_output.read_text()
+            public_document = path.read_text()
+        self.assertNotIn("secret-token", serialized + public_document)
+        self.assertIn("baseline-asset-name<<rfct_", serialized)
+        lines = iter(serialized.splitlines())
+        parsed = {}
+        for line in lines:
+            if "<<" in line:
+                key, delimiter = line.split("<<", 1)
+                parts = []
+                for item in lines:
+                    if item == delimiter:
+                        break
+                    parts.append(item)
+                parsed[key] = "\n".join(parts)
+            else:
+                key, parsed_value = line.split("=", 1)
+                parsed[key] = parsed_value
+        self.assertNotIn("injected", parsed)
+        self.assertEqual(parsed["status"], "")
+        self.assertEqual(parsed["baseline-asset-name"], value.replace("secret-token", "[REDACTED]"))
+        self.assertEqual(json.loads(parsed["baseline-selection"]), plan.selection_audit())
+        self.assertEqual(emitted["baseline-asset-name"], parsed["baseline-asset-name"])
+
+    def test_command_line_errors_do_not_reprint_unescaped_exception_text(self):
+        from urllib.error import URLError
+
+        logs, console = io.StringIO(), io.StringIO()
+        env = environment(INPUT_TOKEN="secret-token")
+        with mock.patch.dict("os.environ", env, clear=True), mock.patch(
+            "urllib.request.urlopen", side_effect=URLError("prefix::error::injected\nsecret-token")
+        ), redirect_stderr(logs), redirect_stdout(console):
+            with self.assertRaises(SystemExit) as caught:
+                runpy.run_path(str(ACTION_DIRECTORY / "plan.py"), run_name="__main__")
+        self.assertEqual(caught.exception.code, 1)
+        self.assertEqual(console.getvalue(), "")
+        self.assertNotIn("secret-token", logs.getvalue())
+        self.assertEqual(logs.getvalue().count("::error::"), 1)
+        self.assertIn("prefix: :error: :injected%0A[REDACTED]", logs.getvalue())
 
 class ActionContractTests(unittest.TestCase):
     @classmethod

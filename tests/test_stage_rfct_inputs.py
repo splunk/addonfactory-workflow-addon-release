@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
 import io
 import json
 import os
+import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -162,6 +165,92 @@ class ResolveManifestsTests(unittest.TestCase):
             opener, _ = self.opener(content)
             with mock.patch.object(stage, "build_opener", return_value=opener), self.assertRaises(ValueError):
                 stage.check_manifests_runtime("e" * 40, "")
+
+    def test_resolver_diagnostics_show_frozen_ref_without_token(self):
+        opener, _ = self.opener()
+        stderr, stdout = io.StringIO(), io.StringIO()
+        with mock.patch.object(stage, "build_opener", return_value=opener), mock.patch.object(
+            stage, "check_manifests_runtime"
+        ), redirect_stderr(stderr), redirect_stdout(stdout):
+            stage.resolve_manifests_ref("main", "private-token")
+        records = [json.loads(line.removeprefix("[rfct-inputs] ")) for line in stderr.getvalue().splitlines()]
+        frozen = next(record for record in records if record["event"] == "manifests-reference-frozen")
+        self.assertEqual(frozen["requested_ref"], "main")
+        self.assertEqual(frozen["resolved_sha"], "e" * 40)
+        self.assertEqual(frozen["runtime_check"], "compatible")
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertNotIn("private-token", stderr.getvalue())
+
+    def test_metadata_logging_redacts_before_truncating_and_escapes_newlines(self):
+        token = 'private-"token"'
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), mock.patch.dict(os.environ, {"INPUT_GITHUB_TOKEN": "env-token"}):
+            stage.log("diagnostic", token=token, value=token + " env-token\n" + "x" * 2048)
+        self.assertEqual(len(stderr.getvalue().splitlines()), 1)
+        record = json.loads(stderr.getvalue().removeprefix("[rfct-inputs] "))
+        self.assertNotIn("private", record["value"])
+        self.assertNotIn("env-token", record["value"])
+        self.assertTrue(record["value"].endswith("...[truncated]"))
+        self.assertLess(len(record["value"]), 1100)
+
+    def test_inline_github_commands_are_escaped_in_all_metadata(self):
+        metadata = {
+            "requested_ref": "feature::error::untrusted-ref",
+            "destination": "/tmp/prefix::warning::untrusted-path",
+            "request_metadata": "inline::error::title=Injected::message\n::notice::next-line",
+        }
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            stage.log("diagnostic", **metadata)
+        serialized = stderr.getvalue()
+        self.assertNotIn("::", serialized)
+        self.assertIn(r"\u003a\u003a", serialized)
+        self.assertEqual(len(serialized.splitlines()), 1)
+        decoded = json.loads(serialized.removeprefix("[rfct-inputs] "))
+        self.assertEqual({key: decoded[key] for key in metadata}, metadata)
+
+
+class CliTests(unittest.TestCase):
+    def test_success_preserves_main_and_has_no_failure_event(self):
+        stderr = io.StringIO()
+        with mock.patch.object(stage, "main") as main, redirect_stderr(stderr):
+            self.assertEqual(stage.cli(), 0)
+        main.assert_called_once_with()
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_cli_validation_failure_never_prints_raw_token_command_or_traceback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "inline::error::private-token\nmissing.json"
+            result = subprocess.run(
+                [sys.executable, str(ACTION / "stage_inputs.py")], check=False, capture_output=True, text=True,
+                env={**os.environ, "INPUT_PROVENANCE_PATH": str(missing), "INPUT_GITHUB_TOKEN": "private-token"},
+            )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(len(result.stderr.splitlines()), 1)
+        for unsafe in ("private-token", "::", "Traceback"):
+            self.assertNotIn(unsafe, result.stderr)
+        event = json.loads(result.stderr.removeprefix("[rfct-inputs] "))
+        self.assertEqual(event["event"], "input-preparation-failed")
+        self.assertEqual(event["error_type"], "ValueError")
+        self.assertIn("Expected a regular file:", event["reason"])
+        self.assertIn("***", event["reason"])
+
+    def test_dependency_and_archive_errors_never_echo_input_contents(self):
+        payload = "raw candidate contents::error::private-token"
+        errors = [ValueError(payload), RuntimeError(payload), stage.configparser.ParsingError(payload),
+                  tarfile.ReadError(payload), OSError(13, payload), OSError(payload)]
+        for error in errors:
+            stderr = io.StringIO()
+            with self.subTest(error=type(error).__name__), mock.patch.object(
+                stage, "main", side_effect=error
+            ), redirect_stderr(stderr):
+                self.assertEqual(stage.cli(), 1)
+            event = json.loads(stderr.getvalue().removeprefix("[rfct-inputs] "))
+            self.assertEqual(event["error_type"], type(error).__name__)
+            self.assertNotIn("raw candidate", event["reason"])
+            self.assertNotIn("private-token", stderr.getvalue())
+            self.assertNotIn("Traceback", stderr.getvalue())
 
 
 class StageTests(unittest.TestCase):
@@ -333,6 +422,34 @@ class StageTests(unittest.TestCase):
         self.assertIn("request-url=s3://", outputs.read_text())
         self.assertIn("manifests-ref=" + self.settings["manifests_ref"], outputs.read_text())
         self.assertEqual(json.loads((self.root / "request.json").read_text())["schema_version"], 1)
+
+    def test_staging_diagnostics_include_integrity_and_archive_totals_only(self):
+        env, _ = self.main_environment()
+        env["INPUT_GITHUB_TOKEN"] = "private-token"
+        stderr, stdout = io.StringIO(), io.StringIO()
+        with mock.patch.dict(os.environ, env, clear=True), redirect_stderr(stderr), redirect_stdout(stdout):
+            stage.main()
+        records = [json.loads(line.removeprefix("[rfct-inputs] ")) for line in stderr.getvalue().splitlines()]
+        archive = next(record for record in records if record["event"] == "source-archive-created")
+        self.assertEqual(archive["files"], 1)
+        self.assertEqual(archive["source_bytes"], (self.source / "sample.xml").stat().st_size)
+        self.assertEqual(archive["excluded_git_entries"], 2)
+        self.assertEqual(archive["archive_bytes"], (self.root / "staged/candidate-source.tar.gz").stat().st_size)
+        frozen = next(record for record in records if record["event"] == "inputs-frozen")
+        self.assertEqual(frozen["input_files"], 3)
+        self.assertEqual(frozen["input_bytes"], sum(path.stat().st_size for path in (self.root / "staged").iterdir()))
+        packages = [record for record in records if record["event"] == "package-staged"]
+        self.assertEqual({record["side"] for record in packages}, {"baseline", "candidate"})
+        self.assertEqual(packages[0]["package_sha256"], stage.sha256(self.base))
+        self.assertEqual(packages[0]["source_commit"], self.provenance["baseline"]["commit"])
+        written = next(record for record in records if record["event"] == "request-written")
+        self.assertEqual(written["request_sha256"], stage.sha256(self.root / "request.json"))
+        self.assertEqual(written["manifests_sha"], self.settings["manifests_ref"])
+        self.assertTrue(written["request_url"].endswith("/123/1/inputs/request.json"))
+        self.assertEqual(records[-1]["event"], "action-outputs-written")
+        self.assertEqual(stdout.getvalue(), "")
+        for private in ("private-token", "private checkout config", "<sample>event</sample>"):
+            self.assertNotIn(private, stderr.getvalue())
 
     def test_main_freezes_requested_ref_once_before_staging(self):
         env, outputs = self.main_environment()

@@ -543,3 +543,73 @@ def test_process_group_sigterm_preserves_cancellation_reason(config, monkeypatch
     assert evidence["status"] == "failed"
     assert evidence["interrupted_operation"] == "argo get failed: terminated"
     assert stopped == [WORKFLOW]
+
+
+def test_progress_preserves_diagnostics_without_credentials_or_commands(config, monkeypatch, capsys):
+    monkeypatch.setenv("GITHUB_TOKEN", "private-github-value")
+    message = "upstream ::error:: forged\nargo-secret-value private-github-value password=hidden-value"
+    controller.progress(config, "diagnostic", message=message)
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert len(captured.err.splitlines()) == 1
+    assert "::error::" not in captured.err
+    assert all(value not in captured.err for value in ("argo-secret-value", "private-github-value", "hidden-value"))
+    record = json.loads(captured.err)
+    assert record["event"] == "diagnostic"
+    assert "::error::" in record["message"]
+    assert (config["output"] / "controller-events.jsonl").read_text() == captured.err
+
+
+def test_progress_write_failure_does_not_mask_primary_result(config, monkeypatch, capsys):
+    def unavailable(*args, **kwargs):
+        raise OSError("read-only filesystem")
+    monkeypatch.setattr(Path, "open", unavailable)
+    controller.progress(config, "primary-outcome", status="failed")
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert records[0]["event"] == "primary-outcome"
+    assert records[1]["event"] == "progress-file-unavailable"
+
+
+def test_poll_logging_tracks_phase_changes_and_bounded_heartbeats(config, monkeypatch, capsys):
+    elapsed = [0]
+    phases = iter(["Running"] * 6 + ["Succeeded"])
+    config.update(timeout=300, poll_deadline=300)
+    monkeypatch.setattr(controller.time, "monotonic", lambda: elapsed[0])
+    monkeypatch.setattr(controller, "poll_state", lambda *args: {
+        "metadata": WORKFLOW, "status": {"phase": next(phases)},
+    })
+    monkeypatch.setattr(controller, "pause_poll", lambda *args: elapsed.__setitem__(0, elapsed[0] + 30))
+    assert controller.poll_until_terminal(config, WORKFLOW, [False]) == "Succeeded"
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert [record["phase"] for record in records if record["event"] == "workflow-phase"] == ["Running", "Succeeded"]
+    assert [record["elapsed_seconds"] for record in records if record["event"] == "workflow-waiting"] == [60, 120]
+
+
+def test_warning_is_one_safe_annotation(config, capsys):
+    controller.warning("cleanup ::error:: injected\nargo-secret-value password=hidden-value")
+    text = capsys.readouterr().err
+    assert text.startswith("::warning::")
+    assert len(text.splitlines()) == 1
+    assert "%0A" in text
+    assert "::error::" not in text
+    assert "argo-secret-value" not in text and "hidden-value" not in text
+
+
+def test_node_progress_logs_changes_once_and_redacts_messages(config, capsys):
+    previous = {}
+    state = {"status": {"nodes": {"candidate": {
+        "displayName": "deploy-candidate", "phase": "Running", "message": "waiting",
+    }}}}
+    controller.log_node_changes(config, state, previous)
+    controller.log_node_changes(config, state, previous)
+    state["status"]["nodes"]["candidate"].update(
+        phase="Failed", message="upstream ::error:: injected argo-secret-value",
+    )
+    controller.log_node_changes(config, state, previous)
+    text = capsys.readouterr().err
+    records = [json.loads(line) for line in text.splitlines()]
+    assert [record["phase"] for record in records] == ["Running", "Failed"]
+    assert all(record["node_name"] == "deploy-candidate" for record in records)
+    assert "::error::" not in text and "argo-secret-value" not in text
+    controller.log_node_changes(config, {"status": {"nodes": []}}, previous)
+    controller.log_node_changes(config, {"status": {"nodes": {"odd": []}}}, previous)

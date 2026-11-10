@@ -3752,6 +3752,7 @@ jobs:
       decision: ${{ steps.plan.outputs.decision }}
       status: ${{ steps.plan.outputs.status }}
       reason: ${{ steps.plan.outputs.reason }}
+      baseline-selection: ${{ steps.plan.outputs.baseline-selection }}
       changed-paths: ${{ steps.plan.outputs.changed-paths }}
       baseline-tag: ${{ steps.plan.outputs.baseline-tag }}
       baseline-version: ${{ steps.plan.outputs.baseline-version }}
@@ -3791,21 +3792,8 @@ jobs:
       - name: Summarize RFCT plan
         if: ${{ !cancelled() }}
         env:
-          DECISION: ${{ steps.plan.outputs.decision }}
-          REASON: ${{ steps.plan.outputs.reason }}
-          BASELINE_TAG: ${{ steps.plan.outputs.baseline-tag }}
-          CANDIDATE_SOURCE: ${{ steps.plan.outputs.candidate-source }}
-        run: |
-          {
-            echo "## RFCT CIM changes plan"
-            echo ""
-            echo "| Field | Value |"
-            echo "| --- | --- |"
-            echo "| Decision | $DECISION |"
-            echo "| Reason | $REASON |"
-            echo "| Baseline | $BASELINE_TAG |"
-            echo "| Candidate source | $CANDIDATE_SOURCE |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          RFCT_PLAN_SUMMARY: ${{ steps.plan.outputs.summary-path }}
+        run: cat "$RFCT_PLAN_SUMMARY" >> "$GITHUB_STEP_SUMMARY"
 
   run-rfct:
     name: run-rfct
@@ -3866,6 +3854,7 @@ jobs:
           BASELINE_TAG: ${{ needs.plan-rfct.outputs.baseline-tag }}
           BASELINE_VERSION: ${{ needs.plan-rfct.outputs.baseline-version }}
           BASELINE_COMMIT: ${{ needs.plan-rfct.outputs.baseline-commit }}
+          BASELINE_SELECTION: ${{ needs.plan-rfct.outputs.baseline-selection }}
           CANDIDATE_SOURCE: build
           CANDIDATE_VERSION: ${{ needs.build.outputs.package-version }}
           CANDIDATE_COMMIT: ${{ needs.build.outputs.source-sha }}
@@ -3886,6 +3875,7 @@ jobs:
             --arg baseline_tag "$BASELINE_TAG" \
             --arg baseline_version "$BASELINE_VERSION" \
             --arg baseline_commit "$BASELINE_COMMIT" \
+            --argjson baseline_selection "$BASELINE_SELECTION" \
             --arg candidate_source "$CANDIDATE_SOURCE" \
             --arg candidate_version "$CANDIDATE_VERSION" \
             --arg candidate_commit "$CANDIDATE_COMMIT" \
@@ -3898,6 +3888,7 @@ jobs:
               run: {id: $run_id, attempt: $run_attempt, event_name: $event_name, workflow_ref: $workflow_ref, artifact_name: $artifact_name},
               revisions: {build_sha: $build_sha, pull_request_head_sha: $pull_request_head_sha},
               baseline: {tag: $baseline_tag, version: $baseline_version, commit: $baseline_commit, package_sha256: ""},
+              baseline_selection: $baseline_selection,
               candidate: {source: $candidate_source, version: $candidate_version, commit: $candidate_commit, package_sha256: ""},
               app_code_name: "",
               rfct_image_digest: "",
@@ -4121,6 +4112,7 @@ jobs:
             ${{ env.RFCT_OUTPUT }}/cluster/result.json
             ${{ env.RFCT_OUTPUT }}/cluster/execution.json
             ${{ env.RFCT_OUTPUT }}/cluster/controller.json
+            ${{ env.RFCT_OUTPUT }}/cluster/controller-events.jsonl
             ${{ env.RFCT_OUTPUT }}/cluster/comparison
             ${{ env.RFCT_OUTPUT }}/cluster/docs
             ${{ env.RFCT_OUTPUT }}/cluster/logs

@@ -1155,7 +1155,10 @@ argo-logs
 **Artifacts:**
 
 - `rfct-plan-<run-id>-<attempt>` contains `rfct-plan.json`, including the selected release and exact
-  build identities. The job summary records proceed/skip, its reason, baseline and candidate source.
+  build identities and a structured `baseline_selection` audit of selected/skipped releases.
+- A newer stable release with missing/ambiguous packages triggers an Actions warning only when an
+  older baseline is actually selected. The generated job summary explains that fallback; normal
+  draft/prerelease filtering remains informational. No-baseline/path skips retain their audit.
 
 ## [Job] run-rfct
 
@@ -1169,7 +1172,8 @@ argo-logs
 - Reuses `k8s-manifests-branch` for the provisioning/runtime helpers. A scoped read-only GitHub App
   installation token resolves the selected branch/tag to a full commit once before staging.
   The resolved SHA is frozen in the request and supplied to both provisioners and the worker.
-  An already reviewed full SHA can be supplied directly. A branch/tag without RFCT runtime support
+  The internal preparation/controller interfaces also accept reviewed full SHAs. Shared callers
+  normally select a branch/tag compatible with the other WFE jobs. A branch/tag without RFCT runtime support
   fails before upload or cluster work. There is no fallback to a different manifests revision.
 - Submits the controller action's internal `rfct-comparison` template default. Argo provisions two
   isolated Splunk environments, installs one TA version on each, generates one raw corpus, replays
@@ -1216,6 +1220,7 @@ result.json                      # GitHub event, release/build and helper proven
 cluster/result.json              # Cluster outcome and workflow UID
 cluster/execution.json           # Phase outcomes
 cluster/controller.json          # Submission, polling and collection outcome
+cluster/controller-events.jsonl  # Retained controller lifecycle diagnostics
 cluster/comparison/report.json
 cluster/docs/CIMChanges/<candidate-version>/index.md
 cluster/docs/...                 # Full formatter tree
@@ -1225,6 +1230,26 @@ cluster/logs/...                 # Sanitized diagnostics
 S3 output keys include the Argo workflow UID in addition to the GitHub run/attempt. The controller
 rejects stale/mismatched results and unsafe archives. Reports stay within the calling TA's artifact
 access boundary; publishing them to a documentation site is a separate consumer.
+
+### RFCT diagnostics
+
+The scripts emit structured progress records to stderr, leaving JSON/output protocols intact:
+
+| Component | Useful diagnostics |
+| --- | --- |
+| Planner | Event eligibility, release filters, selected baseline/commit, changed-path counts, skip reasons and fallback warnings |
+| Input preparation | Requested/resolved manifests revision, runtime compatibility, package versions/checksums/bytes, source archive totals and staged references |
+| Controller | Request checksum, intended/submitted workflow name and UID, phase/node transitions and one-minute waiting summaries, transient retries/recovery, timeout/cancellation, artifact collection and final status |
+| Cluster bootstrap | Download/checksum verification, safe extraction totals, worker launch/exit and output archiving |
+| RFCT worker | Phase timings, installed versions, corpus hash/transport totals, replay/indexed counts, bounded ingestion progress and comparison/format outcomes |
+| Cleanup | Ownership verification, already-absent environments, deletion attempts/completion and refused mismatched ownership |
+
+Controller progress survives in `cluster/controller-events.jsonl`; worker progress survives in
+`cluster/logs/worker.log`. Available evidence is uploaded after execution failures as well as success.
+Metadata is bounded and credential-redacted. Ordinary log records escape workflow-command markers
+and controls; raw event/source contents, environment dumps and credential-bearing command lines
+are never diagnostic fields. Cleanup-request failures produce an Actions warning while preserving
+the original failure/cancellation reason.
 
 ### Calling the WFE controller directly
 
