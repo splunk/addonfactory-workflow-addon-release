@@ -64,4 +64,4 @@ runs:
         INPUT_NAMESPACE: ${{ inputs.namespace }}
         INPUT_OUTPUT_DIRECTORY: ${{ inputs.output-directory }}
         INPUT_TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
-      run: python3 "$GITHUB_ACTION_PATH/run_rfct.py"
+      run: exec python3 "$GITHUB_ACTION_PATH/run_rfct.py"
