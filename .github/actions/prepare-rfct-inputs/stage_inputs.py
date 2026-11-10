@@ -23,12 +23,100 @@ import re
 import shutil
 import tarfile
 from pathlib import Path, PurePosixPath
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 IMAGE_RE = re.compile(
     r"956110764581\.dkr\.ecr\.us-west-2\.amazonaws\.com/ta-automation/rfct@sha256:[0-9a-f]{64}"
 )
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?")
+COMMIT_RE = re.compile(r"[0-9a-f]{40}")
+MANIFESTS_REPOSITORY_API = "https://api.github.com/repos/splunk/ta-automation-k8s-manifests/"
+MANIFESTS_API = MANIFESTS_REPOSITORY_API + "commits/"
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, new_url):
+        # Credentials must only reach the fixed API endpoint, even on redirects.
+        return None
+
+
+def valid_manifests_ref(reference):
+    if not isinstance(reference, str) or not reference or len(reference) > 1024:
+        return False
+    if re.search(r"[\x00-\x20\x7f~^:?*\[\\]", reference):
+        return False
+    if any(part in reference for part in ("..", "//", "@{")):
+        return False
+    if reference == "@" or reference.startswith("/") or reference.endswith(("/", ".")):
+        return False
+    return not any(part.startswith(".") or part.endswith(".lock") for part in reference.split("/"))
+
+
+def github_data(url, token, accept, limit, purpose, missing_message=""):
+    if not isinstance(token, str) or not token.isascii() or re.search(r"[\x00-\x20\x7f]", token):
+        raise ValueError("Invalid GitHub API token")
+    headers = {
+        "Accept": accept, "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "addonfactory-rfct-inputs",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = Request(url, headers=headers)
+    try:
+        with build_opener(NoRedirect()).open(request, timeout=15) as response:  # nosec B310 - fixed GitHub API host
+            if response.status != 200:
+                raise ValueError(f"{purpose}: unexpected GitHub API status")
+            data = response.read(limit + 1)
+    except HTTPError as error:
+        if error.code == 404 and missing_message:
+            raise ValueError(missing_message) from None
+        raise ValueError(f"{purpose}: GitHub API HTTP {error.code}") from None
+    except (URLError, OSError):
+        raise ValueError(f"{purpose}: GitHub API request failed") from None
+    if len(data) > limit:
+        raise ValueError(f"{purpose}: GitHub API response exceeds the size limit")
+    return data
+
+
+def check_manifests_runtime(commit, token):
+    """Reject old shared refs before provisioning; fetch metadata from the resolved commit."""
+    message = f"Resolved manifests commit {commit} has no RFCT runtime at rfct/run.py"
+    data = github_data(
+        MANIFESTS_REPOSITORY_API + f"contents/rfct/run.py?ref={commit}", token,
+        "application/vnd.github+json", 256 * 1024, "Cannot verify RFCT runtime", message,
+    )
+    try:
+        metadata = json.loads(data)
+    except (ValueError, UnicodeError):
+        raise ValueError("GitHub API did not return valid RFCT runtime metadata") from None
+    if (not isinstance(metadata, dict) or metadata.get("type") != "file"
+            or metadata.get("path") != "rfct/run.py" or not COMMIT_RE.fullmatch(str(metadata.get("sha", "")))):
+        raise ValueError(message)
+
+
+def resolve_manifests_ref(reference, token=""):
+    """Resolve the fixed manifests repository once; the staging contract stays SHA-only."""
+    if isinstance(reference, str) and re.fullmatch(r"[0-9a-fA-F]{40}", reference):
+        return reference.lower()
+    if not valid_manifests_ref(reference):
+        raise ValueError("Invalid manifests Git reference")
+    # Get-a-commit resolves annotated tags to the commit, unlike the git/refs API.
+    api_ref = reference.removeprefix("refs/")
+    data = github_data(
+        MANIFESTS_API + quote(api_ref, safe=""), token, "application/vnd.github.sha", 128,
+        "Cannot resolve manifests ref",
+    )
+    try:
+        resolved = data.decode("ascii").strip()
+    except UnicodeError:
+        raise ValueError("GitHub API did not return a manifests commit SHA") from None
+    if not COMMIT_RE.fullmatch(resolved):
+        raise ValueError("GitHub API did not return a manifests commit SHA")
+    check_manifests_runtime(resolved, token)
+    return resolved
 
 
 def sha256(path):
@@ -154,7 +242,7 @@ def stage_inputs(provenance, baseline, candidate, source, directory, settings):
     image = settings["image"]
     if not IMAGE_RE.fullmatch(image):
         raise ValueError("RFCT image must be an approved repository digest")
-    if not re.fullmatch(r"[0-9a-f]{40}", settings["manifests_ref"]):
+    if not COMMIT_RE.fullmatch(settings["manifests_ref"]):
         raise ValueError("RFCT manifests ref must be an immutable commit SHA")
     if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", settings["bucket"]):
         raise ValueError("Invalid artifact bucket")
@@ -214,10 +302,13 @@ def main():
     settings = {key: env.get(f"INPUT_{key.upper()}", "") for key in (
         "image", "manifests_ref", "bucket", "repository", "splunk_version", "sc4s_version", "sc4s_registry"
     )}
+    requested_ref = settings["manifests_ref"]
+    settings["manifests_ref"] = resolve_manifests_ref(requested_ref, env.get("INPUT_GITHUB_TOKEN", ""))
     request = stage_inputs(
         provenance, env["INPUT_BASELINE_PACKAGE"], env["INPUT_CANDIDATE_PACKAGE"],
         env["INPUT_CANDIDATE_SOURCE"], directory, settings,
     )
+    request["manifests_source_ref"] = requested_ref
     request_path = directory.parent / "request.json"
     request_path.write_text(json.dumps(request, indent=2) + "\n", encoding="utf-8")
     outputs = {
@@ -225,6 +316,7 @@ def main():
         "inputs-directory": str(directory), "inputs-prefix": request["inputs_prefix"],
         "app-code-name": request["app_code_name"], "candidate-version": request["candidate"]["version"],
         "image-digest": request["rfct_image"].split("@", 1)[1],
+        "manifests-ref": request["manifests_ref"],
     }
     with open(env["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
         for key, value in outputs.items():

@@ -1,9 +1,6 @@
 name: Plan RFCT comparison
-description: Decide RFCT eligibility from the event and freeze the releases to compare
+description: Decide RFCT eligibility from trusted main events and freeze the baseline release
 inputs:
-  enabled:
-    description: Opt-in flag for RFCT planning and execution
-    required: true
   repository:
     description: Calling add-on repository in owner/name form
     required: true
@@ -41,18 +38,6 @@ inputs:
     description: Push event after SHA
     required: false
     default: ""
-  baseline-release:
-    description: Explicit baseline release tag or version
-    required: false
-    default: ""
-  candidate-release:
-    description: Manual-dispatch candidate release tag or version
-    required: false
-    default: ""
-  custom-version:
-    description: Custom publish version, which must be empty for an RFCT report run
-    required: false
-    default: ""
   output-path:
     description: Absolute path for the frozen plan document
     required: true
@@ -88,26 +73,11 @@ outputs:
     description: Baseline package asset name
     value: ${{ steps.plan.outputs.baseline-asset-name }}
   candidate-source:
-    description: Either build or release
+    description: Build for this run's candidate
     value: ${{ steps.plan.outputs.candidate-source }}
-  candidate-tag:
-    description: Resolved candidate release tag, empty for a build candidate
-    value: ${{ steps.plan.outputs.candidate-tag }}
-  candidate-version:
-    description: Resolved candidate release version, empty for a build candidate
-    value: ${{ steps.plan.outputs.candidate-version }}
   candidate-commit:
-    description: Commit the candidate release tag resolves to
+    description: Revision actually built by this run
     value: ${{ steps.plan.outputs.candidate-commit }}
-  candidate-release-id:
-    description: Candidate release identifier
-    value: ${{ steps.plan.outputs.candidate-release-id }}
-  candidate-asset-id:
-    description: Candidate package asset identifier
-    value: ${{ steps.plan.outputs.candidate-asset-id }}
-  candidate-asset-name:
-    description: Candidate package asset name
-    value: ${{ steps.plan.outputs.candidate-asset-name }}
   plan-path:
     description: Path to the frozen plan document
     value: ${{ steps.plan.outputs.plan-path }}
@@ -118,7 +88,6 @@ runs:
       id: plan
       shell: sh
       env:
-        INPUT_ENABLED: ${{ inputs.enabled }}
         INPUT_REPOSITORY: ${{ inputs.repository }}
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_EVENT_NAME: ${{ inputs.event-name }}
@@ -129,8 +98,5 @@ runs:
         INPUT_BUILD_SHA: ${{ inputs.build-sha }}
         INPUT_PUSH_BEFORE: ${{ inputs.push-before }}
         INPUT_PUSH_AFTER: ${{ inputs.push-after }}
-        INPUT_BASELINE_RELEASE: ${{ inputs.baseline-release }}
-        INPUT_CANDIDATE_RELEASE: ${{ inputs.candidate-release }}
-        INPUT_CUSTOM_VERSION: ${{ inputs.custom-version }}
         INPUT_OUTPUT_PATH: ${{ inputs.output-path }}
       run: python3 "$GITHUB_ACTION_PATH/plan.py"

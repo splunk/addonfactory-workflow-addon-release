@@ -26,8 +26,12 @@ inputs:
     description: Approved RFCT image pinned by digest
     required: true
   manifests-ref:
-    description: Reviewed immutable manifests revision
+    description: Shared manifests branch, tag, or commit to freeze for this comparison
     required: true
+  github-token:
+    description: GitHub token with read access to the manifests repository when resolving a branch or tag
+    required: false
+    default: ""
   splunk-version:
     description: Same Splunk version used on both sides
     required: true
@@ -59,6 +63,9 @@ outputs:
   image-digest:
     description: RFCT image digest
     value: ${{ steps.stage.outputs.image-digest }}
+  manifests-ref:
+    description: Resolved immutable manifests commit SHA
+    value: ${{ steps.stage.outputs.manifests-ref }}
 runs:
   using: composite
   steps:
@@ -75,6 +82,7 @@ runs:
         INPUT_BUCKET: ${{ inputs.bucket }}
         INPUT_IMAGE: ${{ inputs.rfct-image }}
         INPUT_MANIFESTS_REF: ${{ inputs.manifests-ref }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
         INPUT_SPLUNK_VERSION: ${{ inputs.splunk-version }}
         INPUT_SC4S_VERSION: ${{ inputs.sc4s-version }}
         INPUT_SC4S_REGISTRY: ${{ inputs.sc4s-registry }}

@@ -1,9 +1,9 @@
 """Decide whether an RFCT CIM comparison runs and freeze the revisions it compares.
 
 The planner is workflow-owned and must never load code from the add-on checkout.
-It validates the public RFCT inputs, applies event and changed-path routing,
-selects an immutable baseline (and optionally candidate) release, and records the
-frozen decision so a release published mid-run cannot change it.
+It applies trusted main-branch event and changed-path routing, selects an
+immutable baseline release for this run's build, and records the frozen decision
+so a release published mid-run cannot change it.
 """
 
 import json
@@ -19,8 +19,7 @@ PER_PAGE = 100
 # Bounds the paginated release and compare walks so a pathological repository
 # cannot hang the job instead of failing it.
 MAX_PAGES = 50
-SUPPORTED_BRANCHES = ("develop", "main")
-RELEASE_BRANCH_PREFIX = "release/"
+MAX_TAG_DEPTH = 10
 RELEASE_TAG_RE = re.compile(r"\A[vV]?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.]+))?\Z")
 PACKAGE_ASSET_SUFFIX = ".spl"
 ABSENT_SHA = re.compile(r"\A0{40}\Z")
@@ -131,13 +130,21 @@ def list_releases(repository, token):
 
 
 def resolve_tag_commit(repository, token, tag):
+    """Peel lightweight or annotated tags to the actual commit object."""
     payload = _request_json(
         f"{API_ROOT}/repos/{repository}/git/ref/tags/{quote(tag, safe='')}", token
     )
-    commit = (payload.get("object") or {}).get("sha")
-    if not commit:
-        raise PlanInputError(f"Could not resolve a commit for tag {tag}")
-    return commit
+    seen = set()
+    for _ in range(MAX_TAG_DEPTH):
+        target = payload.get("object") or {}
+        sha, kind = target.get("sha"), target.get("type")
+        if kind not in ("commit", "tag") or not re.fullmatch(r"[0-9a-f]{40}", str(sha)) or sha in seen:
+            raise PlanInputError(f"Could not resolve a commit for tag {tag}")
+        if kind == "commit":
+            return sha
+        seen.add(sha)
+        payload = _request_json(f"{API_ROOT}/repos/{repository}/git/tags/{sha}", token)
+    raise PlanInputError(f"Annotated tag nesting exceeded {MAX_TAG_DEPTH} objects for {tag}")
 
 
 def package_asset(release, parsed):
@@ -201,38 +208,12 @@ def _eligible_releases(releases):
         yield release, parse_release_tag(str(tag), "release tag")
 
 
-def find_release(releases, parsed, field):
-    for release in releases:
-        tag = str(release.get("tag_name") or "").strip()
-        if not tag:
-            continue
-        if tag.lstrip("vV") == parsed["version"]:
-            if release.get("draft"):
-                raise PlanInputError(f"{field} {parsed['tag']} is a draft release")
-            return release
-    raise PlanInputError(f"{field} {parsed['tag']} was not found in this repository")
-
-
-def baseline_candidates(releases, explicit, candidate):
-    """Return the baseline options, newest first, that may precede the candidate.
-
-    An explicit override yields exactly one option so a missing or ineligible
-    release is reported as an input failure rather than silently falling back to
-    a different version.
-    """
-    if explicit:
-        parsed = parse_release_tag(explicit, "rfct-baseline-release")
-        return [(find_release(releases, parsed, "rfct-baseline-release"), parsed)]
-
+def baseline_candidates(releases):
+    """Return usable stable releases ordered by highest numeric version first."""
     options = []
     for release, parsed in _eligible_releases(releases):
-        if candidate.get("tag") and release.get("tag_name") == candidate["tag"]:
-            continue
-        if candidate.get("order") and parsed["order"] >= candidate["order"]:
-            continue
         # A tag cut without a package asset is not a usable baseline. Fall through
-        # to the next older release rather than failing a run the operator did not
-        # ask to pin to that release.
+        # to the next older release with an identifiable package.
         if package_asset(release, parsed) is None:
             continue
         options.append((release, parsed))
@@ -240,12 +221,12 @@ def baseline_candidates(releases, explicit, candidate):
     return options
 
 
-def select_baseline(repository, token, releases, explicit, candidate, build_sha):
+def select_baseline(repository, token, releases, build_sha):
     """Describe the newest eligible baseline that is not the candidate revision."""
-    options = baseline_candidates(releases, explicit, candidate)
+    options = baseline_candidates(releases)
     for release, parsed in options:
         described = describe_release(repository, token, release, parsed)
-        if explicit or not build_sha or described["commit"] != build_sha:
+        if not build_sha or described["commit"] != build_sha:
             return described, parsed
     raise PlanSkip("no-baseline")
 
@@ -263,35 +244,15 @@ def _workflow_message(level, message):
     print(f"::{level}::{escaped}")
 
 
-def validate_overrides(event_name, baseline, candidate, custom_version):
-    """Reject override combinations that would mislabel or publish a report run."""
-    if custom_version and (baseline or candidate):
-        raise PlanInputError(
-            "rfct-baseline-release and rfct-candidate-release cannot be combined with "
-            "custom-version; a report run must not request a publish"
-        )
-    if candidate and event_name != "workflow_dispatch":
-        raise PlanInputError(
-            "rfct-candidate-release is a manual-dispatch override and cannot be used "
-            f"on a {event_name} event"
-        )
-
-
-def check_eligibility(enabled, event_name, is_fork, base_branch):
-    """Apply opt-in, fork, and event/branch routing before any credential is used."""
-    if not enabled:
-        raise PlanSkip("disabled")
+def check_eligibility(event_name, is_fork, base_branch):
+    """Allow trusted main PRs and pushes before any credential is used."""
     if event_name == "pull_request_target":
         raise PlanSkip("untrusted-event")
     if event_name == "pull_request" and is_fork:
         raise PlanSkip("fork-pull-request")
-    if event_name == "workflow_dispatch":
-        return
     if event_name not in ("pull_request", "push"):
         raise PlanSkip("unsupported-event")
-    if base_branch not in SUPPORTED_BRANCHES and not base_branch.startswith(
-        RELEASE_BRANCH_PREFIX
-    ):
+    if base_branch != "main":
         raise PlanSkip("unsupported-branch")
 
 
@@ -323,53 +284,24 @@ def comparison_range(event_name, baseline_commit):
     return before, after
 
 
-def resolve_candidate(repository, token, releases, override):
-    """Describe the candidate: an explicit published release, or this run's build."""
-    if not override:
-        return {"source": "build", "tag": "", "version": "", "commit": "", "order": None}
-    parsed = parse_release_tag(override, "rfct-candidate-release")
-    release = find_release(releases, parsed, "rfct-candidate-release")
-    described = describe_release(repository, token, release, parsed)
-    described.update({"source": "release", "order": parsed["order"]})
-    return described
-
-
 def build_plan(repository, token):
     """Produce the frozen RFCT decision for this event."""
     event_name = _input("EVENT_NAME")
-    baseline_override = _input("BASELINE_RELEASE")
-    candidate_override = _input("CANDIDATE_RELEASE")
-
-    validate_overrides(event_name, baseline_override, candidate_override, _input("CUSTOM_VERSION"))
-    check_eligibility(_flag("ENABLED"), event_name, _flag("IS_FORK"), _input("BASE_BRANCH"))
+    check_eligibility(event_name, _flag("IS_FORK"), _input("BASE_BRANCH"))
 
     releases = list_releases(repository, token)
-    candidate = resolve_candidate(repository, token, releases, candidate_override)
-    baseline, baseline_parsed = select_baseline(
-        repository, token, releases, baseline_override, candidate, _input("BUILD_SHA")
-    )
-
-    if candidate["source"] == "release":
-        if baseline["tag"] == candidate["tag"] or baseline["commit"] == candidate["commit"]:
-            raise PlanInputError("The baseline and candidate releases must differ")
-        if baseline_parsed["order"] >= candidate["order"]:
-            raise PlanInputError(
-                f"Baseline {baseline['tag']} must be older than candidate {candidate['tag']}"
-            )
-
-    paths = []
-    if event_name != "workflow_dispatch":
-        base, head = comparison_range(event_name, baseline["commit"])
-        paths = [path for path in changed_paths(repository, token, base, head) if matches_supported_path(path)]
-        if not paths:
-            raise PlanSkip("no-mapping-changes")
+    baseline, _ = select_baseline(repository, token, releases, _input("BUILD_SHA"))
+    base, head = comparison_range(event_name, baseline["commit"])
+    paths = [path for path in changed_paths(repository, token, base, head) if matches_supported_path(path)]
+    if not paths:
+        raise PlanSkip("no-mapping-changes")
 
     return {
         "decision": PROCEED,
-        "reason": "mapping-change" if paths else "manual-dispatch",
+        "reason": "mapping-change",
         "changed_paths": paths,
         "baseline": baseline,
-        "candidate": {key: value for key, value in candidate.items() if key != "order"},
+        "candidate": {"source": "build", "commit": _input("BUILD_SHA")},
     }
 
 
@@ -408,12 +340,7 @@ def write_outputs(document, output_path):
         "baseline-asset-id": baseline.get("asset_id") or "",
         "baseline-asset-name": baseline.get("asset_name") or "",
         "candidate-source": candidate.get("source") or "",
-        "candidate-tag": candidate.get("tag") or "",
-        "candidate-version": candidate.get("version") or "",
         "candidate-commit": candidate.get("commit") or "",
-        "candidate-release-id": candidate.get("release_id") or "",
-        "candidate-asset-id": candidate.get("asset_id") or "",
-        "candidate-asset-name": candidate.get("asset_name") or "",
         "plan-path": str(output_path),
     }
     github_output = os.environ.get("GITHUB_OUTPUT")

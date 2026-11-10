@@ -43,10 +43,11 @@ def release(tag, *, draft=False, prerelease=False, assets=("ta.spl",), release_i
 class FakeApi:
     """Serve paginated GitHub responses from in-memory fixtures."""
 
-    def __init__(self, releases=None, files=None, commits=None):
+    def __init__(self, releases=None, files=None, commits=None, tags=None):
         self.releases = releases or []
         self.files = files or []
         self.commits = commits or {}
+        self.tags = tags or {}
         self.calls = []
 
     def __call__(self, url, token):
@@ -60,7 +61,10 @@ class FakeApi:
             tag = url.rpartition("/")[2]
             if tag not in self.commits:
                 raise plan.PlanInputError(f"no commit for {tag}")
-            return {"object": {"sha": self.commits[tag]}}
+            target = self.commits[tag]
+            return {"object": target if isinstance(target, dict) else {"sha": target, "type": "commit"}}
+        if "/git/tags/" in url:
+            return {"object": self.tags[url.rpartition("/")[2]]}
         raise AssertionError(f"unexpected URL {url}")
 
     @staticmethod
@@ -71,20 +75,16 @@ class FakeApi:
 
 def environment(**overrides):
     base = {
-        "INPUT_ENABLED": "true",
         "INPUT_REPOSITORY": "splunk/test-addonfactory-repo",
         "INPUT_TOKEN": "token",
         "INPUT_EVENT_NAME": "pull_request",
-        "INPUT_BASE_BRANCH": "develop",
+        "INPUT_BASE_BRANCH": "main",
         "INPUT_IS_FORK": "false",
         "INPUT_PR_BASE_SHA": "a" * 40,
         "INPUT_PR_HEAD_SHA": "b" * 40,
         "INPUT_BUILD_SHA": "c" * 40,
         "INPUT_PUSH_BEFORE": "",
         "INPUT_PUSH_AFTER": "",
-        "INPUT_BASELINE_RELEASE": "",
-        "INPUT_CANDIDATE_RELEASE": "",
-        "INPUT_CUSTOM_VERSION": "",
         "INPUT_OUTPUT_PATH": "/tmp/plan.json",
     }
     base.update({key: value for key, value in overrides.items()})
@@ -143,50 +143,71 @@ class ReleaseTagTests(unittest.TestCase):
             "",
         ):
             with self.assertRaises(plan.PlanInputError):
-                plan.parse_release_tag(value, "rfct-baseline-release")
-
-
-class OverrideValidationTests(unittest.TestCase):
-    def test_rejects_release_override_with_custom_version(self):
-        with self.assertRaises(plan.PlanInputError):
-            plan.validate_overrides("workflow_dispatch", "1.0.0", "", "2.0.0")
-        with self.assertRaises(plan.PlanInputError):
-            plan.validate_overrides("workflow_dispatch", "", "1.0.0", "2.0.0")
-
-    def test_rejects_candidate_override_outside_manual_dispatch(self):
-        with self.assertRaises(plan.PlanInputError):
-            plan.validate_overrides("push", "", "1.0.0", "")
-
-    def test_accepts_baseline_override_on_automatic_events(self):
-        plan.validate_overrides("pull_request", "1.0.0", "", "")
+                plan.parse_release_tag(value, "release tag")
 
 
 class EligibilityTests(unittest.TestCase):
-    def test_skips_when_disabled(self):
-        with self.assertRaises(plan.PlanSkip) as caught:
-            plan.check_eligibility(False, "pull_request", False, "develop")
-        self.assertEqual(caught.exception.reason, "disabled")
-
     def test_skips_untrusted_and_fork_events_before_using_credentials(self):
         with self.assertRaises(plan.PlanSkip) as caught:
-            plan.check_eligibility(True, "pull_request_target", False, "develop")
+            plan.check_eligibility("pull_request_target", False, "main")
         self.assertEqual(caught.exception.reason, "untrusted-event")
         with self.assertRaises(plan.PlanSkip) as caught:
-            plan.check_eligibility(True, "pull_request", True, "develop")
+            plan.check_eligibility("pull_request", True, "main")
         self.assertEqual(caught.exception.reason, "fork-pull-request")
 
     def test_skips_unsupported_events_and_branches(self):
-        with self.assertRaises(plan.PlanSkip) as caught:
-            plan.check_eligibility(True, "schedule", False, "develop")
-        self.assertEqual(caught.exception.reason, "unsupported-event")
-        with self.assertRaises(plan.PlanSkip) as caught:
-            plan.check_eligibility(True, "push", False, "feature/x")
-        self.assertEqual(caught.exception.reason, "unsupported-branch")
+        for event in ("schedule", "workflow_dispatch", "workflow_run"):
+            with self.assertRaises(plan.PlanSkip) as caught:
+                plan.check_eligibility(event, False, "main")
+            self.assertEqual(caught.exception.reason, "unsupported-event")
+        for event in ("push", "pull_request"):
+            for branch in ("develop", "release/1.2.x", "feature/x", "refs/heads/main"):
+                with self.assertRaises(plan.PlanSkip) as caught:
+                    plan.check_eligibility(event, False, branch)
+                self.assertEqual(caught.exception.reason, "unsupported-branch")
 
-    def test_allows_supported_branches_and_manual_dispatch(self):
-        for branch in ("develop", "main", "release/1.2.x"):
-            plan.check_eligibility(True, "push", False, branch)
-        plan.check_eligibility(True, "workflow_dispatch", False, "")
+    def test_allows_trusted_main_pull_requests_and_pushes(self):
+        for event in ("pull_request", "push"):
+            plan.check_eligibility(event, False, "main")
+
+
+class TagResolutionTests(unittest.TestCase):
+    def test_resolves_a_lightweight_tag_directly(self):
+        api = FakeApi(commits={"v1.0.0": "a" * 40})
+        with mock.patch.object(plan, "_request_json", api):
+            self.assertEqual(plan.resolve_tag_commit("owner/repo", "token", "v1.0.0"), "a" * 40)
+        self.assertEqual(len(api.calls), 1)
+
+    def test_peels_nested_annotated_tags_to_the_commit(self):
+        api = FakeApi(
+            commits={"v1.0.0": {"sha": "a" * 40, "type": "tag"}},
+            tags={"a" * 40: {"sha": "b" * 40, "type": "tag"},
+                  "b" * 40: {"sha": "c" * 40, "type": "commit"}},
+        )
+        with mock.patch.object(plan, "_request_json", api):
+            self.assertEqual(plan.resolve_tag_commit("owner/repo", "token", "v1.0.0"), "c" * 40)
+        self.assertEqual(len(api.calls), 3)
+
+    def test_rejects_missing_malformed_and_noncommit_targets(self):
+        for target in ({}, {"sha": "x", "type": "commit"}, {"sha": "a" * 40, "type": "tree"}):
+            with mock.patch.object(plan, "_request_json", return_value={"object": target}):
+                with self.assertRaises(plan.PlanInputError):
+                    plan.resolve_tag_commit("owner/repo", "token", "v1.0.0")
+
+    def test_rejects_a_tag_cycle(self):
+        target = {"sha": "a" * 40, "type": "tag"}
+        with mock.patch.object(plan, "_request_json", return_value={"object": target}) as request:
+            with self.assertRaises(plan.PlanInputError):
+                plan.resolve_tag_commit("owner/repo", "token", "v1.0.0")
+        self.assertEqual(request.call_count, 2)
+
+    def test_bounds_annotated_tag_nesting(self):
+        payloads = [{"object": {"sha": char * 40, "type": "tag"}} for char in "abc"]
+        with mock.patch.object(plan, "MAX_TAG_DEPTH", 2), mock.patch.object(
+            plan, "_request_json", side_effect=payloads
+        ):
+            with self.assertRaisesRegex(plan.PlanInputError, "nesting exceeded"):
+                plan.resolve_tag_commit("owner/repo", "token", "v1.0.0")
 
 
 class AssetTests(unittest.TestCase):
@@ -237,29 +258,14 @@ class BaselineSelectionTests(unittest.TestCase):
         ]
 
     def test_picks_the_highest_eligible_stable_release(self):
-        options = plan.baseline_candidates(self.releases, "", {"source": "build"})
+        options = plan.baseline_candidates(self.releases)
         self.assertEqual([option[0]["tag_name"] for option in options], ["v2.1.0", "v1.9.0"])
-
-    def test_excludes_the_candidate_release_and_newer_versions(self):
-        candidate = {"source": "release", "tag": "v2.1.0", "order": (2, 1, 0)}
-        options = plan.baseline_candidates(self.releases, "", candidate)
-        self.assertEqual([option[0]["tag_name"] for option in options], ["v1.9.0"])
-
-    def test_explicit_baseline_must_exist_and_not_be_a_draft(self):
-        with self.assertRaises(plan.PlanInputError):
-            plan.baseline_candidates(self.releases, "9.9.9", {"source": "build"})
-        with self.assertRaises(plan.PlanInputError):
-            plan.baseline_candidates(self.releases, "3.0.0", {"source": "build"})
-
-    def test_explicit_baseline_resolves_a_single_option(self):
-        options = plan.baseline_candidates(self.releases, "v1.9.0", {"source": "build"})
-        self.assertEqual([option[0]["tag_name"] for option in options], ["v1.9.0"])
 
     def test_skips_when_no_baseline_exists(self):
         api = FakeApi(releases=[], commits={})
         with mock.patch.object(plan, "_request_json", api):
             with self.assertRaises(plan.PlanSkip) as caught:
-                plan.select_baseline("owner/repo", "token", [], "", {"source": "build"}, "")
+                plan.select_baseline("owner/repo", "token", [], "")
         self.assertEqual(caught.exception.reason, "no-baseline")
 
     def test_skips_a_release_that_is_the_built_revision(self):
@@ -267,10 +273,20 @@ class BaselineSelectionTests(unittest.TestCase):
         api = FakeApi(releases=releases, commits={"v2.0.0": "d" * 40, "v1.0.0": "e" * 40})
         with mock.patch.object(plan, "_request_json", api):
             described, parsed = plan.select_baseline(
-                "owner/repo", "token", releases, "", {"source": "build"}, "d" * 40
+                "owner/repo", "token", releases, "d" * 40
             )
         self.assertEqual(described["tag"], "v1.0.0")
         self.assertEqual(parsed["version"], "1.0.0")
+
+    def test_same_build_exclusion_uses_the_commit_beneath_an_annotated_tag(self):
+        releases = [release("v2.0.0"), release("v1.0.0")]
+        api = FakeApi(
+            commits={"v2.0.0": {"sha": "a" * 40, "type": "tag"}, "v1.0.0": "e" * 40},
+            tags={"a" * 40: {"sha": "d" * 40, "type": "commit"}},
+        )
+        with mock.patch.object(plan, "_request_json", api):
+            described, _ = plan.select_baseline("owner/repo", "token", releases, "d" * 40)
+        self.assertEqual(described["tag"], "v1.0.0")
 
 
 class ChangedPathTests(unittest.TestCase):
@@ -365,7 +381,7 @@ class BuildPlanTests(unittest.TestCase):
         self.assertEqual(result["reason"], "mapping-change")
         self.assertEqual(result["changed_paths"], ["package/default/props.conf"])
         self.assertEqual(result["baseline"]["tag"], "v1.0.0")
-        self.assertEqual(result["candidate"]["source"], "build")
+        self.assertEqual(result["candidate"], {"source": "build", "commit": "c" * 40})
 
     def test_docs_only_change_skips_with_a_recorded_reason(self):
         api = FakeApi(
@@ -377,58 +393,26 @@ class BuildPlanTests(unittest.TestCase):
             self._run(environment(), api)
         self.assertEqual(caught.exception.reason, "no-mapping-changes")
 
-    def test_manual_dispatch_runs_without_a_changed_path_requirement(self):
+    def test_main_push_with_a_mapping_change_proceeds(self):
         api = FakeApi(
             releases=[release("v1.0.0", release_id=1), release("v2.0.0", release_id=2)],
             commits={"v1.0.0": "1" * 40, "v2.0.0": "2" * 40},
+            files=[{"filename": "package/default/props.conf"}],
         )
         env = environment(
-            INPUT_EVENT_NAME="workflow_dispatch",
-            INPUT_BASE_BRANCH="",
-            INPUT_CANDIDATE_RELEASE="2.0.0",
-            INPUT_BASELINE_RELEASE="1.0.0",
+            INPUT_EVENT_NAME="push", INPUT_PUSH_BEFORE="a" * 40, INPUT_PUSH_AFTER="c" * 40,
         )
         result = self._run(env, api)
         self.assertEqual(result["decision"], "proceed")
-        self.assertEqual(result["reason"], "manual-dispatch")
-        self.assertEqual(result["changed_paths"], [])
-        self.assertEqual(result["candidate"]["source"], "release")
-        self.assertEqual(result["candidate"]["tag"], "v2.0.0")
-        self.assertEqual(result["baseline"]["tag"], "v1.0.0")
+        self.assertEqual(result["reason"], "mapping-change")
+        self.assertEqual(result["candidate"], {"source": "build", "commit": "c" * 40})
+        self.assertEqual(result["baseline"]["tag"], "v2.0.0")
 
     def test_first_release_without_a_baseline_skips(self):
         api = FakeApi(releases=[], files=[{"filename": "package/default/props.conf"}])
         with self.assertRaises(plan.PlanSkip) as caught:
             self._run(environment(), api)
         self.assertEqual(caught.exception.reason, "no-baseline")
-
-    def test_identical_baseline_and_candidate_is_an_input_failure(self):
-        api = FakeApi(releases=[release("v2.0.0", release_id=2)], commits={"v2.0.0": "2" * 40})
-        env = environment(
-            INPUT_EVENT_NAME="workflow_dispatch",
-            INPUT_CANDIDATE_RELEASE="2.0.0",
-            INPUT_BASELINE_RELEASE="2.0.0",
-        )
-        with self.assertRaises(plan.PlanInputError):
-            self._run(env, api)
-
-    def test_baseline_newer_than_the_candidate_is_an_input_failure(self):
-        api = FakeApi(
-            releases=[release("v1.0.0", release_id=1), release("v3.0.0", release_id=3)],
-            commits={"v1.0.0": "1" * 40, "v3.0.0": "3" * 40},
-        )
-        env = environment(
-            INPUT_EVENT_NAME="workflow_dispatch",
-            INPUT_CANDIDATE_RELEASE="1.0.0",
-            INPUT_BASELINE_RELEASE="3.0.0",
-        )
-        with self.assertRaises(plan.PlanInputError):
-            self._run(env, api)
-
-    def test_an_explicitly_pinned_baseline_without_a_package_is_an_input_failure(self):
-        api = FakeApi(releases=[release("v1.0.0", assets=())], commits={"v1.0.0": "f" * 40})
-        with self.assertRaises(plan.PlanInputError):
-            self._run(environment(INPUT_BASELINE_RELEASE="1.0.0"), api)
 
     def test_automatic_selection_skips_a_tag_cut_without_a_package(self):
         # Mirrors the shared fixture, where a bare 1.0.0 tag outranks every
@@ -461,6 +445,13 @@ class BuildPlanTests(unittest.TestCase):
         with self.assertRaises(plan.PlanSkip):
             self._run(environment(INPUT_IS_FORK="true"), api)
         self.assertEqual(api.calls, [])
+
+    def test_manual_dispatch_and_nonmain_events_skip_before_any_api_call(self):
+        for overrides in ({"INPUT_EVENT_NAME": "workflow_dispatch"}, {"INPUT_BASE_BRANCH": "develop"}):
+            api = FakeApi()
+            with self.assertRaises(plan.PlanSkip):
+                self._run(environment(**overrides), api)
+            self.assertEqual(api.calls, [])
 
 
 class OutputTests(unittest.TestCase):
@@ -498,13 +489,14 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(emitted["baseline-tag"], "v1.0.0")
         self.assertEqual(emitted["baseline-commit"], "f" * 40)
         self.assertEqual(emitted["candidate-source"], "build")
+        self.assertEqual(emitted["candidate-commit"], "c" * 40)
         self.assertEqual(json.loads(emitted["changed-paths"]), ["package/lookups/cim.csv"])
 
     def test_records_a_skip_decision_without_failing(self):
         api = FakeApi()
         with tempfile.TemporaryDirectory() as directory:
             plan_path = Path(directory) / "plan.json"
-            env = environment(INPUT_ENABLED="false", INPUT_OUTPUT_PATH=str(plan_path))
+            env = environment(INPUT_BASE_BRANCH="develop", INPUT_OUTPUT_PATH=str(plan_path))
             with mock.patch.dict("os.environ", env, clear=True), mock.patch.object(
                 plan, "_request_json", api
             ):
@@ -512,7 +504,7 @@ class OutputTests(unittest.TestCase):
             document = json.loads(plan_path.read_text(encoding="utf-8"))
         self.assertEqual(document["decision"], "skip")
         self.assertEqual(document["status"], "skipped")
-        self.assertEqual(document["reason"], "disabled")
+        self.assertEqual(document["reason"], "unsupported-branch")
         self.assertEqual(document["baseline"], {})
 
     def test_requires_an_output_path(self):
@@ -585,5 +577,13 @@ class ActionContractTests(unittest.TestCase):
             step["uses"],
         )
 
-    def test_the_plan_job_is_gated_on_the_opt_in_input(self):
-        self.assertIn("inputs.rfct-enabled", self.workflow["jobs"]["plan-rfct"]["if"])
+    def test_manual_and_opt_in_controls_are_not_part_of_the_action(self):
+        for name in ("enabled", "baseline-release", "candidate-release", "custom-version"):
+            self.assertNotIn(name, self.action["inputs"])
+
+    def test_the_plan_job_routes_by_event_and_main_branch(self):
+        condition = self.workflow["jobs"]["plan-rfct"]["if"]
+        self.assertNotIn("inputs.rfct-enabled", condition)
+        for context in ("github.event_name", "github.base_ref", "github.ref"):
+            self.assertIn(context, condition)
+        self.assertIn("main", condition)
