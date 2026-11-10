@@ -195,7 +195,7 @@ organization's approved private security-reporting channel.
 * `custom-version` - version used for release on manual workflow trigger (format: `x.x.x`)
 * `execute-tests-on-push-to-release` - enable tests on push to `release/*` branch - default `false`
 * `k8s-environment` - k8s environment for testing, choices: `production` (default) or `staging`
-* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.4`
+* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.5`
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
@@ -1183,9 +1183,10 @@ argo-logs
   repository, pinned by digest; the WFE cluster image-pull identity downloads it.
 - Install the reviewed RFCT WorkflowTemplate and supporting resources through the WFE GitOps
   repository before releasing/enabling this automatic behavior. The recipe name is internal.
-- Select a compatible released manifests tag using the shared `k8s-manifests-branch` input. The
-  existing `v4.3` default predates RFCT and must be advanced to a compatible release for rollout;
-  development can select the reviewed feature branch through that same shared input.
+- Publish the RFCT-compatible shared manifests `v4.5` release before releasing this workflow,
+  which selects it by default through `k8s-manifests-branch`. Explicit older overrides such as
+  `v4.3` or `v4.4` must also be advanced to an RFCT-compatible ref. Development can select the
+  reviewed feature branch through that same shared input.
 - The existing GitHub App credentials must have read access to `ta-automation-k8s-manifests`.
   No additional workflow-level secrets are introduced.
 - Knowledge samples must use a supported replay transport. Unsupported modes fail explicitly;
