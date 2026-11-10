@@ -3769,7 +3769,7 @@ jobs:
       # pull requests before any credential is used.
       - name: Plan RFCT comparison
         id: plan
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@f4054c74dad1ce95fc2d0ffa1e680acc26a5e507
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@74204424d8eaaf158d5ebb0ca214caefddd4db9f
         with:
           repository: ${{ github.repository }}
           token: ${{ github.token }}
@@ -3996,7 +3996,7 @@ jobs:
 
       - name: Freeze and validate RFCT inputs
         id: stage-inputs
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-rfct-inputs@f4054c74dad1ce95fc2d0ffa1e680acc26a5e507
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/prepare-rfct-inputs@74204424d8eaaf158d5ebb0ca214caefddd4db9f
         with:
           provenance-path: ${{ env.RFCT_OUTPUT }}/result.json
           baseline-package: ${{ env.RFCT_BASELINE_DIR }}
@@ -4041,7 +4041,7 @@ jobs:
 
       - name: Run paired RFCT workflow on WFE
         id: rfct
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@92a41934104b4013635925c8e0fbba786ef41c5a
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@74204424d8eaaf158d5ebb0ca214caefddd4db9f
         env:
           ARGO_TOKEN: ${{ steps.argo-token.outputs.token }}
         with:
