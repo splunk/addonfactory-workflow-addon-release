@@ -227,12 +227,15 @@ def main():
     artifact_url = f"https://github.com/{repository}/actions/runs/{os.environ['RFCT_RUN_ID']}#artifacts"
     error_message = ""
     publish_status = "success" if status == "success" else "failure"
+    publish_docs = os.environ.get("RFCT_PUBLISH_DOCS", "false").lower() == "true"
     try:
-        if publish_status == "success":
+        if publish_status == "success" and publish_docs:
             reviewers = reviewers_from_config(os.environ["RFCT_REVIEWERS"])
             pr_url = create_or_update_pr(repository, version, report, result, reviewers, token)
             report_url = f"https://github.com/{repository}/blob/rfct/cim-docs/v{version}/docs/CIMChanges/{version}/index.md"
             print(f"Updated CIM documentation PR: {pr_url}")
+        elif publish_status == "success":
+            print("RFCT succeeded; this event updates Jira without publishing a release documentation PR")
         else:
             error_message = str(result.get("reason") or "RFCT did not complete successfully")
     except PublishError as error:
