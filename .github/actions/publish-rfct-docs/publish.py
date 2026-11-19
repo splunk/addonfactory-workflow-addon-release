@@ -15,11 +15,17 @@ from urllib.request import Request, urlopen
 GITHUB_API = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 TICKET_RE = re.compile(r"\bADDON-[0-9]{5,6}\b")
 LOGIN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\Z")
-VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9A-Za-z.-]+\Z")
+VERSION_RE = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.]+)?\Z")
 
 
 class PublishError(RuntimeError):
     """A publishing input or remote operation failed."""
+
+
+def safe_log(value):
+    """Prevent untrusted metadata from becoming multiline or runner commands."""
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]", " ", str(value))
+    return text.replace("::", ": :")[:1000]
 
 
 def api(method, path, token, payload=None, accept="application/vnd.github+json"):
@@ -40,8 +46,7 @@ def api(method, path, token, payload=None, accept="application/vnd.github+json")
             raw = response.read()
             return json.loads(raw.decode("utf-8")) if raw else {}
     except HTTPError as error:
-        detail = error.read(4096).decode("utf-8", errors="replace")
-        raise PublishError(f"GitHub API {method} {path} returned HTTP {error.code}: {detail}") from error
+        raise PublishError(f"GitHub API {method} {path} returned HTTP {error.code}") from error
     except (URLError, TimeoutError) as error:
         raise PublishError(f"GitHub API {method} {path} failed: {type(error).__name__}") from error
 
@@ -240,7 +245,7 @@ def main():
             error_message = str(result.get("reason") or "RFCT did not complete successfully")
     except PublishError as error:
         publish_status = "failure"
-        error_message = str(error)
+        error_message = safe_log(error)
         pr_url = getattr(error, "pull_request_url", pr_url)
         print(f"::error::{error_message}", file=sys.stderr)
     for issue in tickets:
@@ -257,5 +262,5 @@ if __name__ == "__main__":
     try:
         main()
     except PublishError as error:
-        print(f"::error::{error}", file=sys.stderr)
+        print(f"::error::{safe_log(error)}", file=sys.stderr)
         raise SystemExit(1)
