@@ -225,12 +225,18 @@ def main():
     repository = os.environ["RFCT_REPOSITORY"]
     token = os.environ["GH_TOKEN"]
     run_url = os.environ["RFCT_RUN_URL"]
-    result, status, version, report = read_inputs()
+    try:
+        result, status, version, report = read_inputs()
+        input_error = ""
+    except PublishError as error:
+        result = {"status": "failed", "reason": safe_log(error)}
+        status, version, report = "failure", "", None
+        input_error = safe_log(error)
     tickets = jira_tickets(os.environ["GITHUB_EVENT_PATH"])
     pr_url = ""
     report_url = ""
     artifact_url = f"https://github.com/{repository}/actions/runs/{os.environ['RFCT_RUN_ID']}#artifacts"
-    error_message = ""
+    error_message = input_error
     publish_status = "success" if status == "success" else "failure"
     publish_docs = os.environ.get("RFCT_PUBLISH_DOCS", "false").lower() == "true"
     try:
