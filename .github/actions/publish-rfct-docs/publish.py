@@ -176,12 +176,17 @@ def create_or_update_pr(repository, version, report, result, reviewers, token):
         pull = api("POST", f"repos/{repository}/pulls", token,
                    {"title": title, "head": branch, "base": "main", "body": body})
         number = pull["number"]
-    api("POST", f"repos/{repository}/pulls/{number}/requested_reviewers", token,
-        {"reviewers": reviewers})
-    return pull.get("html_url") or f"https://github.com/{repository}/pull/{number}"
+    pull_url = pull.get("html_url") or f"https://github.com/{repository}/pull/{number}"
+    try:
+        api("POST", f"repos/{repository}/pulls/{number}/requested_reviewers", token,
+            {"reviewers": reviewers})
+    except PublishError as error:
+        error.pull_request_url = pull_url
+        raise
+    return pull_url
 
 
-def jira_comment(issue, status, run_url, pr_url, error_message=""):
+def jira_comment(issue, status, run_url, pr_url, report_url, artifact_url, error_message=""):
     base = os.environ["JIRA_BASE_URL"].rstrip("/")
     credentials = base64.b64encode(
         f"{os.environ['JIRA_EMAIL']}:{os.environ['JIRA_TOKEN']}".encode("utf-8")
@@ -193,6 +198,9 @@ def jira_comment(issue, status, run_url, pr_url, error_message=""):
     content.append({"type": "paragraph", "content": [link_node("Workflow run", run_url)]})
     if pr_url:
         content.append({"type": "paragraph", "content": [link_node("CIM documentation PR", pr_url)]})
+    if report_url:
+        content.append({"type": "paragraph", "content": [link_node("Generated CIM report", report_url)]})
+    content.append({"type": "paragraph", "content": [link_node("RFCT evidence", artifact_url)]})
     if error_message:
         content.append(paragraph(f"Details: {error_message[:500]}"))
     payload = json.dumps({"body": {"type": "doc", "version": 1, "content": content}}).encode("utf-8")
@@ -215,22 +223,25 @@ def main():
     result, status, version, report = read_inputs()
     tickets = jira_tickets(os.environ["GITHUB_EVENT_PATH"])
     pr_url = ""
+    report_url = ""
+    artifact_url = f"https://github.com/{repository}/actions/runs/{os.environ['RFCT_RUN_ID']}#artifacts"
     error_message = ""
     publish_status = "success" if status == "success" else "failure"
     try:
         if publish_status == "success":
             reviewers = reviewers_from_config(os.environ["RFCT_REVIEWERS"])
-            artifact_url = f"https://github.com/{repository}/actions/runs/{os.environ['RFCT_RUN_ID']}#artifacts"
             pr_url = create_or_update_pr(repository, version, report, result, reviewers, token)
+            report_url = f"https://github.com/{repository}/blob/rfct/cim-docs/v{version}/docs/CIMChanges/{version}/index.md"
             print(f"Updated CIM documentation PR: {pr_url}")
         else:
             error_message = str(result.get("reason") or "RFCT did not complete successfully")
     except PublishError as error:
         publish_status = "failure"
         error_message = str(error)
+        pr_url = getattr(error, "pull_request_url", pr_url)
         print(f"::error::{error_message}", file=sys.stderr)
     for issue in tickets:
-        jira_comment(issue, publish_status, run_url, pr_url, error_message)
+        jira_comment(issue, publish_status, run_url, pr_url, report_url, artifact_url, error_message)
     if not tickets:
         print("::warning::No ADDON Jira key was found in this push's commit messages")
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
