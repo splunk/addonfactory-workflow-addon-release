@@ -245,7 +245,7 @@ gitGraph
 - Job that decides which tests to be executed in the workflow based on the available test types in the TA, PR labels and the docs-only check.
 
 * All tests are executed by default when (controlled from [here](https://github.com/splunk/addonfactory-repository-template/blob/main/enforce/.github/workflows/build-test-release.yml))
-  * PR target branch is `main` (unless `use_labels` label is used then specific test labels (see below) should be added to execute specific test types) 
+  * PR target branch is `main` (labels cannot reduce the test suite)
   * triggering event is push to `main` branch 
   * triggering event is push to `develop` branch 
   * triggering event is push event to `release/*` branch 
@@ -265,7 +265,7 @@ gitGraph
     * `execute_upgrade` - upgrade tests (not run on push to `main` or scheduled runs)
     * `execute_gs_scorecard` - Gold Standard Scorecard (always runs on push to `main`)
     * `execute_all_tests` - all available test types
-    * `use_labels` - when combined with a PR to `main`, enables label-based selective test execution instead of running all tests
+    * `use_labels` - on PRs to `release/*`, enables label-based selective test execution unless `execute_all_tests` is also present
     * `exit-first` - stop pytest execution on the first failure (`-x` flag)
   * there is no need to add labels when PR's target branch is `main` (all tests except upgrade tests run by default)
 
