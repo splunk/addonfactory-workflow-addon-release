@@ -199,11 +199,31 @@ organization's approved private security-reporting channel.
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
-* `python-version` - Python version used to build the package and run the package-version unit-test job, default `3.9`
-* `test-python-version` - Python version used for pre-commit, WFE test tooling, and test dependencies, default `3.13`
+* `python-version` - Python version for package build and unit tests. Supports `3.9` and `3.13`, with `3.13` as the default.
+* `test-python-version` - Python version for pre-commit, WFE test tooling, and test dependencies. Supports `3.9` and `3.13`, with `3.13` as the default.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
+
+### Python migration contract
+
+The package build now defaults to Python 3.13. Each input has its own default.
+Set `python-version: "3.9"` to build and run unit tests on 3.9 while pre-commit
+and WFE use 3.13. Set `test-python-version: "3.9"` when test tooling needs 3.9,
+and set both inputs to `"3.9"` when both paths need it. Invalid values fail in
+`setup-workflow` before pre-commit, build, unit tests, or WFE submission.
+
+Deploy the coordinated WFE templates and images before adopting this release.
+SPL2 uses its separate image compatibility mapping in the WFE templates.
+The Splunk version and its server configuration determine which interpreter
+executes the add-on inside Splunk.
+
+Unit tests run once on the selected version. The JUnit artifact is named
+`test-results-unit-python_<selected-version>`: `test-results-unit-python_3.13`
+for the default or `test-results-unit-python_3.9` for the override. The removed
+parallel 3.13 job no longer guarantees a `_3.13` artifact for a 3.9 caller.
+Artifact consumers must select the configured version or match
+`test-results-unit-python_*`.
 
 ## Workflow Secrets
 
@@ -779,7 +799,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Description:**
 
-- Unit tests run against the configured `python-version`. A separate Python 3.13 job also runs unless `python-version` is already Python 3.13, avoiding duplicate coverage and artifact names.
+- Unit tests and the package build run on `python-version` (default `3.13`, or `3.9` when overridden). Pre-commit and WFE test tooling use `test-python-version`.
 
 **Action used:** NA
 
@@ -793,7 +813,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Artifacts:**
 
-- Junit Test result xml file
+- JUnit XML in `test-results-unit-python_<selected-version>` (see the Python migration contract above).
 
 ## [Job] run-btool-check
 
