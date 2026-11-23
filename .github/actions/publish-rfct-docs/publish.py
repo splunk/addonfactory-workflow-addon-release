@@ -191,7 +191,7 @@ def create_or_update_pr(repository, version, report, result, reviewers, token):
     return pull_url
 
 
-def jira_comment(issue, status, run_url, pr_url, report_url, artifact_url, error_message=""):
+def jira_comment(issue, status, run_url, pr_url, report_url, report_location, artifact_url, error_message=""):
     base = os.environ["JIRA_BASE_URL"].rstrip("/")
     credentials = base64.b64encode(
         f"{os.environ['JIRA_EMAIL']}:{os.environ['JIRA_TOKEN']}".encode("utf-8")
@@ -205,6 +205,8 @@ def jira_comment(issue, status, run_url, pr_url, report_url, artifact_url, error
         content.append({"type": "paragraph", "content": [link_node("CIM documentation PR", pr_url)]})
     if report_url:
         content.append({"type": "paragraph", "content": [link_node("Generated CIM report", report_url)]})
+    if report_location:
+        content.append(paragraph(f"Generated report path: {report_location}"))
     content.append({"type": "paragraph", "content": [link_node("RFCT evidence", artifact_url)]})
     if error_message:
         content.append(paragraph(f"Details: {error_message[:500]}"))
@@ -235,6 +237,7 @@ def main():
     tickets = jira_tickets(os.environ["GITHUB_EVENT_PATH"])
     pr_url = ""
     report_url = ""
+    report_location = ""
     artifact_url = f"https://github.com/{repository}/actions/runs/{os.environ['RFCT_RUN_ID']}#artifacts"
     error_message = input_error
     publish_status = "success" if status == "success" else "failure"
@@ -244,8 +247,11 @@ def main():
             reviewers = reviewers_from_config(os.environ["RFCT_REVIEWERS"])
             pr_url = create_or_update_pr(repository, version, report, result, reviewers, token)
             report_url = f"https://github.com/{repository}/blob/rfct/cim-docs/v{version}/docs/CIMChanges/{version}/index.md"
+            report_location = f"docs/CIMChanges/{version}/index.md on branch rfct/cim-docs/v{version}"
             print(f"Updated CIM documentation PR: {pr_url}")
         elif publish_status == "success":
+            report_url = artifact_url
+            report_location = f"cluster/docs/CIMChanges/{version}/index.md in the RFCT evidence artifact"
             print("RFCT succeeded; this event updates Jira without publishing a release documentation PR")
         else:
             error_message = str(result.get("reason") or "RFCT did not complete successfully")
@@ -255,7 +261,7 @@ def main():
         pr_url = getattr(error, "pull_request_url", pr_url)
         print(f"::error::{error_message}", file=sys.stderr)
     for issue in tickets:
-        jira_comment(issue, publish_status, run_url, pr_url, report_url, artifact_url, error_message)
+        jira_comment(issue, publish_status, run_url, pr_url, report_url, report_location, artifact_url, error_message)
     if not tickets:
         print("::warning::No ADDON Jira key was found in this push's commit messages")
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
