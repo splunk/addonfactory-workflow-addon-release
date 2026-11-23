@@ -37,20 +37,50 @@ def run_shell(script, directory, **environment):
     )
 
 
-@pytest.mark.parametrize("version", ["3.9", "3.13"])
-def test_python_guard_accepts_supported_versions(tmp_path, version):
+@pytest.mark.parametrize("build_version", ["3.9", "3.13"])
+@pytest.mark.parametrize("test_version", ["3.9", "3.13"])
+def test_python_guard_accepts_supported_versions(tmp_path, build_version, test_version):
     script = JOBS["setup-workflow"]["steps"][0]["run"]
-    result = run_shell(script, tmp_path, PYTHON_VERSION=version)
+    result = run_shell(script, tmp_path, PYTHON_VERSION=build_version, TEST_PYTHON_VERSION=test_version)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+@pytest.mark.parametrize("input_name,variable", [("python-version", "PYTHON_VERSION"), ("test-python-version", "TEST_PYTHON_VERSION")])
 @pytest.mark.parametrize("version", ["", "3.10", "3.13.5", "3.9 ", "$(touch injected)", "3.13; touch injected"])
-def test_python_guard_rejects_unsupported_values_without_execution(tmp_path, version):
+def test_python_guard_rejects_unsupported_values_without_execution(tmp_path, input_name, variable, version):
     script = JOBS["setup-workflow"]["steps"][0]["run"]
-    result = run_shell(script, tmp_path, PYTHON_VERSION=version)
+    environment = {"PYTHON_VERSION": "3.13", "TEST_PYTHON_VERSION": "3.13", variable: version}
+    result = run_shell(script, tmp_path, **environment)
     assert result.returncode != 0
-    assert "::error::Supported Python versions" in result.stdout
+    assert f"::error::{input_name} must be 3.9 or 3.13." in result.stdout
     assert not (tmp_path / "injected").exists()
+
+
+def test_python_inputs_default_independently_and_drive_their_own_jobs():
+    inputs = WORKFLOW["on"]["workflow_call"]["inputs"]
+    assert inputs["python-version"]["default"] == inputs["test-python-version"]["default"] == "3.13"
+    assert WORKFLOW["env"]["PYTHON_VERSION"] == "${{ inputs.python-version }}"
+    assert WORKFLOW["env"]["TEST_PYTHON_VERSION"] == "${{ inputs.test-python-version }}"
+
+    for job_name in ("build", "run-unit-tests"):
+        steps = JOBS[job_name]["steps"]
+        setup = next(step for step in steps if step.get("uses", "").startswith("actions/setup-python@"))
+        assert setup["with"]["python-version"] == "${{ env.PYTHON_VERSION }}"
+        assert "env.TEST_PYTHON_VERSION" not in str(steps)
+
+    wfe_calls = [
+        step for job in JOBS.values() for step in job.get("steps", [])
+        if step.get("uses", "").startswith("splunk/wfe-test-runner-action@")
+    ]
+    assert wfe_calls
+    for call in wfe_calls:
+        assert call["with"]["python-version"] == "${{ env.TEST_PYTHON_VERSION }}"
+
+    for job_name in ("pre-commit", "setup"):
+        steps = JOBS[job_name]["steps"]
+        setup = next(step for step in steps if step.get("uses", "").startswith("actions/setup-python@"))
+        assert setup["with"]["python-version"] == "${{ env.TEST_PYTHON_VERSION }}"
+        assert "env.PYTHON_VERSION" not in str(steps)
 
 
 def ancestors(job_name):
@@ -62,7 +92,10 @@ def ancestors(job_name):
 
 def test_selected_runtime_consumers_wait_for_validation():
     # Any job that executes with the selected runtime must depend on the guard.
-    consumers = [name for name, job in JOBS.items() if "env.PYTHON_VERSION" in str(job)]
+    consumers = [
+        name for name, job in JOBS.items()
+        if "env.PYTHON_VERSION" in str(job) or "env.TEST_PYTHON_VERSION" in str(job)
+    ]
     assert {"pre-commit", "build", "run-unit-tests", "run-knowledge-tests"} <= set(consumers)
     for name in consumers:
         assert "setup-workflow" in ancestors(name), name

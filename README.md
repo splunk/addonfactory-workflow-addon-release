@@ -199,27 +199,24 @@ organization's approved private security-reporting channel.
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
-* `python-version` - Python version for package build, unit tests, pre-commit, WFE test tooling, and test dependencies. Supports `3.9` and `3.13`; defaults to `3.13`.
-* `test-python-version` - deprecated alias for `python-version`. Used only when `python-version` is unset; both inputs select one version for all Python jobs.
+* `python-version` - Python version for package build and unit tests. Supports `3.9` and `3.13`, with `3.13` as the default.
+* `test-python-version` - Python version for pre-commit, WFE test tooling, and test dependencies. Supports `3.9` and `3.13`, with `3.13` as the default.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
 
 ### Python migration contract
 
-The selected version is `python-version`, then the deprecated `test-python-version`
-alias if the first input is unset, then `3.13`. Only `3.9` and `3.13` are accepted;
-other selected values fail in `setup-workflow` before pre-commit, build, unit tests,
-or WFE submission.
+The package build now defaults to Python 3.13. Each input has its own default.
+Set `python-version: "3.9"` to build and run unit tests on 3.9 while pre-commit
+and WFE use 3.13. Set `test-python-version: "3.9"` when test tooling needs 3.9,
+and set both inputs to `"3.9"` when both paths need it. Invalid values fail in
+`setup-workflow` before pre-commit, build, unit tests, or WFE submission.
 
-This is a breaking change: `python-version` now also selects the runtime and test
-dependencies for all WFE suites (btool, knowledge, UI, modinput, UCC modinput,
-scripted inputs, upgrade, and SPL2), rather than just package build and unit tests.
-An existing `python-version: "3.9"` caller therefore selects 3.9 for those WFE paths
-as well. When both inputs are set, `python-version` wins; separate build and WFE
-Python versions are no longer supported. Deploy the coordinated WFE templates
-and images before adopting the new workflow release. SPL2 uses its separate
-image compatibility mapping in the WFE templates.
+Deploy the coordinated WFE templates and images before adopting this release.
+SPL2 uses its separate image compatibility mapping in the WFE templates.
+The Splunk version and its server configuration determine which interpreter
+executes the add-on inside Splunk.
 
 Unit tests run once on the selected version. The JUnit artifact is named
 `test-results-unit-python_<selected-version>`: `test-results-unit-python_3.13`
@@ -802,7 +799,7 @@ gs-scorecard-report (gs_scorecard.html)
 
 **Description:**
 
-- Unit tests run on the selected `python-version` (default `3.13`, or `3.9` when overridden). The package build, pre-commit, and WFE test tooling use the same selected version.
+- Unit tests and the package build run on `python-version` (default `3.13`, or `3.9` when overridden). Pre-commit and WFE test tooling use `test-python-version`.
 
 **Action used:** NA
 
