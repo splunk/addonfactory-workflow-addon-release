@@ -4225,7 +4225,7 @@ jobs:
 
       - name: Publish or refresh the release CIM documentation PR and update Jira
         if: always()
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/publish-rfct-docs@a5d0675416a8711c4d798aacbc5a2673f5500014
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/publish-rfct-docs@1460ab75c51d7d7375904d3563c8b0f5e206a917
         with:
           result: ${{ runner.temp }}/rfct-evidence/result.json
           docs-directory: ${{ runner.temp }}/rfct-evidence/cluster/docs
