@@ -1,3 +1,17 @@
+# Copyright 2026 Splunk Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 import json
 from argparse import Namespace
 from pathlib import Path
@@ -7,6 +21,7 @@ from contextlib import ExitStack
 from unittest.mock import patch
 
 from scripts import ci_generate_fossa_credits as ci_credits
+from scripts.fossa_credits_validation import validate_public_credits
 from scripts.fossa_json_final import build_credits, load_config, verify_provenance
 from scripts.fossa_json_common import attribution_url
 from scripts.generate_draft_credits import write_draft_artifacts
@@ -64,7 +79,7 @@ class ScanIdentityTests(unittest.TestCase):
 
 
 class CreditsGenerationTests(unittest.TestCase):
-    def test_draft_provenance_binds_raw_report_to_exact_revision(self):
+    def _canonical_example(self, output, notice_files=None):
         revision = "a" * 40
         locator = "custom+123/example-ta"
         settings = {
@@ -85,20 +100,22 @@ class CreditsGenerationTests(unittest.TestCase):
                 "dependencyPaths": ["example-library"],
                 "licenses": [{"name": "MIT", "attribution": "MIT License"}],
                 "otherLicenses": [],
-                "noticeFiles": [],
+                "noticeFiles": notice_files or [],
             }],
             "deepDependencies": [],
         }
         raw = json.dumps(report).encode("utf-8")
+        _, _, draft_path = write_draft_artifacts(
+            raw, settings, "1.2.3", revision, output,
+            attribution_url(locator, revision), "2026-11-25T00:00:00+00:00",
+        )
+        draft = json.loads(draft_path.read_text(encoding="utf-8"))
+        return revision, draft, verify_provenance(draft, draft_path)
 
+    def test_draft_provenance_binds_raw_report_to_exact_revision(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)
-            _, _, draft_path = write_draft_artifacts(
-                raw, settings, "1.2.3", revision, output,
-                attribution_url(locator, revision), "2026-11-25T00:00:00+00:00",
-            )
-            draft = json.loads(draft_path.read_text(encoding="utf-8"))
-            canonical = verify_provenance(draft, draft_path)
+            revision, draft, canonical = self._canonical_example(output)
             config_path = output / "fossa-license-resolutions.json"
             config_path.write_text(json.dumps({
                 "schema_version": 1, "resolutions": [], "exclusions": [],
@@ -109,6 +126,70 @@ class CreditsGenerationTests(unittest.TestCase):
         self.assertIn("example-library", [item["name"] for item in canonical["components"]])
         self.assertEqual(status, 1)
         self.assertTrue(any(item.startswith("Unresolved example-library 1.2.3:") for item in diagnostics))
+
+    def test_reviewed_empty_copyright_holder_completes_generation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            _, _, canonical = self._canonical_example(Path(temporary))
+            config = {
+                "schema_version": 1,
+                "resolutions": [{
+                    "name": "example-library",
+                    "version": "1.2.3",
+                    "reason": "Reviewed upstream package; no copyright holder is declared.",
+                    "source": "https://example.org/example-library/tree/v1.2.3/LICENSE",
+                    "license": "MIT",
+                    "copyright_holder": "",
+                    "license_text": "MIT License",
+                }],
+                "exclusions": [],
+            }
+
+            credits, diagnostics, status = build_credits(canonical, config)
+
+        self.assertEqual(status, 0)
+        self.assertEqual(credits["components"][0]["copyright_holder"], "")
+        self.assertNotIn("COPYRIGHT_EMPTY", "\n".join(diagnostics))
+        self.assertTrue(any(
+            finding.code == "COPYRIGHT_EMPTY"
+            for finding in validate_public_credits(credits)
+        ))
+
+    def test_renamed_component_keeps_diagnostic_blocker_in_review_queue(self):
+        notice_files = [{
+            "path": "NOTICE",
+            "contents": "Notice text without a component resolution.",
+            "copyrights": [],
+            "ignored": False,
+            "corrected": False,
+        }]
+        with tempfile.TemporaryDirectory() as temporary:
+            _, _, canonical = self._canonical_example(
+                Path(temporary), notice_files=notice_files,
+            )
+            config = {
+                "schema_version": 1,
+                "resolutions": [{
+                    "name": "example-library",
+                    "version": "1.2.3",
+                    "reason": "Reviewed upstream package metadata.",
+                    "source": "https://example.org/example-library/tree/v1.2.3/",
+                    "public_name": "Renamed Example Library",
+                    "license": "MIT",
+                    "copyright_holder": "Example Authors",
+                    "license_text": "MIT License",
+                }],
+                "exclusions": [],
+            }
+
+            credits, diagnostics, status = build_credits(canonical, config)
+            queue = ci_credits.pending_reviews(credits, diagnostics)
+
+        self.assertEqual(status, 1)
+        self.assertIn("Renamed Example Library", [item[0] for item in queue])
+        self.assertTrue(any(
+            "notice review required" in field
+            for _, _, fields in queue for field in fields
+        ))
 
     def test_rejects_scope_changes_outside_ci_contract(self):
         with self.assertRaisesRegex(ValueError, "package inventory comparison"):

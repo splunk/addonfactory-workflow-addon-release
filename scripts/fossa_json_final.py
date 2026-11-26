@@ -534,8 +534,8 @@ def _metadata_addition(observation, rules, digest):
     return addition
 
 
-def _publication_diagnostics(credits, labels):
-    findings = validate_public_credits(credits)
+def _publication_diagnostics(credits, labels, reviewed_empty_copyrights=()):
+    findings = validate_public_credits(credits, reviewed_empty_copyrights)
     diagnostics = []
     for finding in findings:
         prefix = "Warning: " if finding.severity == "warning" else "Unresolved "
@@ -564,24 +564,37 @@ def build_credits(draft: dict, config: dict, artifact=None) -> Tuple[dict, List[
     components = []
     status = 0
     labels = []
+    reviewed_empty_copyrights = set()
     for component in draft["components"]:
         identity = (component["name"], component["version"])
         seen.add(identity)
-        label = f"{identity[0]} {identity[1]}"
+        source_label = f"{identity[0]} {identity[1]}"
         if identity in exclusions and artifact is None:
-            diagnostics.append(f"Excluded {label}: {exclusions[identity]['reason']}")
+            diagnostics.append(f"Excluded {source_label}: {exclusions[identity]['reason']}")
             continue
         rule = resolution_for_component(component, resolutions)
         result = _apply_rule(component, rule)
+        label = f"{result['name']} {result['version']}"
         if artifact is not None:
             decision = _artifact_decision(result, rule, exclusions.get(identity), artifact,
                                           component["name"], component_ecosystem(component))
             if decision["disposition"] == "not_shipped":
-                diagnostics.append(f"Excluded {label}: {decision['reason']}")
+                diagnostics.append(f"Excluded {source_label}: {decision['reason']}")
                 continue
             if decision["disposition"] == "unknown":
                 diagnostics.append(f"Unresolved {label}: [SCOPE_UNKNOWN] {decision['reason']}")
                 status = 1
+        component_index = len(components)
+        if rule.get("copyright_holder") == "" and result["copyright_holder"] == "":
+            reviewed_empty_copyrights.add((component_index, None))
+        reviewed_notice_names = {
+            notice["name"] for notice in rule.get("notices", [])
+            if notice.get("copyright_holder") == ""
+        }
+        for notice_index, notice in enumerate(result["notices"]):
+            if (notice["name"] in reviewed_notice_names
+                    and notice.get("copyright_holder") == ""):
+                reviewed_empty_copyrights.add((component_index, notice_index))
         reasons = _component_reasons(component, result, rule) + _version_review_reasons(identity, config)
         diagnostics.extend(f"Unresolved {label}: {reason}" for reason in reasons)
         if reasons:
@@ -598,7 +611,9 @@ def build_credits(draft: dict, config: dict, artifact=None) -> Tuple[dict, List[
             diagnostics.append(f"Warning: unmatched {kind} rule: {name} {version}")
     credits = {field: draft[field] for field in ("name", "version", "disclaimer")}
     credits["components"] = components
-    public_diagnostics, public_status = _publication_diagnostics(credits, labels)
+    public_diagnostics, public_status = _publication_diagnostics(
+        credits, labels, reviewed_empty_copyrights,
+    )
     diagnostics.extend(public_diagnostics)
     status |= public_status
     return credits, diagnostics, status

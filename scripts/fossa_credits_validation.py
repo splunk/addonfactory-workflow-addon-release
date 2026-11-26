@@ -1,3 +1,17 @@
+# Copyright 2026 Splunk Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 """Offline public-format checks shared by generation and validation."""
 import json
 import re
@@ -43,13 +57,14 @@ def valid_project_url(value):
         return False
 
 
-def _legal_findings(value, identifiers, apache, index, notice=None):
+def _legal_findings(value, identifiers, apache, index, notice=None,
+                    allow_empty_copyright=False):
     result = []
     def add(code, message, field):
         result.append(Finding(code, message, field, component_index=index, notice_index=notice))
     if value["license"] not in identifiers:
         add("SPDX_IDENTIFIER", "expected one recognized SPDX license identifier; preserve obligations for review", "license")
-    if not value["copyright_holder"].strip():
+    if not value["copyright_holder"].strip() and not allow_empty_copyright:
         add("COPYRIGHT_EMPTY", "public copyright holder is empty; retain verified attribution or the reviewed absence statement", "copyright_holder")
     text = value["license_text"].strip()
     if re.fullmatch(r"https?://\S+", text):
@@ -90,8 +105,12 @@ def _identity_findings(value, index, seen):
     return result
 
 
-def validate_public_credits(credits):
-    """Return deterministic findings without changing the supplied report."""
+def validate_public_credits(credits, reviewed_empty_copyrights=()):
+    """Return deterministic findings without changing the supplied report.
+
+    The optional component/notice index pairs may only be supplied by the
+    reviewed-resolution generation path. Standalone validation remains strict.
+    """
     if (not isinstance(credits, dict) or set(credits) != ROOT_FIELDS
             or not isinstance(credits.get("components"), list)
             or any(not isinstance(credits.get(k), str) or not credits[k].strip()
@@ -99,6 +118,7 @@ def validate_public_credits(credits):
         return [Finding("PUBLIC_SCHEMA", "invalid public credits root", "root")]
     identifiers = set(json.loads((DATA / "spdx-identifiers.json").read_text())["identifiers"])
     apache = _terms((DATA / "Apache-2.0.txt").read_text())
+    reviewed_empty_copyrights = set(reviewed_empty_copyrights)
     result, seen, versions = [], set(), {}
     for index, value in enumerate(credits["components"]):
         if not _shape(value):
@@ -106,12 +126,18 @@ def validate_public_credits(credits):
             continue
         result.extend(_identity_findings(value, index, seen))
         versions.setdefault(value["name"], set()).add(value["version"])
-        result.extend(_legal_findings(value, identifiers, apache, index))
+        result.extend(_legal_findings(
+            value, identifiers, apache, index,
+            allow_empty_copyright=(index, None) in reviewed_empty_copyrights,
+        ))
         for j, notice in enumerate(value["notices"]):
             if not _shape(notice, notice=True):
                 result.append(Finding("PUBLIC_SCHEMA", "invalid public notice fields", "notice", component_index=index, notice_index=j))
                 continue
-            result.extend(_legal_findings(notice, identifiers, apache, index, j))
+            result.extend(_legal_findings(
+                notice, identifiers, apache, index, j,
+                allow_empty_copyright=(index, j) in reviewed_empty_copyrights,
+            ))
     for name, values in versions.items():
         if len(values) > 1:
             result.append(Finding("VERSION_DISCLOSURE", f"{name} has multiple versions: {', '.join(sorted(values))}; disclose their applicability", "version", "warning"))

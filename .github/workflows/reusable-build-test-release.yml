@@ -541,9 +541,11 @@ jobs:
             FOSSA_REPORT_URL=$(grep -o 'https://app.fossa.com[^ ]*' /tmp/fossa_analyze_output.txt | tail -n 1 || true)
           fi
           echo "url=$FOSSA_REPORT_URL"
-          echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL" >> "$GITHUB_OUTPUT"
-          echo "FOSSA_SCAN_REVISION=$FOSSA_SCAN_REVISION" >> "$GITHUB_OUTPUT"
-          echo "FOSSA_PROJECT_LOCATOR=$FOSSA_PROJECT_LOCATOR" >> "$GITHUB_OUTPUT"
+          {
+            echo "FOSSA_REPORT_URL=$FOSSA_REPORT_URL"
+            echo "FOSSA_SCAN_REVISION=$FOSSA_SCAN_REVISION"
+            echo "FOSSA_PROJECT_LOCATOR=$FOSSA_PROJECT_LOCATOR"
+          } >> "$GITHUB_OUTPUT"
           fossa report attribution --format text --timeout 600 > /tmp/THIRDPARTY
         env:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
@@ -630,7 +632,7 @@ jobs:
         with:
           repository: splunk/addonfactory-workflow-addon-release
           ref: ${{ inputs.fossa-credits-tooling-sha }}
-          path: ${{ runner.temp }}/fossa-credits-tooling
+          path: .fossa-credits-tooling
           persist-credentials: false
       - name: Generate FOSSA credits preview
         if: steps.discover.outputs.enabled == 'true'
@@ -638,7 +640,7 @@ jobs:
           FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
           SCAN_METADATA: ${{ runner.temp }}/fossa-scan/fossa-scan-metadata.json
           OUTPUT_DIR: ${{ runner.temp }}/fossa-credits-preview
-          TOOLING_DIR: ${{ runner.temp }}/fossa-credits-tooling
+          TOOLING_DIR: ${{ github.workspace }}/.fossa-credits-tooling
           IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
           BUILD_VERSION: ${{ needs.build.outputs.build-version }}
         run: |
@@ -667,12 +669,13 @@ jobs:
           REVIEW_QUEUE: ${{ runner.temp }}/fossa-credits-preview/credits-review-queue.txt
           SCAN_REVISION: ${{ needs.fossa-scan.outputs.scan-revision }}
           PROJECT_LOCATOR: ${{ needs.fossa-scan.outputs.project-locator }}
+          ARTIFACT_NAME: ${{ steps.discover.outputs.artifact-name }}
         run: |
           {
             echo "## Third-party credits"
             echo ""
-            echo "FOSSA project: `$PROJECT_LOCATOR`"
-            echo "Scanned revision: `$SCAN_REVISION`"
+            printf 'FOSSA project: `%s`\n' "$PROJECT_LOCATOR"
+            printf 'Scanned revision: `%s`\n' "$SCAN_REVISION"
             echo ""
             if [[ -f "$DIAGNOSTICS" ]]; then
               echo "### Diagnostics"
@@ -684,7 +687,7 @@ jobs:
               cat "$REVIEW_QUEUE"
             fi
             echo ""
-            echo "Download the `${{ steps.discover.outputs.artifact-name }}` artifact for raw attribution, request metadata, draft, generated JSON, queue, and diagnostics."
+            printf 'Download the `%s` artifact for raw attribution, request metadata, draft, generated JSON, queue, and diagnostics.\n' "$ARTIFACT_NAME"
           } >> "$GITHUB_STEP_SUMMARY"
 
   fossa-license-test:
@@ -4098,12 +4101,12 @@ jobs:
         with:
           repository: splunk/addonfactory-workflow-addon-release
           ref: ${{ inputs.fossa-credits-tooling-sha }}
-          path: ${{ runner.temp }}/release-fossa-credits-tooling
+          path: .release-fossa-credits-tooling
           persist-credentials: false
       - name: Prepare versioned third-party credits docs
         if: ${{ needs.fossa-credits.outputs.enabled == 'true' && needs.build.outputs.is-release == 'true' }}
         env:
-          TOOLING_DIR: ${{ runner.temp }}/release-fossa-credits-tooling
+          TOOLING_DIR: ${{ github.workspace }}/.release-fossa-credits-tooling
           CREDITS_ARTIFACTS: ${{ runner.temp }}/release-fossa-credits
           RELEASE_VERSION: ${{ needs.build.outputs.build-version }}
           EXPECTED_REVISION: ${{ github.sha }}
