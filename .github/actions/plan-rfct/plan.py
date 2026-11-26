@@ -21,9 +21,10 @@ from urllib.request import Request, urlopen
 
 API_ROOT = "https://api.github.com"
 PER_PAGE = 100
-# Bounds the paginated release and compare walks so a pathological repository
-# cannot hang the job instead of failing it.
+# Bounds the paginated release walk so a pathological repository cannot hang
+# the job instead of failing it.
 MAX_PAGES = 50
+COMPARE_FILE_LIMIT = 300
 MAX_TAG_DEPTH = 10
 RELEASE_TAG_RE = re.compile(r"\A[vV]?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.]+))?\Z")
 PACKAGE_ASSET_SUFFIX = ".spl"
@@ -134,7 +135,7 @@ def _request_json(url, token):
 
 
 def paginate(url_template, token, collect):
-    """Walk a paginated GitHub collection so a long diff cannot be truncated."""
+    """Walk a paginated release collection within a fixed request bound."""
     gathered = []
     for page in range(1, MAX_PAGES + 1):
         payload = _request_json(url_template.format(page=page, per_page=PER_PAGE), token)
@@ -146,13 +147,21 @@ def paginate(url_template, token, collect):
 
 
 def changed_paths(repository, token, base, head):
-    """Return every path touched between two revisions, including both rename sides."""
-    url_template = (
+    """Return both rename sides, failing if GitHub cannot guarantee a complete diff."""
+    url = (
         f"{API_ROOT}/repos/{repository}/compare/"
         f"{quote(base, safe='')}...{quote(head, safe='')}"
-        "?per_page={per_page}&page={page}"
+        f"?per_page={PER_PAGE}&page=1"
     )
-    files = paginate(url_template, token, lambda payload: payload.get("files") or [])
+    files = _request_json(url, token).get("files") or []
+    # Compare pages paginate commits. Files appear only on page one, capped at
+    # 300 for the entire comparison, with no count proving an exact-300 list is
+    # complete. Never use a potentially partial list to decide RFCT can skip.
+    if len(files) >= COMPARE_FILE_LIMIT:
+        raise PlanInputError(
+            f"GitHub comparison reached its {COMPARE_FILE_LIMIT}-file limit; changed paths "
+            "may be incomplete. RFCT planning cannot safely determine whether mappings changed."
+        )
     paths = set()
     for entry in files:
         for key in ("filename", "previous_filename"):

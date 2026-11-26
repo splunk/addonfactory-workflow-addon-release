@@ -59,7 +59,9 @@ class FakeApi:
         if "/releases?" in url:
             return self._paginate(self.releases, page)
         if "/compare/" in url:
-            return {"files": self._paginate(self.files, page)}
+            # Compare pagination applies to commits, not files. Only page one
+            # includes files, capped at 300 for the entire comparison.
+            return {"files": self.files[:300]} if page == 1 else {}
         if "/git/ref/tags/" in url:
             tag = url.rpartition("/")[2]
             if tag not in self.commits:
@@ -317,20 +319,48 @@ class ChangedPathTests(unittest.TestCase):
             ],
         )
 
-    def test_paginates_so_a_long_diff_is_never_truncated(self):
-        files = [{"filename": f"package/lookups/file{index}.csv"} for index in range(205)]
+    def test_complete_comparisons_need_only_the_first_page(self):
+        for count in (0, 205, 299):
+            with self.subTest(count=count):
+                files = [{"filename": f"package/lookups/file{index}.csv"} for index in range(count)]
+                api = FakeApi(files=files)
+                with mock.patch.object(plan, "_request_json", api):
+                    paths = plan.changed_paths("owner/repo", "token", "base", "head")
+                self.assertEqual(paths, sorted(entry["filename"] for entry in files))
+                self.assertEqual(len(api.calls), 1)
+
+    def test_exactly_300_files_are_rejected_as_potentially_truncated(self):
+        files = [{"filename": f"docs/file{index}.md"} for index in range(300)]
         api = FakeApi(files=files)
         with mock.patch.object(plan, "_request_json", api):
-            paths = plan.changed_paths("owner/repo", "token", "base", "head")
-        self.assertEqual(len(paths), 205)
-        self.assertEqual(len(api.calls), 3)
+            with self.assertRaisesRegex(plan.PlanInputError, "300-file limit.*may be incomplete"):
+                plan.changed_paths("owner/repo", "token", "base", "head")
+        self.assertEqual(len(api.calls), 1)
 
-    def test_fails_when_pagination_exceeds_the_bound(self):
-        files = [{"filename": f"package/lookups/f{index}.csv"} for index in range(500)]
+    def test_more_than_300_files_cannot_be_recovered_from_later_pages(self):
+        files = [{"filename": f"docs/file{index}.md"} for index in range(300)]
+        files.append({"filename": "package/default/props.conf"})
         api = FakeApi(files=files)
-        with mock.patch.object(plan, "_request_json", api), mock.patch.object(plan, "MAX_PAGES", 2):
+        with mock.patch.object(plan, "_request_json", api):
             with self.assertRaises(plan.PlanInputError):
                 plan.changed_paths("owner/repo", "token", "base", "head")
+        self.assertEqual(len(api.calls), 1)
+
+
+class ReleasePaginationTests(unittest.TestCase):
+    def test_release_listing_still_collects_every_page(self):
+        releases = [release(f"v1.0.{index}", release_id=index) for index in range(205)]
+        api = FakeApi(releases=releases)
+        with mock.patch.object(plan, "_request_json", api):
+            self.assertEqual(plan.list_releases("owner/repo", "token"), releases)
+        self.assertEqual(len(api.calls), 3)
+
+    def test_release_listing_retains_its_pagination_bound(self):
+        releases = [release(f"v1.0.{index}") for index in range(200)]
+        api = FakeApi(releases=releases)
+        with mock.patch.object(plan, "_request_json", api), mock.patch.object(plan, "MAX_PAGES", 2):
+            with self.assertRaisesRegex(plan.PlanInputError, "pagination exceeded 2 pages"):
+                plan.list_releases("owner/repo", "token")
 
 
 class ComparisonRangeTests(unittest.TestCase):
@@ -395,6 +425,28 @@ class BuildPlanTests(unittest.TestCase):
         with self.assertRaises(plan.PlanSkip) as caught:
             self._run(environment(), api)
         self.assertEqual(caught.exception.reason, "no-mapping-changes")
+
+    def test_a_mapping_change_beyond_the_file_limit_never_becomes_a_skip(self):
+        files = [{"filename": f"docs/file{index}.md"} for index in range(300)]
+        files.append({"filename": "package/default/props.conf"})
+        for event in ("pull_request", "push"):
+            with self.subTest(event=event):
+                api = FakeApi(releases=[release("v1.0.0")],
+                              commits={"v1.0.0": "f" * 40}, files=files)
+                env = environment(INPUT_EVENT_NAME=event, INPUT_PUSH_BEFORE="a" * 40,
+                                  INPUT_PUSH_AFTER="c" * 40)
+                with self.assertRaises(plan.PlanInputError):
+                    self._run(env, api)
+
+    def test_renaming_a_mapping_out_of_supported_paths_still_proceeds(self):
+        api = FakeApi(
+            releases=[release("v1.0.0")], commits={"v1.0.0": "f" * 40},
+            files=[{"filename": "docs/props.txt", "previous_filename": "package/default/props.conf",
+                    "status": "renamed"}],
+        )
+        result = self._run(environment(), api)
+        self.assertEqual(result["decision"], "proceed")
+        self.assertEqual(result["changed_paths"], ["package/default/props.conf"])
 
     def test_main_push_with_a_mapping_change_proceeds(self):
         api = FakeApi(
