@@ -674,8 +674,8 @@ jobs:
           {
             echo "## Third-party credits"
             echo ""
-            printf 'FOSSA project: `%s`\n' "$PROJECT_LOCATOR"
-            printf 'Scanned revision: `%s`\n' "$SCAN_REVISION"
+            printf 'FOSSA project: %s\n' "$PROJECT_LOCATOR"
+            printf 'Scanned revision: %s\n' "$SCAN_REVISION"
             echo ""
             if [[ -f "$DIAGNOSTICS" ]]; then
               echo "### Diagnostics"
@@ -687,7 +687,7 @@ jobs:
               cat "$REVIEW_QUEUE"
             fi
             echo ""
-            printf 'Download the `%s` artifact for raw attribution, request metadata, draft, generated JSON, queue, and diagnostics.\n' "$ARTIFACT_NAME"
+            printf 'Download artifact %s for raw attribution, request metadata, draft, generated JSON, queue, and diagnostics.\n' "$ARTIFACT_NAME"
           } >> "$GITHUB_STEP_SUMMARY"
 
   fossa-license-test:
@@ -1191,7 +1191,7 @@ jobs:
               echo "Using already published release tag ${INPUT_SEMVER} for this commit"
             fi
           fi
-          echo working with version $INPUT_SEMVER
+          echo "working with version $INPUT_SEMVER"
           if [[ $INPUT_SEMVER =~ $SEMVER_REGEX ]];
           then
             echo using provided semver
@@ -1199,7 +1199,7 @@ jobs:
             IS_RELEASE=true
           elif [[ $INPUT_SEMVER =~ $BETA_REGEX ]];
           then
-            VERSION=$(echo $INPUT_SEMVER | awk '{gsub("-beta\.", "-B");print}')
+            VERSION="${INPUT_SEMVER/-beta./-B}"
             IS_RELEASE=true
           else
             if [[ $GITHUB_EVENT_NAME != 'pull_request' ]];
@@ -1213,9 +1213,11 @@ jobs:
           fi
           FINALVERSION="${VERSION//v}"
           echo "Version to build is ${FINALVERSION}"
-          echo "VERSION=${FINALVERSION}" >> "$GITHUB_OUTPUT"
-          echo "RELEASE=${IS_RELEASE}" >> "$GITHUB_OUTPUT"
-          echo "TAGGED=${RELEASE_TAGGED}" >> "$GITHUB_OUTPUT"
+          {
+            echo "VERSION=${FINALVERSION}"
+            echo "RELEASE=${IS_RELEASE}"
+            echo "TAGGED=${RELEASE_TAGGED}"
+          } >> "$GITHUB_OUTPUT"
       - name: Download THIRDPARTY
         if: github.event_name != 'pull_request' && github.event_name != 'schedule'
         uses: actions/download-artifact@v8
