@@ -3813,7 +3813,7 @@ jobs:
       # pull requests before any credential is used.
       - name: Plan RFCT comparison
         id: plan
-        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@38ba9d63c71d652e018154938151ec91916a832a
+        uses: splunk/addonfactory-workflow-addon-release/.github/actions/plan-rfct@5ea0ccd81ee6d983fe1162ef02a06f7aeaf1d7be
         with:
           repository: ${{ github.repository }}
           token: ${{ github.token }}
