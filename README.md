@@ -41,6 +41,9 @@
   * [[Job] run-spl2-integration-tests](#job-run-spl2-integration-tests)
   * [[Job] run-upgrade-tests](#job-run-upgrade-tests)
   * [[Job] run-scripted-input-tests-full-matrix](#job-run-scripted-input-tests-full-matrix)
+  * [[Job] plan-rfct](#job-plan-rfct)
+  * [[Job] run-rfct](#job-run-rfct)
+  * [[Job] publish-rfct-cim-docs](#job-publish-rfct-cim-docs)
   * [[Job] pre-publish](#job-pre-publish)
   * [[Job] publish](#job-publish)
   * [Vendor Addon Matrix tests](#vendor-addon-matrix-tests)
@@ -238,8 +241,13 @@ the calling repository's workflow (see [addonfactory-repository-template](https:
   `AWS_*` secrets above) scoped to the `run-gs-scorecard` job, used to pull the GS Scorecard Docker image
   from its ECR registry.
 * `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` - Atlassian user credentials used by the `comment-on-jira` job to
-  post commit-reference comments on Jira tickets; the user needs comment permission on
-  `https://splunk.atlassian.net`.
+  post commit-reference comments and RFCT outcome links on Jira tickets; the user needs comment permission
+  on `https://splunk.atlassian.net`.
+
+Set the calling TA repository variable `RFCT_CIM_REVIEWERS` to a JSON array or comma-separated list of
+GitHub usernames for the CIM SMEs. The release workflow uses a short-lived GitHub App token with
+contents and pull-request write permissions to update the generated documentation branch and request
+reviews; no personal GitHub token is stored.
 
 RFCT uses the existing `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION`
 for WFE input/artifact transport and Argo-token acquisition in the selected `k8s-environment`.
@@ -1224,7 +1232,13 @@ cluster/logs/...                 # Sanitized diagnostics
 
 S3 output keys include the Argo workflow UID in addition to the GitHub run/attempt. The controller
 rejects stale/mismatched results and unsafe archives. Reports stay within the calling TA's artifact
-access boundary; publishing them to a documentation site is a separate consumer.
+access boundary. On successful RFCT runs pushed to `main`, the workflow downloads the report and creates
+or updates one open PR per TA repository and candidate release at
+`docs/CIMChanges/<version>/index.md`. Reruns update that PR's branch and description. The PR body and
+Jira comment link the baseline/candidate metadata, workflow run, and evidence artifact. A failed RFCT
+run on `main` posts a failure update to Jira when an ADDON key is present in the push commit messages.
+PR validation runs update Jira but do not publish documentation PRs. The `publish-rfct-cim-docs` job
+is advisory to release publication and has its own per-release concurrency group.
 
 ### RFCT diagnostics
 
@@ -1245,6 +1259,23 @@ Metadata is bounded and credential-redacted. Ordinary log records escape workflo
 and controls; raw event/source contents, environment dumps and credential-bearing command lines
 are never diagnostic fields. Cleanup-request failures produce an Actions warning while preserving
 the original failure/cancellation reason.
+
+## [Job] publish-rfct-cim-docs
+
+- Runs after successful or failed RFCT comparisons on trusted same-repository PRs to `main` and pushes
+  to `main`. It posts a Jira comment with workflow and evidence links for ticket keys found in the PR
+  title or pushed commit messages.
+- On a successful push to `main`, it updates
+  `docs/CIMChanges/<candidate-version>/index.md` on branch `rfct/cim-docs/v<candidate-version>`, then
+  creates the documentation PR if none is open for that branch or refreshes the existing PR.
+- The PR description includes TA identity, baseline and candidate metadata, result, run URL, and evidence
+  link. The job requests configured reviewers after each successful update so repository review policy
+  can require fresh approval for changed commits.
+- Set the repository variable `RFCT_CIM_REVIEWERS` to a JSON array or comma-separated list of GitHub
+  usernames for the CIM SMEs. The job mints a short-lived GitHub App token with `contents:write` and
+  `pull-requests:write`; it uses the existing Atlassian email/token secrets to post Jira comments.
+- Per-release concurrency serializes reruns. Publishing is not a dependency of `pre-publish` and does
+  not block release readiness.
 
 ### Calling the WFE controller directly
 

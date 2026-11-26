@@ -1,0 +1,70 @@
+name: Publish RFCT CIM documentation
+description: Create or update the release documentation pull request and report the result to Jira
+inputs:
+  result:
+    description: Path to the downloaded RFCT result.json
+    required: true
+  docs-directory:
+    description: Path to the downloaded RFCT docs directory
+    required: true
+  status:
+    description: RFCT job outcome
+    required: true
+  publish-docs:
+    description: Whether this run may create or update the release documentation PR
+    required: true
+  repository:
+    description: Calling TA repository in owner/name form
+    required: true
+  reviewers:
+    description: JSON array or comma-separated GitHub logins configured for CIM reviews
+    required: true
+  github-token:
+    description: GitHub App token with contents and pull-request write permissions
+    required: true
+  jira-base-url:
+    description: Jira site base URL
+    required: true
+  jira-email:
+    description: Jira account email
+    required: true
+  jira-token:
+    description: Jira API token
+    required: true
+  event-path:
+    description: Path to the GitHub event payload
+    required: true
+  run-url:
+    description: GitHub Actions run URL
+    required: true
+  run-id:
+    description: GitHub Actions run ID
+    required: true
+  run-attempt:
+    description: GitHub Actions run attempt
+    required: true
+outputs:
+  pull-request-url:
+    description: URL of the created or updated documentation pull request
+    value: ${{ steps.publish.outputs.pull-request-url }}
+runs:
+  using: composite
+  steps:
+    - id: publish
+      shell: bash
+      env:
+        RFCT_RESULT: ${{ inputs.result }}
+        RFCT_DOCS_DIRECTORY: ${{ inputs.docs-directory }}
+        RFCT_STATUS: ${{ inputs.status }}
+        RFCT_PUBLISH_DOCS: ${{ inputs.publish-docs }}
+        RFCT_REPOSITORY: ${{ inputs.repository }}
+        RFCT_REVIEWERS: ${{ inputs.reviewers }}
+        GH_TOKEN: ${{ inputs.github-token }}
+        JIRA_BASE_URL: ${{ inputs.jira-base-url }}
+        JIRA_EMAIL: ${{ inputs.jira-email }}
+        JIRA_TOKEN: ${{ inputs.jira-token }}
+        GITHUB_EVENT_PATH: ${{ inputs.event-path }}
+        RFCT_RUN_URL: ${{ inputs.run-url }}
+        RFCT_RUN_ID: ${{ inputs.run-id }}
+        RFCT_RUN_ATTEMPT: ${{ inputs.run-attempt }}
+      run: python3 "$GITHUB_ACTION_PATH/publish.py"
