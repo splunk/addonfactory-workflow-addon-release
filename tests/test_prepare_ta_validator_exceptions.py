@@ -318,11 +318,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn(
             "comment_author: ${{ steps.app-token.outputs.app-slug }}[bot]", preparation
         )
-        action_version = "v5.7.0"
+        action_ref = "e884eeb2a88a13245dffc6aa67a5044064dc9a13"
         self.assertIn(
-            f"prepare-ta-validator-exceptions@{action_version}", preparation
+            f"prepare-ta-validator-exceptions@{action_ref}", preparation
         )
-        self.assertIn(f"run-ta-validator@{action_version}", preparation)
+        self.assertIn(f"run-ta-validator@{action_ref}", preparation)
         self.assertNotIn("outputs:", preparation)
         self.assertNotIn("comment-" + "reference", preparation)
         self.assertNotIn("id: prepare-ta-validator-exceptions", preparation)
@@ -389,11 +389,11 @@ class WorkflowStructureTests(unittest.TestCase):
         self.assertIn("actions/upload-artifact@v7.0.1", run_scorecard)
         self.assertIn("name: ta-validator-exceptions", run_scorecard)
         self.assertIn(
-            "run-ta-validator@v5.7.0",
+            "run-ta-validator@e884eeb2a88a13245dffc6aa67a5044064dc9a13",
             run_scorecard,
         )
         self.assertEqual(
-            run_scorecard.count("run-ta-validator@v5.7.0"),
+            run_scorecard.count("run-ta-validator@e884eeb2a88a13245dffc6aa67a5044064dc9a13"),
             1,
         )
         self.assertIn("- name: Run TA Validator\n", run_scorecard)

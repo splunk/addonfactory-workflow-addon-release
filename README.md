@@ -195,7 +195,7 @@ organization's approved private security-reporting channel.
 * `custom-version` - version used for release on manual workflow trigger (format: `x.x.x`)
 * `execute-tests-on-push-to-release` - enable tests on push to `release/*` branch - default `false`
 * `k8s-environment` - k8s environment for testing, choices: `production` (default) or `staging`
-* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.3`
+* `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.5`
 * `scripted-inputs-os-list` - list of OSes used for scripted inputs tests (default includes ubuntu 16.04–24.04 and redhat 8.4–9.5)
 * `upgrade-tests-ta-versions` - list of TA versions (format `X.X.X`) used as starting points for upgrade tests; e.g. `['7.6.0', '7.7.0']`
 * `wfe-run-on-splunk-latest` - when `true` forces WFE tests to run only on the latest Splunk version; when `false` runs on all supported Splunk versions required for release; default `false`
@@ -204,6 +204,12 @@ organization's approved private security-reporting channel.
 * `spl2-generate` - when `true` enables SPL2 generation, default `false`
 * `gs-image-version` - TA Validator Docker image tag in ECR, default `1.6.0`
 * `gs-version` - TA Validator tool version, default `0.3`
+* `rfct-image` - full `ta-automation/rfct` ECR image pinned by SHA256 digest. Defaults to the
+  published `1.1.0` digest. WFE pulls it using the cluster image-pull identity.
+
+RFCT runs automatically for trusted PRs targeting `main` and pushes to `main` when the planner finds
+relevant changes. It compares the current build with the highest usable stable release and reuses
+`k8s-environment` and `k8s-manifests-branch` for provisioning and runtime helpers.
 
 ## Workflow Secrets
 
@@ -234,6 +240,12 @@ the calling repository's workflow (see [addonfactory-repository-template](https:
 * `ATLASSIAN_EMAIL`, `ATLASSIAN_TOKEN` - Atlassian user credentials used by the `comment-on-jira` job to
   post commit-reference comments on Jira tickets; the user needs comment permission on
   `https://splunk.atlassian.net`.
+
+RFCT uses the existing `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION`
+for WFE input/artifact transport and Argo-token acquisition in the selected `k8s-environment`.
+It does not require separate GitHub ECR credentials. The WFE cluster must be authorized to pull
+`ta-automation/rfct`; endpoint credentials stay in cluster-mounted secrets and are never staged
+in the comparison request or uploaded with results.
 
 ## Contributing and validation
 
@@ -1106,6 +1118,158 @@ argo-logs
 ```
 
 
+
+## [Job] plan-rfct
+
+**Description:**
+
+- Automatically plans an RFCT comparison for trusted same-repository pull requests targeting `main`
+  and pushes to `main`. Other events/branches, forks and `pull_request_target` are skipped before
+  credentialed RFCT work. No enable flag or repository-variable switch is required.
+- Runs only when a supported mapping or knowledge-data path changes:
+  `package/**/*.conf`, `package/default/data/models/**`, `package/default/data/spl2/**`,
+  `package/lookups/**`, `globalConfig.json`, or `tests/knowledge/**`. Added, modified, deleted and
+  both sides of renamed paths count.
+- Lists the add-on repository's GitHub releases, filters drafts/prereleases and releases without
+  one identifiable full `.spl` package, then selects the highest numeric stable version whose
+  commit differs from this run's build. It prefers an asset ending in `-<version>.spl` over
+  deployment partitions. Annotated tags are resolved to their underlying commit.
+- The candidate always comes from this run's build. Manual release overrides are not part of this
+  automatic path. Candidate CI version numbers are not used to rank published baselines.
+- Freezes release/tag/commit/asset identifiers so another release appearing mid-run cannot change
+  the comparison. If no usable baseline exists, planning records `no-baseline` and succeeds with
+  a skip; it never fabricates a no-change result.
+- Uses the event's actual build revision for path detection: PR base versus the built merge commit,
+  or push before/after with the baseline commit as the new-branch fallback.
+
+**Action used:**
+
+- Internal `plan-rfct`, loaded from a reviewed workflow-repository commit independently of TA code.
+
+**Artifacts:**
+
+- `rfct-plan-<run-id>-<attempt>` contains `rfct-plan.json`, including the selected release and exact
+  build identities and a structured `baseline_selection` audit of selected/skipped releases.
+- A newer stable release with missing/ambiguous packages triggers an Actions warning only when an
+  older baseline is actually selected. The generated job summary explains that fallback; normal
+  draft/prerelease filtering remains informational. No-baseline/path skips retain their audit.
+
+## [Job] run-rfct
+
+**Description:**
+
+- Requires a proceeding RFCT plan and successful `build`/`meta` jobs. It downloads the baseline
+  release asset and the candidate package artifact produced by this run, exports the exact built
+  source without `.git`, validates app identities/versions, and records package/source checksums.
+- Reuses `k8s-environment` for the WFE Argo endpoint, token secret and artifact bucket. It affects
+  the other WFE jobs too; RFCT has no separate environment input.
+- Reuses `k8s-manifests-branch` for the provisioning/runtime helpers. A scoped read-only GitHub App
+  installation token resolves the selected branch/tag to a full commit once before staging.
+  The resolved SHA is frozen in the request and supplied to both provisioners and the worker.
+  The internal preparation/controller interfaces also accept reviewed full SHAs. Shared callers
+  normally select a branch/tag compatible with the other WFE jobs. A branch/tag without RFCT runtime support
+  fails before upload or cluster work. There is no fallback to a different manifests revision.
+- Submits the controller action's internal `rfct-comparison` template default. Argo provisions two
+  isolated Splunk environments, installs one TA version on each, generates one raw corpus, replays
+  it independently, and runs comparison/formatting in the published RFCT image. Both sides use the
+  same Splunk version selected from add-on metadata; SC4S metadata is reused when applicable.
+- Waits for terminal Argo state, verifies workflow UID/image/version provenance, downloads complete
+  evidence and publishes GitHub artifacts. Argo owns paired namespace cleanup, including failure
+  and graceful cancellation. Endpoint config and live credentials are excluded from artifacts.
+
+**Public configuration and prerequisites:**
+
+- `rfct-image` is the only RFCT-specific public input. It defaults to RFCT 1.1.0 in the approved ECR
+  repository, pinned by digest; the WFE cluster image-pull identity downloads it.
+- Install the reviewed RFCT WorkflowTemplate and supporting resources through the WFE GitOps
+  repository before releasing/enabling this automatic behavior. The recipe name is internal.
+- Publish the RFCT-compatible shared manifests `v4.5` release before releasing this workflow,
+  which selects it by default through `k8s-manifests-branch`. Explicit older overrides such as
+  `v4.3` or `v4.4` must also be advanced to an RFCT-compatible ref. Development can select the
+  reviewed feature branch through that same shared input.
+- The existing GitHub App credentials must have read access to `ta-automation-k8s-manifests`.
+  No additional workflow-level secrets are introduced.
+- Knowledge samples must use a supported replay transport. Unsupported modes fail explicitly;
+  corpus/transport limits are documented in the manifests runtime.
+
+**Pass/fail behavior:**
+
+| Outcome | Job result |
+|---|---|
+| Valid CIM differences | Success, `status: changes`, JSON and versioned docs |
+| Complete comparison with matching results | Success, `status: no-changes`, JSON and explicit documentation |
+| Ineligible event/path or no automatic baseline | Planning records a skip; no cluster workload |
+| Invalid input, incompatible manifests or mismatched provenance | Failure with diagnostics |
+| Provisioning, replay, empty expected data, comparison or formatter failure | Failure retaining phase evidence |
+| Timeout or cancellation | Graceful Argo stop requests paired cleanup; server deadline/namespace TTL remain fallbacks |
+
+The job remains advisory and excluded from `pre-publish`. Success requires a successful Argo workflow
+and validated complete comparison evidence; empty or missing reports cannot pass.
+
+**Artifacts:**
+
+`rfct-cim-changes-<run-id>-<attempt>` contains:
+
+```text
+result.json                      # GitHub event, release/build and helper provenance
+cluster/result.json              # Cluster outcome and workflow UID
+cluster/execution.json           # Phase outcomes
+cluster/controller.json          # Submission, polling and collection outcome
+cluster/controller-events.jsonl  # Retained controller lifecycle diagnostics
+cluster/comparison/report.json
+cluster/docs/CIMChanges/<candidate-version>/index.md
+cluster/docs/...                 # Full formatter tree
+cluster/logs/...                 # Sanitized diagnostics
+```
+
+S3 output keys include the Argo workflow UID in addition to the GitHub run/attempt. The controller
+rejects stale/mismatched results and unsafe archives. Reports stay within the calling TA's artifact
+access boundary; publishing them to a documentation site is a separate consumer.
+
+### RFCT diagnostics
+
+The scripts emit structured progress records to stderr, leaving JSON/output protocols intact:
+
+| Component | Useful diagnostics |
+| --- | --- |
+| Planner | Event eligibility, release filters, selected baseline/commit, changed-path counts, skip reasons and fallback warnings |
+| Input preparation | Requested/resolved manifests revision, runtime compatibility, package versions/checksums/bytes, source archive totals and staged references |
+| Controller | Request checksum, intended/submitted workflow name and UID, phase/node transitions and one-minute waiting summaries, transient retries/recovery, timeout/cancellation, artifact collection and final status |
+| Cluster bootstrap | Download/checksum verification, safe extraction totals, worker launch/exit and output archiving |
+| RFCT worker | Phase timings, installed versions, corpus hash/transport totals, replay/indexed counts, bounded ingestion progress and comparison/format outcomes |
+| Cleanup | Ownership verification, already-absent environments, deletion attempts/completion and refused mismatched ownership |
+
+Controller progress survives in `cluster/controller-events.jsonl`; worker progress survives in
+`cluster/logs/worker.log`. Available evidence is uploaded after execution failures as well as success.
+Metadata is bounded and credential-redacted. Ordinary log records escape workflow-command markers
+and controls; raw event/source contents, environment dumps and credential-bearing command lines
+are never diagnostic fields. Cleanup-request failures produce an Actions warning while preserving
+the original failure/cancellation reason.
+
+### Calling the WFE controller directly
+
+The internal controller action accepts a validated schema-version1 request with S3 references,
+checksums, exact source/helper revisions, image digest, run identity and output prefix. Its request
+contains no endpoint credentials. This lower-level interface remains available to trusted development
+callers; the reusable release workflow uses the automatic build comparison described above.
+
+```yaml
+- id: rfct
+  uses: splunk/addonfactory-workflow-addon-release/.github/actions/run-rfct@<reviewed-sha>
+  env:
+    ARGO_SERVER: argo.staging.wfe.splgdi.com:443
+    ARGO_HTTP1: "true"
+    ARGO_SECURE: "true"
+    ARGO_TOKEN: ${{ steps.argo-token.outputs.token }}
+  with:
+    request-path: ${{ runner.temp }}/rfct/request.json
+    request-url: s3://ta-staging-artifacts/rfct/<repository>/<run>/<attempt>/inputs/request.json
+    manifests-ref: <resolved-manifests-sha>
+    output-directory: ${{ runner.temp }}/rfct/output/cluster
+    timeout-seconds: "4200"
+```
+
+Always upload the output directory, including `controller.json`, after failures as well as success.
 
 ## [Job] pre-publish
 

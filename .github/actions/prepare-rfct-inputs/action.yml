@@ -1,0 +1,89 @@
+name: Prepare RFCT inputs
+description: Validate package provenance and freeze RFCT inputs for a WFE comparison
+inputs:
+  provenance-path:
+    description: Local initialized result manifest
+    required: true
+  baseline-package:
+    description: Resolved baseline package path
+    required: true
+  candidate-package:
+    description: Resolved candidate package path
+    required: true
+  candidate-source:
+    description: Candidate source directory without Git history
+    required: true
+  staging-directory:
+    description: New local directory for uploadable inputs
+    required: true
+  repository:
+    description: Calling repository in owner/name form
+    required: true
+  bucket:
+    description: WFE environment artifact bucket
+    required: true
+  rfct-image:
+    description: Approved RFCT image pinned by digest
+    required: true
+  manifests-ref:
+    description: Shared manifests branch, tag, or commit to freeze for this comparison
+    required: true
+  github-token:
+    description: GitHub token with read access to the manifests repository when resolving a branch or tag
+    required: false
+    default: ""
+  splunk-version:
+    description: Same Splunk version used on both sides
+    required: true
+  sc4s-version:
+    description: Selected SC4S version when required
+    default: ""
+  sc4s-registry:
+    description: Selected SC4S registry when required
+    default: ""
+outputs:
+  request-path:
+    description: Local frozen request document
+    value: ${{ steps.stage.outputs.request-path }}
+  request-url:
+    description: Immutable request upload location
+    value: ${{ steps.stage.outputs.request-url }}
+  inputs-directory:
+    description: Local packages and source archive
+    value: ${{ steps.stage.outputs.inputs-directory }}
+  inputs-prefix:
+    description: S3 prefix for staged inputs
+    value: ${{ steps.stage.outputs.inputs-prefix }}
+  app-code-name:
+    description: Verified app identity
+    value: ${{ steps.stage.outputs.app-code-name }}
+  candidate-version:
+    description: Verified candidate package version
+    value: ${{ steps.stage.outputs.candidate-version }}
+  image-digest:
+    description: RFCT image digest
+    value: ${{ steps.stage.outputs.image-digest }}
+  manifests-ref:
+    description: Resolved immutable manifests commit SHA
+    value: ${{ steps.stage.outputs.manifests-ref }}
+runs:
+  using: composite
+  steps:
+    - name: Freeze comparison inputs
+      id: stage
+      shell: sh
+      env:
+        INPUT_PROVENANCE_PATH: ${{ inputs.provenance-path }}
+        INPUT_BASELINE_PACKAGE: ${{ inputs.baseline-package }}
+        INPUT_CANDIDATE_PACKAGE: ${{ inputs.candidate-package }}
+        INPUT_CANDIDATE_SOURCE: ${{ inputs.candidate-source }}
+        INPUT_STAGING_DIRECTORY: ${{ inputs.staging-directory }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_BUCKET: ${{ inputs.bucket }}
+        INPUT_IMAGE: ${{ inputs.rfct-image }}
+        INPUT_MANIFESTS_REF: ${{ inputs.manifests-ref }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_SPLUNK_VERSION: ${{ inputs.splunk-version }}
+        INPUT_SC4S_VERSION: ${{ inputs.sc4s-version }}
+        INPUT_SC4S_REGISTRY: ${{ inputs.sc4s-registry }}
+      run: python3 "$GITHUB_ACTION_PATH/stage_inputs.py"
