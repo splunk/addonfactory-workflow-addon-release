@@ -1,0 +1,10 @@
+{
+  "repository": "https://cd.splunkdev.com/hou/license-credits-generator",
+  "commit": "7534f77fb2e5962ebcda0b60864a899478f26514",
+  "source_path": "data/pristine-cache.json",
+  "retrieved_date": "2026-10-29",
+  "sha256": "168a070d19f6b642811c6158c04071df7150e7992b126109c9560a1fe0391359",
+  "compressed_sha256": "d06d84ff5fd021e98d1c5b2119195214f64b65ca1eab791a950962bc211fbbbe",
+  "names": 1133,
+  "entries": 1797
+}
