@@ -24,4 +24,6 @@ header:
     - "README.md"
     - "LICENSE"
     - ".*"
+    - ".agents/skills/"
+    - "scripts/data/credits-validation/"
     - "runbooks/"

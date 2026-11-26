@@ -17,6 +17,7 @@
   * [[Job] comment-on-jira](#job-comment-on-jira)
   * [[Job] meta](#job-meta)
   * [[Job] fossa-scan](#job-fossa-scan)
+  * [[Job] fossa-credits](#job-fossa-credits)
   * [[Job] fossa-license-test](#job-fossa-license-test)
   * [[Job] fossa-vulnerability-test](#job-fossa-vulnerability-test)
   * [[Job] compliance-copyrights](#job-compliance-copyrights)
@@ -182,6 +183,7 @@ gitGraph
 * `ucc-modinput-marker` - list of markers used to parallelize ucc modinput tests
 * `ui_marker` - list of markers used to parallelize ui tests
 * `custom-version` - version used for release on manual workflow trigger (format: `x.x.x`)
+* `fossa-credits-tooling-sha` - immutable 40-character commit SHA of this repository used by the credits generator when the TA has `.fossa-credits.json`
 * `execute-tests-on-push-to-release` - enable tests on push to `release/*` branch - default `false`
 * `k8s-environment` - k8s environment for testing, choices: `production` (default) or `staging`
 * `k8s-manifests-branch` - k8s-manifests branch for testing, default `v4.4`
@@ -319,6 +321,8 @@ gitGraph
 
 - This action scans a project for third party components and creates report the with the results. This file job uses `.fossa.yml` configuration file
 
+- The scan is bound to the checked-out Git commit through FOSSA's explicit `--revision` option. The job verifies the revision returned by FOSSA and exposes the FOSSA project locator and scan revision as job outputs; the metadata JSON is also uploaded as `fossa-scan-metadata` for downstream provenance.
+
 - Detected issues can be found in FOSSA app site https://app.fossa.com/. Link to direct report is generated per job and printed in logs
 
 - Also runs `fossa test --debug` in a dedicated step (only when analyze succeeds) and uploads its output as the `fossa-test-output` artifact for downstream parsing by `fossa-license-test` and `fossa-vulnerability-test`
@@ -337,7 +341,31 @@ gitGraph
 ```
 THIRDPARTY
 fossa-test-output
+fossa-scan-metadata
 ```
+
+## [Job] fossa-credits
+
+**Description:**
+
+- Runs for PRs targeting `main` and release builds from `main` when the TA contains `.fossa-credits.json`.
+- Uses the exact revision and FOSSA project locator returned by the same run's successful scan. It rejects a different FOSSA revision or TA checkout.
+- Applies the TA-owned `.fossa-license-resolutions.json`, produces a credits preview, and fails when fields remain unresolved. A failed job still uploads its attribution response, request metadata, draft, generated JSON, review queue, and diagnostics.
+- On a successful release, prepares a versioned JSON file under `docs/thirdpartycredits/`, updates the configured release-notes index, and opens a reviewable documentation PR. The publisher refuses to overwrite different credits for the same version.
+- The caller must pin `fossa-credits-tooling-sha` to a reviewed immutable commit. The feature is enabled per TA by `.fossa-credits.json`.
+
+**Pass/fail behaviour:**
+
+- Fails on invalid or mismatched scan provenance, malformed resolution configuration, FOSSA/API failures, or unresolved credit fields.
+- Does not perform package inventory comparison or make licensing decisions.
+
+**Artifacts:**
+
+```
+fossa-credits-<run-id>-<run-attempt>
+```
+
+See [FOSSA credits CI runbook](runbooks/fossa-credits-ci.md) and the `resolve-fossa-credits` skill.
 
 ## [Job] fossa-license-test
 
